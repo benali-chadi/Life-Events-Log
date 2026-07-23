@@ -1,17 +1,19 @@
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { eventColors, radius, spacing, typography } from "@lel/design";
-import { useTheme } from "@lel/design/useTheme";
-import { useRouter } from "expo-router";
-import { ChevronDown, ChevronUp } from "lucide-react-native";
-import { useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { eventColors, radius, spacing, typography } from '@lel/design';
+import { useTheme } from '@lel/design/useTheme';
+import { useRouter } from 'expo-router';
+import { ChevronDown, ChevronUp } from 'lucide-react-native';
+import { useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 export type EventSignificance =
-  "ordinary" | "notable" | "major" | "turning-point";
+  'ordinary' | 'notable' | 'major' | 'turning-point';
 
 export type LELEvent = {
   title: string;
   date: string;
+  time?: string;
+  createdAt: string;
   categoryColor?: keyof typeof eventColors;
   categoryName?: string;
   tags?: string[];
@@ -24,17 +26,17 @@ export type LELEvent = {
 const COLLAPSED_ITEM_LIMIT = 2;
 
 const significanceLabels: Record<EventSignificance, string> = {
-  ordinary: "Ordinary",
-  notable: "Notable",
-  major: "Major",
-  "turning-point": "Turning point",
+  ordinary: 'Ordinary',
+  notable: 'Notable',
+  major: 'Major',
+  'turning-point': 'Turning point',
 };
 
 const significanceLevels: Record<EventSignificance, number> = {
   ordinary: 1,
   notable: 2,
   major: 3,
-  "turning-point": 4,
+  'turning-point': 4,
 };
 
 export default function EventCard({ event }: { event: LELEvent }) {
@@ -42,12 +44,12 @@ export default function EventCard({ event }: { event: LELEvent }) {
   const { colors, isDark } = useTheme();
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const significance = event.significance ?? "ordinary";
+  const significance = event.significance ?? 'ordinary';
   const tags = event.tags ?? [];
   const people = event.people ?? [];
 
   const categoryColor = event.categoryColor
-    ? eventColors[event.categoryColor][isDark ? "dark" : "light"]
+    ? eventColors[event.categoryColor][isDark ? 'dark' : 'light']
     : colors.border;
 
   const hasExpandableContent =
@@ -62,7 +64,7 @@ export default function EventCard({ event }: { event: LELEvent }) {
 
   const significanceStyle = useMemo(() => {
     switch (significance) {
-      case "notable":
+      case 'notable':
         return {
           title: styles.notableTitle,
           card: styles.notableCard,
@@ -71,7 +73,7 @@ export default function EventCard({ event }: { event: LELEvent }) {
           backgroundColor: colors.surface,
           markerColor: colors.textMuted,
         };
-      case "major":
+      case 'major':
         return {
           title: styles.majorTitle,
           card: styles.majorCard,
@@ -80,7 +82,7 @@ export default function EventCard({ event }: { event: LELEvent }) {
           backgroundColor: colors.surfaceElevated,
           markerColor: colors.textSecondary,
         };
-      case "turning-point":
+      case 'turning-point':
         return {
           title: styles.turningPointTitle,
           card: styles.turningPointCard,
@@ -131,7 +133,7 @@ export default function EventCard({ event }: { event: LELEvent }) {
         },
       ]}
     >
-      {significance === "turning-point" && (
+      {significance === 'turning-point' && (
         <View
           pointerEvents="none"
           style={[
@@ -152,9 +154,11 @@ export default function EventCard({ event }: { event: LELEvent }) {
           {event.title}
         </Text>
         <View style={styles.headerMeta}>
-          <Text style={[styles.date, { color: colors.textMuted }]}>
-            {event.date}
-          </Text>
+          {event.time && (
+            <Text style={[styles.date, { color: colors.textMuted }]}>
+              {event.time}
+            </Text>
+          )}
           <View
             accessibilityElementsHidden
             importantForAccessibility="no-hide-descendants"
@@ -169,7 +173,7 @@ export default function EventCard({ event }: { event: LELEvent }) {
                     { backgroundColor: significanceStyle.markerColor },
                   ]}
                 />
-              ),
+              )
             )}
           </View>
         </View>
@@ -234,7 +238,7 @@ export default function EventCard({ event }: { event: LELEvent }) {
                 />
               )}
               <Text style={[styles.expandText, { color: colors.textMuted }]}>
-                {isExpanded ? "Collapse" : "Expand"}
+                {isExpanded ? 'Collapse' : 'Expand'}
               </Text>
             </Pressable>
           )}
@@ -289,7 +293,7 @@ export default function EventCard({ event }: { event: LELEvent }) {
 type DetailRowProps = {
   label: string;
   value: string;
-  colors: ReturnType<typeof useTheme>["colors"];
+  colors: ReturnType<typeof useTheme>['colors'];
 };
 
 function DetailRow({ label, value, colors }: DetailRowProps) {
@@ -308,8 +312,8 @@ function DetailRow({ label, value, colors }: DetailRowProps) {
 const styles = StyleSheet.create({
   card: {
     minHeight: 50,
-    position: "relative",
-    overflow: "hidden",
+    position: 'relative',
+    overflow: 'hidden',
     borderRadius: radius.sm,
     gap: spacing[2],
   },
@@ -328,7 +332,7 @@ const styles = StyleSheet.create({
     gap: spacing[3],
   },
   turningPointInnerBorder: {
-    position: "absolute",
+    position: 'absolute',
     top: 4,
     right: 4,
     bottom: 4,
@@ -337,10 +341,10 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
   },
   headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     gap: spacing[2],
-    alignItems: "flex-start",
+    alignItems: 'flex-start',
   },
   title: {
     flex: 1,
@@ -351,21 +355,21 @@ const styles = StyleSheet.create({
   notableTitle: {
     fontSize: 17,
     lineHeight: 25,
-    fontWeight: "500",
+    fontWeight: '500',
   },
   majorTitle: {
     fontSize: 19,
     lineHeight: 27,
-    fontWeight: "600",
+    fontWeight: '600',
   },
   turningPointTitle: {
     fontSize: 22,
     lineHeight: 30,
-    fontWeight: "700",
+    fontWeight: '700',
   },
   headerMeta: {
     flexShrink: 0,
-    alignItems: "flex-end",
+    alignItems: 'flex-end',
     gap: spacing[1],
   },
   date: {
@@ -373,7 +377,7 @@ const styles = StyleSheet.create({
   },
   significanceMarker: {
     height: 3,
-    flexDirection: "row",
+    flexDirection: 'row',
     gap: 2,
   },
   significanceSegment: {
@@ -383,14 +387,14 @@ const styles = StyleSheet.create({
   },
   previewRow: {
     minHeight: 28,
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing[2],
   },
   metadataValues: {
     flex: 1,
-    flexDirection: "row",
-    flexWrap: "wrap",
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing[1],
   },
   metadataText: {
@@ -398,8 +402,8 @@ const styles = StyleSheet.create({
   },
   expandButton: {
     minHeight: 28,
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 2,
     borderRadius: radius.sm,
     paddingHorizontal: spacing[1],
@@ -413,7 +417,7 @@ const styles = StyleSheet.create({
     gap: spacing[1],
   },
   detailRow: {
-    flexDirection: "row",
+    flexDirection: 'row',
     gap: spacing[3],
   },
   detailLabel: {
@@ -429,9 +433,9 @@ const styles = StyleSheet.create({
     marginTop: spacing[1],
   },
   locationRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-end",
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
   },
   locationText: {
     ...typography.caption,

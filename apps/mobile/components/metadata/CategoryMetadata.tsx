@@ -25,7 +25,7 @@ export default function CategoryMetadata() {
       options={categories}
       onChange={setCategory}
       onCreate={createCategory}
-      placeholder="Select category"
+      placeholder="Add category"
       searchPlaceholder="Search or create a category..."
     />
   );

@@ -4,6 +4,7 @@ import { Keyboard, Pressable } from 'react-native';
 import {
   BadgeAlert,
   Calendar,
+  MapPin,
   Shapes,
   Tags,
   UsersRound,
@@ -13,11 +14,18 @@ import MetadataRow from '@/components/metadata/MetadataRow';
 import PeopleMetadata from '@/components/metadata/PeopleMetadata';
 import CategoryMetadata from '@/components/metadata/CategoryMetadata';
 import SignificanceMetadata from '@/components/metadata/SignificanceMetadata';
+import LocationMetadata from '@/components/metadata/LocationMetadata';
 import { spacing } from '@lel/design';
+import DateMetadata, {
+  currentDateValue,
+  type DateValue,
+} from '@/components/metadata/DateMetadata';
+import { useState } from 'react';
 
 export default function EventScreen() {
   const { eventId } = useLocalSearchParams();
   const { colors } = useTheme();
+  const [eventDate, setEventDate] = useState<DateValue>(currentDateValue);
 
   const event = {
     id: eventId as string,
@@ -50,7 +58,9 @@ export default function EventScreen() {
           labelIcon={
             <Calendar size={14} strokeWidth={2} color={colors.textMuted} />
           }
-          labelElement={<TagsMetadata />}
+          labelElement={
+            <DateMetadata value={eventDate} onChange={setEventDate} />
+          }
         />
         <MetadataRow
           label="Tags"
@@ -79,6 +89,11 @@ export default function EventScreen() {
             <BadgeAlert size={14} strokeWidth={2} color={colors.textMuted} />
           }
           labelElement={<SignificanceMetadata />}
+        />
+        <MetadataRow
+          label='Location'
+          labelIcon={<MapPin size={14} strokeWidth={2} color={colors.textMuted} />}
+          labelElement={<LocationMetadata/>}
         />
       </Pressable>
     </>
