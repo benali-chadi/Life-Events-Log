@@ -15,6 +15,7 @@ export default function Index() {
         paddingTop: 10,
         gap: spacing[2],
         backgroundColor: colors.bg,
+        height: '100%'
       }}
     >
       <SectionList
