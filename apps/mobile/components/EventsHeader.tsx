@@ -1,5 +1,4 @@
 import { eventColors, spacing } from '@lel/design';
-import { useTheme } from '@lel/design/useTheme';
 import React, { useState } from 'react';
 import { Platform, View, ScrollView } from 'react-native';
 
@@ -9,7 +8,6 @@ import SearchableMultiSelect, {
 import SearchInput from './ui/SearchInput';
 
 export default function EventsHeader() {
-  const { colors } = useTheme();
   const [query, setQuery] = useState('');
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
 
