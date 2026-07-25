@@ -9,10 +9,20 @@ const significanceOptions: SelectOption[] = [
   { id: 'turning-point', label: 'Turning point' },
 ];
 
-export default function SignificanceMetadata() {
-  const [significance, setSignificance] = useState<SelectOption | null>(
+type SignificanceMetadataProps = {
+  value?: SelectOption | null;
+  onChange?: (value: SelectOption | null) => void;
+};
+
+export default function SignificanceMetadata({
+  value,
+  onChange,
+}: SignificanceMetadataProps = {}) {
+  const [internalValue, setInternalValue] = useState<SelectOption | null>(
     significanceOptions[1]
   );
+  const significance = value === undefined ? internalValue : value;
+  const setSignificance = onChange ?? setInternalValue;
 
   return (
     <SingleSelect

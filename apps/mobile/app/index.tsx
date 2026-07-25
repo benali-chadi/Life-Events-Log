@@ -1,12 +1,23 @@
-import { spacing, typography } from '@lel/design';
+import { radius, spacing, typography } from '@lel/design';
 import React from 'react';
-import { SectionList, Text, View } from 'react-native';
+import { Pressable, SectionList, Text, View } from 'react-native';
 import EventCard from '@/components/EventCard';
 import { useTheme } from '@lel/design/useTheme';
 import { eventSections } from 'constants/events';
+import { Plus } from 'lucide-react-native';
+import { router } from 'expo-router';
+import { useEventDeletion } from '@/components/event-deletion/EventDeletionProvider';
+import { closeOpenSwipe } from '@/components/ui/SwipeReveal';
 
 export default function Index() {
   const { colors } = useTheme();
+  const { deletedTitles } = useEventDeletion();
+  const visibleSections = eventSections
+    .map((section) => ({
+      ...section,
+      data: section.data.filter((event) => !deletedTitles.has(event.title)),
+    }))
+    .filter((section) => section.data.length > 0);
 
   return (
     <View
@@ -15,13 +26,15 @@ export default function Index() {
         paddingTop: 10,
         gap: spacing[2],
         backgroundColor: colors.bg,
-        height: '100%'
+        height: '100%',
       }}
     >
       <SectionList
-        sections={eventSections}
+        sections={visibleSections}
+        contentContainerStyle={{ paddingBottom: 96 }}
         keyExtractor={(item, index) => item.title + index}
         renderItem={({ item }) => <EventCard event={item} />}
+        onScrollBeginDrag={closeOpenSwipe}
         showsVerticalScrollIndicator={false}
         renderSectionHeader={({ section: { title } }) => (
           <View style={{ backgroundColor: colors.bg }}>
@@ -39,36 +52,24 @@ export default function Index() {
         )}
         stickySectionHeadersEnabled
       />
-      {/* <FlatList
-        data={[
-          ...Array.from({ length: 30 }).fill({
-            title: 'First Event',
-            date: '3 weeks ago',
-            categoryName: 'app',
-            categoryColor: 'blue',
-            tags: ['testing', 'app', 'ok'],
-            people: ['mounir', 'issam', 'bilal'],
-            location: 'Rabat',
-          }),
-          ...Array.from({ length: 10 }).fill({
-            title: 'Second Event',
-            date: '2 months ago',
-            categoryName: 'app2',
-            categoryColor: 'rose',
-            location: 'Sale',
-          }),
-          {
-            title: 'Third Event',
-            date: 'a year ago',
-            location: 'Casablanca',
-          },
-        ]}
-        renderItem={({ item }) => <EventCard event={item} />}
-        style={{ maxHeight: '95%' }}
-        ItemSeparatorComponent={() => (
-          <View style={{ height: spacing[2] }}></View>
-        )}
-      /> */}
+      <Pressable
+        accessibilityLabel="Create event"
+        accessibilityRole="button"
+        onPress={() => router.push('/new')}
+        style={({ pressed }) => ({
+          position: 'absolute',
+          right: spacing[5],
+          bottom: spacing[6],
+          width: 56,
+          height: 56,
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderRadius: radius.xl,
+          backgroundColor: pressed ? colors.interactivePressed : colors.text,
+        })}
+      >
+        <Plus color={colors.bg} size={26} strokeWidth={2.25} />
+      </Pressable>
     </View>
   );
 }

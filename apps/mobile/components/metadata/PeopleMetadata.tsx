@@ -10,12 +10,22 @@ const initialPeople: SelectOption[] = [
   { id: '5', label: 'Ali' },
 ];
 
-export default function PeopleMetadata() {
+type PeopleMetadataProps = {
+  value?: SelectOption[];
+  onChange?: (value: SelectOption[]) => void;
+};
+
+export default function PeopleMetadata({
+  value,
+  onChange,
+}: PeopleMetadataProps = {}) {
   const [availablePeople, setAvailablePeople] = useState(initialPeople);
-  const [selectedPeople, setSelectedPeople] = useState<SelectOption[]>([
+  const [internalValue, setInternalValue] = useState<SelectOption[]>([
     { id: '1', label: 'Mounir' },
     { id: '3', label: 'Issam' },
   ]);
+  const selectedPeople = value ?? internalValue;
+  const setSelectedPeople = onChange ?? setInternalValue;
 
   const creatPerson = (label: string): SelectOption => {
     const newPerson = {

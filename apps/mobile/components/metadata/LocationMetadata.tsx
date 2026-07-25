@@ -8,11 +8,21 @@ const initialLocations: SelectOption[] = [
   { id: 'cafe-maure', label: 'Cafe Maure' },
 ];
 
-export default function LocationMetadata() {
+type LocationMetadataProps = {
+  value?: SelectOption | null;
+  onChange?: (value: SelectOption | null) => void;
+};
+
+export default function LocationMetadata({
+  value,
+  onChange,
+}: LocationMetadataProps = {}) {
   const [locations, setLocations] = useState(initialLocations);
-  const [location, setLocation] = useState<SelectOption | null>(
+  const [internalValue, setInternalValue] = useState<SelectOption | null>(
     initialLocations[1]
   );
+  const location = value === undefined ? internalValue : value;
+  const setLocation = onChange ?? setInternalValue;
 
   const createLocation = (label: string) => {
     const newLocation = { id: Date.now().toString(), label };

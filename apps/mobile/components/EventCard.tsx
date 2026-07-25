@@ -2,9 +2,12 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { eventColors, radius, spacing, typography } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
 import { useRouter } from 'expo-router';
-import { ChevronDown, ChevronUp } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, Trash2 } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEventDeletion } from './event-deletion/EventDeletionProvider';
+import { confirmEventDeletion } from './event-deletion/confirmEventDeletion';
+import SwipeReveal, { closeOpenSwipe } from './ui/SwipeReveal';
 
 export type EventSignificance =
   'ordinary' | 'notable' | 'major' | 'turning-point';
@@ -42,6 +45,7 @@ const significanceLevels: Record<EventSignificance, number> = {
 export default function EventCard({ event }: { event: LELEvent }) {
   const router = useRouter();
   const { colors, isDark } = useTheme();
+  const { deleteEvent } = useEventDeletion();
   const [isExpanded, setIsExpanded] = useState(false);
 
   const significance = event.significance ?? 'ordinary';
@@ -114,11 +118,18 @@ export default function EventCard({ event }: { event: LELEvent }) {
 
   const toggleExpanded = () => setIsExpanded((current) => !current);
 
-  return (
+  const card = (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`Open ${event.title}, ${significanceLabels[significance]} significance`}
-      onPress={() => router.navigate(`/${event.title}`)}
+      onPress={() => {
+        if (closeOpenSwipe()) return;
+
+        router.navigate({
+          pathname: '/[eventId]',
+          params: { eventId: event.title, title: event.title },
+        });
+      }}
       style={({ pressed }) => [
         styles.card,
         significanceStyle.card,
@@ -288,6 +299,27 @@ export default function EventCard({ event }: { event: LELEvent }) {
       )}
     </Pressable>
   );
+
+  return (
+    <SwipeReveal
+      actionWidth={80}
+      action={
+        <Pressable
+          accessibilityLabel={`Delete ${event.title}`}
+          accessibilityRole="button"
+          onPress={() =>
+            confirmEventDeletion(event.title, () => deleteEvent(event.title))
+          }
+          style={styles.deleteAction}
+        >
+          <Trash2 color="#FFFFFF" size={19} strokeWidth={2} />
+          <Text style={styles.deleteText}>Delete</Text>
+        </Pressable>
+      }
+    >
+      {card}
+    </SwipeReveal>
+  );
 }
 
 type DetailRowProps = {
@@ -310,6 +342,20 @@ function DetailRow({ label, value, colors }: DetailRowProps) {
 }
 
 const styles = StyleSheet.create({
+  deleteAction: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+    borderRadius: radius.sm,
+    backgroundColor: '#B42318',
+  },
+  deleteText: {
+    ...typography.caption,
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
   card: {
     minHeight: 50,
     position: 'relative',

@@ -1,5 +1,5 @@
 import { useTheme } from '@lel/design/useTheme';
-import { Stack } from 'expo-router';
+import { Stack, useLocalSearchParams, router } from 'expo-router';
 import { useNavigation, usePreventRemove } from '@react-navigation/native';
 import {
   Alert,
@@ -15,6 +15,7 @@ import {
   BadgeAlert,
   Calendar,
   MapPin,
+  MoreVertical,
   Shapes,
   Tags,
   UsersRound,
@@ -35,8 +36,31 @@ import EventNotes from '@/components/event-notes/EventNotes';
 import EventAttachments from '@/components/event-attachments/EventAttachments';
 import type { EventAttachment } from '@/components/event-attachments/types';
 import EventTitleHeader from '@/components/event-title/EventTitleHeader';
+import type { SelectOption } from '@/components/ui/select';
+import { useEventDeletion } from '@/components/event-deletion/EventDeletionProvider';
+import { confirmEventDeletion } from '@/components/event-deletion/confirmEventDeletion';
 
 const initialTitle = 'Started working on Life Events Log';
+
+function parseOption(value?: string): SelectOption | null {
+  if (!value) return null;
+
+  try {
+    return JSON.parse(value) as SelectOption;
+  } catch {
+    return null;
+  }
+}
+
+function parseOptions(value?: string): SelectOption[] {
+  if (!value) return [];
+
+  try {
+    return JSON.parse(value) as SelectOption[];
+  } catch {
+    return [];
+  }
+}
 
 const initialNotes = `Started working on the first version today.
 
@@ -49,15 +73,73 @@ The central idea is **a timeline, not a database**.
 > The product should feel closer to a personal archive than a social feed.`;
 
 export default function EventScreen() {
+  const {
+    eventId,
+    title: routeTitle,
+    date: routeDate,
+    time: routeTime,
+    category: routeCategory,
+    people: routePeople,
+    tags: routeTags,
+    significance: routeSignificance,
+    location: routeLocation,
+  } = useLocalSearchParams<{
+    eventId?: string;
+    title?: string;
+    date?: string;
+    time?: string;
+    category?: string;
+    people?: string;
+    tags?: string;
+    significance?: string;
+    location?: string;
+  }>();
   const { colors } = useTheme();
   const navigation = useNavigation();
+  const { deleteEvent } = useEventDeletion();
   const titleInputRef = useRef<TextInput>(null);
 
-  const [eventDate, setEventDate] = useState<DateValue>(currentDateValue);
+  const [eventDate, setEventDate] = useState<DateValue>(() =>
+    routeDate
+      ? { date: routeDate, time: routeTime || undefined }
+      : currentDateValue()
+  );
+  const [category, setCategory] = useState<SelectOption | null>(() =>
+    routeDate ? parseOption(routeCategory) : { id: 'career', label: 'Career' }
+  );
+  const [people, setPeople] = useState<SelectOption[]>(() =>
+    routeDate
+      ? parseOptions(routePeople)
+      : [
+          { id: '1', label: 'Mounir' },
+          { id: '3', label: 'Issam' },
+        ]
+  );
+  const [tags, setTags] = useState<SelectOption[]>(() =>
+    routeDate
+      ? parseOptions(routeTags)
+      : [
+          { id: '1', label: 'app' },
+          { id: '4', label: 'travel' },
+        ]
+  );
+  const [significance, setSignificance] = useState<SelectOption | null>(() =>
+    routeDate
+      ? parseOption(routeSignificance)
+      : { id: 'notable', label: 'Notable' }
+  );
+  const [location, setLocation] = useState<SelectOption | null>(() =>
+    routeDate ? parseOption(routeLocation) : { id: 'Sale', label: 'Sale' }
+  );
 
-  const [title, setTitle] = useState(initialTitle);
-  const [draftTitle, setDraftTitle] = useState(initialTitle);
+  const eventTitle =
+    typeof routeTitle === 'string' && routeTitle.trim()
+      ? routeTitle
+      : initialTitle;
+  const [title, setTitle] = useState(eventTitle);
+  const [draftTitle, setDraftTitle] = useState(eventTitle);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [notes, setNotes] = useState(initialNotes);
   const [savedNotes, setSavedNotes] = useState(initialNotes);
   const [attachments, setAttachments] = useState<EventAttachment[]>([]);
@@ -65,7 +147,7 @@ export default function EventScreen() {
   const hasUnsavedTitle = isEditingTitle && draftTitle !== title;
   const hasUnsavedChanges = hasUnsavedNotes || hasUnsavedTitle;
 
-  usePreventRemove(hasUnsavedChanges, ({ data }) => {
+  usePreventRemove(hasUnsavedChanges && !isDeleting, ({ data }) => {
     Alert.alert(
       'Discard changes?',
       'Your unsaved changes to this event will be lost.',
@@ -107,6 +189,14 @@ export default function EventScreen() {
     setDraftTitle(nextTitle);
     setIsEditingTitle(false);
     titleInputRef.current?.blur();
+  };
+
+  const confirmDelete = () => {
+    confirmEventDeletion(title, () => {
+      setIsDeleting(true);
+      deleteEvent(eventId ?? title);
+      requestAnimationFrame(() => router.back());
+    });
   };
 
   return (
@@ -185,7 +275,32 @@ export default function EventScreen() {
                   </Text>
                 </Pressable>
               )
-            : undefined,
+            : () => (
+                <Pressable
+                  accessibilityLabel="Event actions"
+                  accessibilityRole="button"
+                  hitSlop={8}
+                  onPress={confirmDelete}
+                  style={({ pressed }) => [
+                    {
+                      width: 40,
+                      height: 40,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: radius.sm,
+                    },
+                    pressed && {
+                      backgroundColor: colors.interactivePressed,
+                    },
+                  ]}
+                >
+                  <MoreVertical
+                    color={colors.textSecondary}
+                    size={21}
+                    strokeWidth={2}
+                  />
+                </Pressable>
+              ),
         }}
       />
 
@@ -218,14 +333,16 @@ export default function EventScreen() {
               labelIcon={
                 <Tags size={14} strokeWidth={2} color={colors.textMuted} />
               }
-              labelElement={<TagsMetadata />}
+              labelElement={<TagsMetadata value={tags} onChange={setTags} />}
             />
             <MetadataRow
               label="Category"
               labelIcon={
                 <Shapes size={14} strokeWidth={2} color={colors.textMuted} />
               }
-              labelElement={<CategoryMetadata />}
+              labelElement={
+                <CategoryMetadata value={category} onChange={setCategory} />
+              }
             />
             <MetadataRow
               label="People"
@@ -236,7 +353,9 @@ export default function EventScreen() {
                   color={colors.textMuted}
                 />
               }
-              labelElement={<PeopleMetadata />}
+              labelElement={
+                <PeopleMetadata value={people} onChange={setPeople} />
+              }
             />
             <MetadataRow
               label="Significance"
@@ -247,14 +366,21 @@ export default function EventScreen() {
                   color={colors.textMuted}
                 />
               }
-              labelElement={<SignificanceMetadata />}
+              labelElement={
+                <SignificanceMetadata
+                  value={significance}
+                  onChange={setSignificance}
+                />
+              }
             />
             <MetadataRow
               label="Location"
               labelIcon={
                 <MapPin size={14} strokeWidth={2} color={colors.textMuted} />
               }
-              labelElement={<LocationMetadata />}
+              labelElement={
+                <LocationMetadata value={location} onChange={setLocation} />
+              }
             />
           </View>
 

@@ -9,9 +9,21 @@ const initialCategories: SelectOption[] = [
   { id: 'travel', label: 'Travel' },
 ];
 
-export default function CategoryMetadata() {
+type CategoryMetadataProps = {
+  value?: SelectOption | null;
+  onChange?: (value: SelectOption | null) => void;
+};
+
+export default function CategoryMetadata({
+  value,
+  onChange,
+}: CategoryMetadataProps = {}) {
   const [categories, setCategories] = useState(initialCategories);
-  const [category, setCategory] = useState<SelectOption | null>(categories[1]);
+  const [internalValue, setInternalValue] = useState<SelectOption | null>(
+    categories[1]
+  );
+  const category = value === undefined ? internalValue : value;
+  const setCategory = onChange ?? setInternalValue;
 
   const createCategory = (label: string) => {
     const newCategory = { id: Date.now().toString(), label };

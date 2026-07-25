@@ -10,13 +10,23 @@ const initialTags: SelectOption[] = [
   { id: '5', label: 'family' },
 ];
 
-export default function TagsMetadata() {
+type TagsMetadataProps = {
+  value?: SelectOption[];
+  onChange?: (value: SelectOption[]) => void;
+};
+
+export default function TagsMetadata({
+  value,
+  onChange,
+}: TagsMetadataProps = {}) {
   const [availableTags, setAvailableTags] = useState(initialTags);
 
-  const [selectedTags, setSelectedTags] = useState<SelectOption[]>([
+  const [internalValue, setInternalValue] = useState<SelectOption[]>([
     { id: '1', label: 'app' },
     { id: '4', label: 'travel' },
   ]);
+  const selectedTags = value ?? internalValue;
+  const setSelectedTags = onChange ?? setInternalValue;
 
   const createTag = (label: string): SelectOption => {
     const newTag = {
