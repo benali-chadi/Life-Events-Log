@@ -101,7 +101,7 @@ export default function SearchableMultiSelect({
     }
 
     if (selectedOptions.length === 1) {
-      return selectedOptions[0].label;
+      return selectedOptions[0]?.label ?? placeholder;
     }
 
     return `${selectedOptions.length} selected`;

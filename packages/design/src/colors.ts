@@ -1,12 +1,12 @@
 export type ColorsTheme = {
-    bg: string;
-    surface: string;
-    surfaceElevated: string;
-    text: string;
-    textSecondary: string;
-    textMuted: string;
-    border: string;
-    borderStrong: string;
+  bg: string;
+  surface: string;
+  surfaceElevated: string;
+  text: string;
+  textSecondary: string;
+  textMuted: string;
+  border: string;
+  borderStrong: string;
 
   interactiveMuted: string;
   interactivePressed: string;
@@ -23,9 +23,9 @@ export const lightTheme = {
   border: '#E6E5E2',
   borderStrong: '#D5D3CE',
 
-  interactiveMuted: "#F0EFEC",
-  interactivePressed: "#E9E8E4",
-  focus: "#8A8A8A",
+  interactiveMuted: '#F0EFEC',
+  interactivePressed: '#E9E8E4',
+  focus: '#8A8A8A',
 };
 
 export const darkTheme = {
@@ -38,9 +38,9 @@ export const darkTheme = {
   border: '#343434',
   borderStrong: '#4A4A4A',
 
-  interactiveMuted: "#2D2D2D",
-  interactivePressed: "#363636",
-  focus: "#9C9C9A",
+  interactiveMuted: '#2D2D2D',
+  interactivePressed: '#363636',
+  focus: '#9C9C9A',
 };
 
 export const eventColors = {

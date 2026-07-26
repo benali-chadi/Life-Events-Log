@@ -24,11 +24,18 @@ type PickerMode = 'date' | 'time';
 const pad = (value: number) => value.toString().padStart(2, '0');
 
 function toPickerDate(value: DateValue, mode: PickerMode) {
-  const [year, month, day] = value.date.split('-').map(Number);
   const now = new Date();
-  const [hours, minutes] = value.time
+  const [parsedYear, parsedMonth, parsedDay] = value.date
+    .split('-')
+    .map(Number);
+  const [parsedHours, parsedMinutes] = value.time
     ? value.time.split(':').map(Number)
     : [now.getHours(), now.getMinutes()];
+  const year = parsedYear ?? now.getFullYear();
+  const month = parsedMonth ?? now.getMonth() + 1;
+  const day = parsedDay ?? now.getDate();
+  const hours = parsedHours ?? now.getHours();
+  const minutes = parsedMinutes ?? now.getMinutes();
 
   return new Date(
     year,

@@ -172,8 +172,10 @@ export default function CreatableTokenInput({
   }, [disabled]);
 
   const selectHightlightedItem = useCallback(() => {
-    if (highlightedIndex >= 0 && highlightedIndex < suggestions.length) {
-      addOption(suggestions[highlightedIndex]);
+    const highlightedSuggestion = suggestions[highlightedIndex];
+
+    if (highlightedSuggestion) {
+      addOption(highlightedSuggestion);
       return true;
     }
 
@@ -201,7 +203,8 @@ export default function CreatableTokenInput({
       const { key } = nativeEvent;
 
       if (key === 'Backspace' && query.length === 0 && values.length > 0) {
-        removeOption(values[values.length - 1].id);
+        const lastValue = values[values.length - 1];
+        if (lastValue) removeOption(lastValue.id);
       }
 
       if (key === 'ArrowDown') {

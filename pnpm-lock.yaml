@@ -8,6 +8,21 @@ importers:
 
   .:
     devDependencies:
+      eslint:
+        specifier: ^9.25.0
+        version: 9.39.4
+      eslint-config-expo:
+        specifier: ~10.0.0
+        version: 10.0.0(eslint@9.39.4)(typescript@5.9.3)
+      eslint-import-resolver-typescript:
+        specifier: ^3.10.1
+        version: 3.10.1(eslint-plugin-import@2.32.0)(eslint@9.39.4)
+      eslint-plugin-prettier:
+        specifier: ^5.5.6
+        version: 5.5.6(eslint@9.39.4)(prettier@3.9.4)
+      eslint-plugin-react-refresh:
+        specifier: ^0.5.3
+        version: 0.5.3(eslint@9.39.4)
       typescript:
         specifier: ~5.9.2
         version: 5.9.3
@@ -105,23 +120,24 @@ importers:
       '@types/react':
         specifier: ~19.1.0
         version: 19.1.17
-      eslint:
-        specifier: ^9.25.0
-        version: 9.39.4
-      eslint-config-expo:
-        specifier: ~10.0.0
-        version: 10.0.0(eslint@9.39.4)(typescript@5.9.3)
-      eslint-plugin-prettier:
-        specifier: ^5.5.6
-        version: 5.5.6(eslint@9.39.4)(prettier@3.9.4)
-      eslint-plugin-react-refresh:
-        specifier: ^0.5.3
-        version: 0.5.3(eslint@9.39.4)
       typescript:
         specifier: ~5.9.2
         version: 5.9.3
 
-  packages/design: {}
+  packages/design:
+    devDependencies:
+      '@types/react':
+        specifier: ~19.1.0
+        version: 19.1.17
+      react:
+        specifier: 19.1.0
+        version: 19.1.0
+      react-native:
+        specifier: 0.81.5
+        version: 0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0)
+      typescript:
+        specifier: ~5.9.2
+        version: 5.9.3
 
 packages:
 

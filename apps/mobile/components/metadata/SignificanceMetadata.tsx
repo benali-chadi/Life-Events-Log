@@ -19,7 +19,7 @@ export default function SignificanceMetadata({
   onChange,
 }: SignificanceMetadataProps = {}) {
   const [internalValue, setInternalValue] = useState<SelectOption | null>(
-    significanceOptions[1]
+    significanceOptions[1] ?? null
   );
   const significance = value === undefined ? internalValue : value;
   const setSignificance = onChange ?? setInternalValue;

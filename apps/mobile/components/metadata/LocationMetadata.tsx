@@ -19,7 +19,7 @@ export default function LocationMetadata({
 }: LocationMetadataProps = {}) {
   const [locations, setLocations] = useState(initialLocations);
   const [internalValue, setInternalValue] = useState<SelectOption | null>(
-    initialLocations[1]
+    initialLocations[1] ?? null
   );
   const location = value === undefined ? internalValue : value;
   const setLocation = onChange ?? setInternalValue;

@@ -120,8 +120,10 @@ export default function SingleSelect({
   }, [isCreating, onCreate, query, selectOption]);
 
   const submitQuery = () => {
-    if (highlightedIndex >= 0 && highlightedIndex < suggestions.length) {
-      selectOption(suggestions[highlightedIndex]);
+    const highlightedSuggestion = suggestions[highlightedIndex];
+
+    if (highlightedSuggestion) {
+      selectOption(highlightedSuggestion);
     } else if (canCreate && highlightedIndex === suggestions.length) {
       void createOption();
     } else if (exactMatch) {

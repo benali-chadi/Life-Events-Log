@@ -20,7 +20,7 @@ export default function CategoryMetadata({
 }: CategoryMetadataProps = {}) {
   const [categories, setCategories] = useState(initialCategories);
   const [internalValue, setInternalValue] = useState<SelectOption | null>(
-    categories[1]
+    categories[1] ?? null
   );
   const category = value === undefined ? internalValue : value;
   const setCategory = onChange ?? setInternalValue;
