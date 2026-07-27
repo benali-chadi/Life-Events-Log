@@ -9,11 +9,9 @@ export const eventCardStyles = StyleSheet.create({
     justifyContent: 'center',
     gap: 2,
     borderRadius: radius.sm,
-    backgroundColor: '#B42318',
   },
   deleteText: {
     ...typography.caption,
-    color: '#FFFFFF',
     fontWeight: '700',
   },
   card: {

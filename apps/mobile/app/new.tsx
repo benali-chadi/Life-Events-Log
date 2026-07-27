@@ -124,7 +124,7 @@ export default function NewEventScreen() {
                 style={[
                   styles.headerButtonText,
                   {
-                    color: canCreate ? colors.focus : colors.textMuted,
+                    color: canCreate ? colors.primary : colors.textMuted,
                     fontWeight: '700',
                   },
                 ]}

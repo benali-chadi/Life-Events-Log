@@ -11,6 +11,16 @@ export type ColorsTheme = {
   interactiveMuted: string;
   interactivePressed: string;
   focus: string;
+
+  primary: string;
+  primaryPressed: string;
+  onPrimary: string;
+
+  destructive: string;
+  destructiveSurface: string;
+  destructiveSurfacePressed: string;
+  destructiveMuted: string;
+  onDestructive: string;
 };
 
 export const lightTheme = {
@@ -26,6 +36,16 @@ export const lightTheme = {
   interactiveMuted: '#F0EFEC',
   interactivePressed: '#E9E8E4',
   focus: '#8A8A8A',
+
+  primary: '#222222',
+  primaryPressed: '#3A3A3A',
+  onPrimary: '#FFFFFF',
+
+  destructive: '#B42318',
+  destructiveSurface: '#B42318',
+  destructiveSurfacePressed: '#912018',
+  destructiveMuted: '#FEE4E2',
+  onDestructive: '#FFFFFF',
 };
 
 export const darkTheme = {
@@ -41,6 +61,16 @@ export const darkTheme = {
   interactiveMuted: '#2D2D2D',
   interactivePressed: '#363636',
   focus: '#9C9C9A',
+
+  primary: '#F4F4F2',
+  primaryPressed: '#D8D8D5',
+  onPrimary: '#171717',
+
+  destructive: '#F97066',
+  destructiveSurface: '#B42318',
+  destructiveSurfacePressed: '#912018',
+  destructiveMuted: '#3B1D1B',
+  onDestructive: '#FFFFFF',
 };
 
 export const eventColors = {

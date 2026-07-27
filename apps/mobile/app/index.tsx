@@ -49,11 +49,11 @@ export default function Index() {
         style={({ pressed }) => [
           styles.createButton,
           {
-            backgroundColor: pressed ? colors.interactivePressed : colors.text,
+            backgroundColor: pressed ? colors.primaryPressed : colors.primary,
           },
         ]}
       >
-        <Plus color={colors.bg} size={26} strokeWidth={2.25} />
+        <Plus color={colors.onPrimary} size={26} strokeWidth={2.25} />
       </Pressable>
     </View>
   );

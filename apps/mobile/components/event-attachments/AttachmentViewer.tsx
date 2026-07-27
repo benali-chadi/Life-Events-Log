@@ -1,4 +1,4 @@
-import { spacing, typography } from '@lel/design';
+import { overlay, spacing, typography } from '@lel/design';
 import { Image } from 'expo-image';
 import { X } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
@@ -94,7 +94,7 @@ export default function AttachmentViewer({
             onPress={onClose}
             style={styles.closeButton}
           >
-            <X color="#fff" size={24} strokeWidth={2} />
+            <X color={overlay.onMediaViewer} size={24} strokeWidth={2} />
           </Pressable>
         </View>
       </View>
@@ -105,7 +105,7 @@ export default function AttachmentViewer({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: overlay.mediaViewer,
   },
   slide: {
     flex: 1,
@@ -125,11 +125,11 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     justifyContent: 'space-between',
     padding: spacing[4],
-    backgroundColor: 'rgba(0, 0, 0, 0.38)',
+    backgroundColor: overlay.mediaControls,
   },
   counter: {
     ...typography.small,
-    color: '#fff',
+    color: overlay.onMediaViewer,
     fontWeight: '600',
   },
   closeButton: {

@@ -51,10 +51,19 @@ export default function EventCard({ event }: EventCardProps) {
           onPress={() =>
             confirmEventDeletion(event.title, () => deleteEvent(event.title))
           }
-          style={styles.deleteAction}
+          style={({ pressed }) => [
+            styles.deleteAction,
+            {
+              backgroundColor: pressed
+                ? colors.destructiveSurfacePressed
+                : colors.destructiveSurface,
+            },
+          ]}
         >
-          <Trash2 color="#FFFFFF" size={19} strokeWidth={2} />
-          <Text style={styles.deleteText}>Delete</Text>
+          <Trash2 color={colors.onDestructive} size={19} strokeWidth={2} />
+          <Text style={[styles.deleteText, { color: colors.onDestructive }]}>
+            Delete
+          </Text>
         </Pressable>
       }
     >

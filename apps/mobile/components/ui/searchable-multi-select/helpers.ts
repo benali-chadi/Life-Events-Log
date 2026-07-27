@@ -4,6 +4,7 @@ import {
   typography,
   controlSize,
   elevation,
+  overlay,
   type ColorsTheme,
 } from '@lel/design';
 import { StyleSheet } from 'react-native';
@@ -54,7 +55,7 @@ export function createStyles(colors: ColorsTheme) {
     modalRoot: { flex: 1, justifyContent: 'flex-end' },
     backdrop: {
       ...StyleSheet.absoluteFillObject,
-      backgroundColor: 'rgba(0, 0, 0, 0.32)',
+      backgroundColor: overlay.backdrop,
       height: '200%',
     },
     sheet: {
@@ -208,14 +209,14 @@ export function createStyles(colors: ColorsTheme) {
       borderWidth: 1,
       borderColor: colors.borderStrong,
       borderRadius: radius.md,
-      backgroundColor: colors.text,
+      backgroundColor: colors.primary,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    primaryButtonPressed: { opacity: 0.86 },
+    primaryButtonPressed: { backgroundColor: colors.primaryPressed },
     primaryButtonText: {
       ...typography.small,
-      color: colors.bg,
+      color: colors.onPrimary,
       fontWeight: '500',
     },
   });

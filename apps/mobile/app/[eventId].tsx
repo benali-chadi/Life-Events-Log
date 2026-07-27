@@ -255,7 +255,7 @@ export default function EventScreen() {
                   ]}
                 >
                   <Text
-                    style={[styles.doneButtonLabel, { color: colors.focus }]}
+                    style={[styles.doneButtonLabel, { color: colors.primary }]}
                   >
                     Done
                   </Text>

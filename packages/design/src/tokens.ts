@@ -35,6 +35,13 @@ export const elevation = {
   },
 };
 
+export const overlay = {
+  backdrop: 'rgba(0, 0, 0, 0.32)',
+  mediaControls: 'rgba(0, 0, 0, 0.38)',
+  mediaViewer: '#000000',
+  onMediaViewer: '#FFFFFF',
+} as const;
+
 export const controlSize = {
   sm: 36,
   md: 44,
