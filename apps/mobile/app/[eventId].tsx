@@ -321,67 +321,61 @@ export default function EventScreen() {
           <View>
             <MetadataRow
               label="Date"
-              labelIcon={
+              icon={
                 <Calendar size={14} strokeWidth={2} color={colors.textMuted} />
               }
-              labelElement={
-                <DateMetadata value={eventDate} onChange={setEventDate} />
-              }
-            />
+            >
+              <DateMetadata value={eventDate} onChange={setEventDate} />
+            </MetadataRow>
             <MetadataRow
               label="Tags"
-              labelIcon={
-                <Tags size={14} strokeWidth={2} color={colors.textMuted} />
-              }
-              labelElement={<TagsMetadata value={tags} onChange={setTags} />}
-            />
+              icon={<Tags size={14} strokeWidth={2} color={colors.textMuted} />}
+            >
+              <TagsMetadata value={tags} onChange={setTags} />
+            </MetadataRow>
             <MetadataRow
               label="Category"
-              labelIcon={
+              icon={
                 <Shapes size={14} strokeWidth={2} color={colors.textMuted} />
               }
-              labelElement={
-                <CategoryMetadata value={category} onChange={setCategory} />
-              }
-            />
+            >
+              <CategoryMetadata value={category} onChange={setCategory} />
+            </MetadataRow>
             <MetadataRow
               label="People"
-              labelIcon={
+              icon={
                 <UsersRound
                   size={14}
                   strokeWidth={2}
                   color={colors.textMuted}
                 />
               }
-              labelElement={
-                <PeopleMetadata value={people} onChange={setPeople} />
-              }
-            />
+            >
+              <PeopleMetadata value={people} onChange={setPeople} />
+            </MetadataRow>
             <MetadataRow
               label="Significance"
-              labelIcon={
+              icon={
                 <BadgeAlert
                   size={14}
                   strokeWidth={2}
                   color={colors.textMuted}
                 />
               }
-              labelElement={
-                <SignificanceMetadata
-                  value={significance}
-                  onChange={setSignificance}
-                />
-              }
-            />
+            >
+              <SignificanceMetadata
+                value={significance}
+                onChange={setSignificance}
+              />
+            </MetadataRow>
             <MetadataRow
               label="Location"
-              labelIcon={
+              icon={
                 <MapPin size={14} strokeWidth={2} color={colors.textMuted} />
               }
-              labelElement={
-                <LocationMetadata value={location} onChange={setLocation} />
-              }
-            />
+            >
+              <LocationMetadata value={location} onChange={setLocation} />
+            </MetadataRow>
           </View>
 
           <View style={{ marginTop: spacing[6] }}>

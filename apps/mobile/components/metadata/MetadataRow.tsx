@@ -1,63 +1,55 @@
+import { spacing, typography } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
-import { Text, View } from 'react-native';
-import { ReactNode } from 'react';
-import { radius, spacing } from '@lel/design';
+import type { ReactNode } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 
-interface MetadataRowProps {
+type MetadataRowProps = {
+  children: ReactNode;
+  icon: ReactNode;
   label: string;
-  labelElement: ReactNode;
-  labelIcon?: ReactNode;
-}
+};
 
 export default function MetadataRow({
+  children,
+  icon,
   label,
-  labelElement,
-  labelIcon,
 }: MetadataRowProps) {
   const { colors } = useTheme();
 
   return (
-    <View style={{ flexDirection: 'row' }}>
-      <View
-        style={{
-          paddingVertical: spacing[3],
-          paddingHorizontal: spacing[2],
-          borderColor: colors.border,
-          borderWidth: 1,
-          width: '30%',
-
-          borderTopLeftRadius: radius.sm,
-          borderBottomLeftRadius: radius.sm,
-
-          flexDirection: 'row',
-          gap: spacing[1],
-          alignItems: 'center',
-        }}
-      >
-        {labelIcon}
-        <Text
-          style={{
-            color: colors.text,
-          }}
-        >
-          {label}
-        </Text>
-      </View>
-      <View
-        style={{
-          // paddingVertical: spacing[3],
-          // paddingHorizontal: spacing[2],
-          borderColor: colors.border,
-          borderWidth: 1,
-          borderLeftWidth: 0,
-          width: '70%',
-
-          borderTopLeftRadius: radius.sm,
-          borderBottomLeftRadius: radius.sm,
-        }}
-      >
-        {labelElement}
+    <View style={[styles.row, { borderBottomColor: colors.border }]}>
+      <View style={styles.icon}>{icon}</View>
+      <View style={styles.content}>
+        <Text style={[styles.label, { color: colors.text }]}>{label}</Text>
+        <View style={styles.control}>{children}</View>
       </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  row: {
+    minHeight: 58,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    paddingVertical: spacing[1],
+  },
+  icon: {
+    width: 30,
+    alignItems: 'center',
+  },
+  content: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  label: {
+    width: 104,
+    ...typography.small,
+    fontWeight: '600',
+  },
+  control: {
+    flex: 1,
+  },
+});

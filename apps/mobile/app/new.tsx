@@ -1,4 +1,4 @@
-import CreationMetadataRow from '@/components/metadata/CreationMetadataRow';
+import MetadataRow from '@/components/metadata/MetadataRow';
 import CategoryMetadata from '@/components/metadata/CategoryMetadata';
 import DateMetadata, {
   currentDateValue,
@@ -169,31 +169,31 @@ export default function NewEventScreen() {
           />
 
           <View style={styles.metadata}>
-            <CreationMetadataRow
+            <MetadataRow
               label="Date"
               icon={<Calendar color={colors.textMuted} size={16} />}
             >
               <DateMetadata value={date} onChange={setDate} />
-            </CreationMetadataRow>
-            <CreationMetadataRow
+            </MetadataRow>
+            <MetadataRow
               label="Category"
               icon={<Shapes color={colors.textMuted} size={16} />}
             >
               <CategoryMetadata value={category} onChange={setCategory} />
-            </CreationMetadataRow>
-            <CreationMetadataRow
+            </MetadataRow>
+            <MetadataRow
               label="People"
               icon={<UsersRound color={colors.textMuted} size={16} />}
             >
               <PeopleMetadata value={people} onChange={setPeople} />
-            </CreationMetadataRow>
-            <CreationMetadataRow
+            </MetadataRow>
+            <MetadataRow
               label="Tags"
               icon={<Tags color={colors.textMuted} size={16} />}
             >
               <TagsMetadata value={tags} onChange={setTags} />
-            </CreationMetadataRow>
-            <CreationMetadataRow
+            </MetadataRow>
+            <MetadataRow
               label="Significance"
               icon={<BadgeAlert color={colors.textMuted} size={16} />}
             >
@@ -201,13 +201,13 @@ export default function NewEventScreen() {
                 value={significance}
                 onChange={setSignificance}
               />
-            </CreationMetadataRow>
-            <CreationMetadataRow
+            </MetadataRow>
+            <MetadataRow
               label="Location"
               icon={<MapPin color={colors.textMuted} size={16} />}
             >
               <LocationMetadata value={location} onChange={setLocation} />
-            </CreationMetadataRow>
+            </MetadataRow>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
