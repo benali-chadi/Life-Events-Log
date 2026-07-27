@@ -1,7 +1,7 @@
 import { radius, spacing, typography } from '@lel/design';
 import React from 'react';
 import { Pressable, SectionList, Text, View } from 'react-native';
-import EventCard from '@/components/EventCard';
+import EventCard from '@/components/event-card';
 import { useTheme } from '@lel/design/useTheme';
 import { eventSections } from 'constants/events';
 import { Plus } from 'lucide-react-native';

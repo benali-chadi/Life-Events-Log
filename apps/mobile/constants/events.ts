@@ -1,6 +1,6 @@
-import type { LELEvent } from '../components/EventCard';
+import type { LELEvent } from '@/components/event-card/types';
 
-export type { LELEvent } from '../components/EventCard';
+export type { LELEvent } from '@/components/event-card/types';
 
 type EventSection = {
   title: string;
