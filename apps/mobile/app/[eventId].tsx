@@ -7,6 +7,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   View,
@@ -222,23 +223,17 @@ export default function EventScreen() {
                   hitSlop={8}
                   onPress={cancelTitleEditing}
                   style={({ pressed }) => [
-                    {
-                      minHeight: 36,
-                      justifyContent: 'center',
-                      borderRadius: radius.sm,
-                      paddingHorizontal: spacing[1],
-                    },
+                    styles.headerTextButton,
                     pressed && {
                       backgroundColor: colors.interactivePressed,
                     },
                   ]}
                 >
                   <Text
-                    style={{
-                      ...typography.small,
-                      color: colors.textSecondary,
-                      fontWeight: '600',
-                    }}
+                    style={[
+                      styles.headerButtonLabel,
+                      { color: colors.textSecondary },
+                    ]}
                   >
                     Cancel
                   </Text>
@@ -253,23 +248,14 @@ export default function EventScreen() {
                   hitSlop={8}
                   onPress={saveTitle}
                   style={({ pressed }) => [
-                    {
-                      minHeight: 36,
-                      justifyContent: 'center',
-                      borderRadius: radius.sm,
-                      paddingHorizontal: spacing[1],
-                    },
+                    styles.headerTextButton,
                     pressed && {
                       backgroundColor: colors.interactivePressed,
                     },
                   ]}
                 >
                   <Text
-                    style={{
-                      ...typography.small,
-                      color: colors.focus,
-                      fontWeight: '700',
-                    }}
+                    style={[styles.doneButtonLabel, { color: colors.focus }]}
                   >
                     Done
                   </Text>
@@ -282,13 +268,7 @@ export default function EventScreen() {
                   hitSlop={8}
                   onPress={confirmDelete}
                   style={({ pressed }) => [
-                    {
-                      width: 40,
-                      height: 40,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderRadius: radius.sm,
-                    },
+                    styles.headerMenuButton,
                     pressed && {
                       backgroundColor: colors.interactivePressed,
                     },
@@ -307,15 +287,11 @@ export default function EventScreen() {
       {/* Event content */}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1, backgroundColor: colors.bg }}
+        style={[styles.root, { backgroundColor: colors.bg }]}
       >
         <ScrollView
           style={{ backgroundColor: colors.bg }}
-          contentContainerStyle={{
-            flexGrow: 1,
-            padding: spacing[2],
-            paddingBottom: 160,
-          }}
+          contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
           <View>
@@ -378,7 +354,7 @@ export default function EventScreen() {
             </MetadataRow>
           </View>
 
-          <View style={{ marginTop: spacing[6] }}>
+          <View style={styles.contentSection}>
             <EventNotes
               value={notes}
               onChange={setNotes}
@@ -386,7 +362,7 @@ export default function EventScreen() {
             />
           </View>
 
-          <View style={{ marginTop: spacing[6] }}>
+          <View style={styles.contentSection}>
             <EventAttachments
               attachments={attachments}
               onChange={setAttachments}
@@ -397,3 +373,38 @@ export default function EventScreen() {
     </>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    padding: spacing[2],
+    paddingBottom: 160,
+  },
+  contentSection: {
+    marginTop: spacing[6],
+  },
+  headerTextButton: {
+    minHeight: 36,
+    justifyContent: 'center',
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing[1],
+  },
+  headerMenuButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.sm,
+  },
+  headerButtonLabel: {
+    ...typography.small,
+    fontWeight: '600',
+  },
+  doneButtonLabel: {
+    ...typography.small,
+    fontWeight: '700',
+  },
+});

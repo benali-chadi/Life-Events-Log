@@ -1,6 +1,6 @@
 import { radius, spacing, typography } from '@lel/design';
 import React from 'react';
-import { Pressable, SectionList, Text, View } from 'react-native';
+import { Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
 import EventCard from '@/components/event-card';
 import { useTheme } from '@lel/design/useTheme';
 import { eventSections } from 'constants/events';
@@ -20,35 +20,25 @@ export default function Index() {
     .filter((section) => section.data.length > 0);
 
   return (
-    <View
-      style={{
-        paddingHorizontal: 20,
-        paddingTop: 10,
-        gap: spacing[2],
-        backgroundColor: colors.bg,
-        height: '100%',
-      }}
-    >
+    <View style={[styles.root, { backgroundColor: colors.bg }]}>
       <SectionList
         sections={visibleSections}
-        contentContainerStyle={{ paddingBottom: 96 }}
+        contentContainerStyle={styles.listContent}
         keyExtractor={(item, index) => item.title + index}
         renderItem={({ item }) => <EventCard event={item} />}
         onScrollBeginDrag={closeOpenSwipe}
         showsVerticalScrollIndicator={false}
         renderSectionHeader={({ section: { title } }) => (
           <View style={{ backgroundColor: colors.bg }}>
-            <Text style={{ ...typography.h3, color: colors.text }}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
               {title}
             </Text>
           </View>
         )}
-        style={{ maxHeight: '95%' }}
-        ItemSeparatorComponent={() => (
-          <View style={{ height: spacing[1] }}></View>
-        )}
+        style={styles.list}
+        ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
         SectionSeparatorComponent={() => (
-          <View style={{ height: spacing[3] }}></View>
+          <View style={styles.sectionSeparator} />
         )}
         stickySectionHeadersEnabled
       />
@@ -56,20 +46,49 @@ export default function Index() {
         accessibilityLabel="Create event"
         accessibilityRole="button"
         onPress={() => router.push('/new')}
-        style={({ pressed }) => ({
-          position: 'absolute',
-          right: spacing[5],
-          bottom: spacing[6],
-          width: 56,
-          height: 56,
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderRadius: radius.xl,
-          backgroundColor: pressed ? colors.interactivePressed : colors.text,
-        })}
+        style={({ pressed }) => [
+          styles.createButton,
+          {
+            backgroundColor: pressed ? colors.interactivePressed : colors.text,
+          },
+        ]}
       >
         <Plus color={colors.bg} size={26} strokeWidth={2.25} />
       </Pressable>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    height: '100%',
+    gap: spacing[2],
+    paddingHorizontal: 20,
+    paddingTop: 10,
+  },
+  list: {
+    maxHeight: '95%',
+  },
+  listContent: {
+    paddingBottom: 96,
+  },
+  sectionTitle: {
+    ...typography.h3,
+  },
+  itemSeparator: {
+    height: spacing[1],
+  },
+  sectionSeparator: {
+    height: spacing[3],
+  },
+  createButton: {
+    position: 'absolute',
+    right: spacing[5],
+    bottom: spacing[6],
+    width: 56,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.xl,
+  },
+});

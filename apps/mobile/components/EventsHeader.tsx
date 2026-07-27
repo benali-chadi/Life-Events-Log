@@ -1,6 +1,6 @@
 import { eventColors, spacing } from '@lel/design';
 import React, { useState } from 'react';
-import { Platform, View, ScrollView } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import SearchableMultiSelect, {
   type MultiSelectOption,
@@ -23,14 +23,7 @@ export default function EventsHeader() {
   ];
 
   return (
-    <View
-      style={{
-        paddingHorizontal: 16,
-        paddingTop: 12,
-        paddingBottom: 12,
-        gap: 12,
-      }}
-    >
+    <View style={styles.root}>
       <SearchInput
         value={query}
         onChangeText={setQuery}
@@ -44,7 +37,7 @@ export default function EventsHeader() {
       />
       <ScrollView
         horizontal
-        contentContainerStyle={{ gap: spacing[2] }}
+        contentContainerStyle={styles.filters}
         showsHorizontalScrollIndicator={false}
       >
         {/* Filters Input */}
@@ -95,3 +88,15 @@ export default function EventsHeader() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+  },
+  filters: {
+    gap: spacing[2],
+  },
+});
