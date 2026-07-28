@@ -141,10 +141,10 @@ export default function EventScreen() {
   const [draftTitle, setDraftTitle] = useState(eventTitle);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [notes, setNotes] = useState(initialNotes);
-  const [savedNotes, setSavedNotes] = useState(initialNotes);
+  const [committedNotes, setCommittedNotes] = useState(initialNotes);
+  const [draftNotes, setDraftNotes] = useState(initialNotes);
   const [attachments, setAttachments] = useState<EventAttachment[]>([]);
-  const hasUnsavedNotes = notes !== savedNotes;
+  const hasUnsavedNotes = draftNotes !== committedNotes;
   const hasUnsavedTitle = isEditingTitle && draftTitle !== title;
   const hasUnsavedChanges = hasUnsavedNotes || hasUnsavedTitle;
 
@@ -356,9 +356,11 @@ export default function EventScreen() {
 
           <View style={styles.contentSection}>
             <EventNotes
-              value={notes}
-              onChange={setNotes}
-              onEditingComplete={() => setSavedNotes(notes)}
+              committedValue={committedNotes}
+              draftValue={draftNotes}
+              onDraftChange={setDraftNotes}
+              onSave={() => setCommittedNotes(draftNotes)}
+              onCancel={() => setDraftNotes(committedNotes)}
             />
           </View>
 

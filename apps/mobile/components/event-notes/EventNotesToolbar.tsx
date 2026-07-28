@@ -11,121 +11,88 @@ import {
   Quote,
 } from 'lucide-react-native';
 import { Pressable, ScrollView, StyleSheet } from 'react-native';
-import { Selection } from './EventNotes';
+import {
+  hasLinePrefix,
+  insertMarkdownLink,
+  isWrapped,
+  type MarkdownTransformation,
+  type TextSelection,
+  toggleLinePrefix,
+  toggleWrappedText,
+} from './markdownTransforms';
 
 interface EventNotesToolbarProps {
   value: string;
-  selection: Selection;
-  updateValueAndSelection: (
-    nextValue: string,
-    nextSelection: Selection
-  ) => void;
+  selection: TextSelection;
+  applyTransformation: (transformation: MarkdownTransformation) => void;
 }
 
 export default function EventNotesToolbar({
   value,
   selection,
-  updateValueAndSelection,
+  applyTransformation,
 }: EventNotesToolbarProps) {
   const { colors } = useTheme();
-
-  const wrapSelection = (
-    opening: string,
-    closing: string,
-    placeholder: string
-  ) => {
-    const selectedText = value.slice(selection.start, selection.end);
-    const content = selectedText || placeholder;
-    const replacement = `${opening}${content}${closing}`;
-    const nextValue =
-      value.slice(0, selection.start) +
-      replacement +
-      value.slice(selection.end);
-    const contentStart = selection.start + opening.length;
-
-    updateValueAndSelection(nextValue, {
-      start: contentStart,
-      end: contentStart + content.length,
-    });
-  };
-
-  const prefixSelectedLines = (getPrefix: (lineIndex: number) => string) => {
-    const lineStart = value.lastIndexOf('\n', selection.start - 1) + 1;
-    const nextLineBreak = value.indexOf('\n', selection.end);
-    const lineEnd = nextLineBreak === -1 ? value.length : nextLineBreak;
-    const selectedLines = value.slice(lineStart, lineEnd).split('\n');
-    const replacement = selectedLines
-      .map((line, index) => `${getPrefix(index)}${line}`)
-      .join('\n');
-    const nextValue =
-      value.slice(0, lineStart) + replacement + value.slice(lineEnd);
-
-    updateValueAndSelection(nextValue, {
-      start: lineStart,
-      end: lineStart + replacement.length,
-    });
-  };
-
-  const insertLink = () => {
-    const selectedText = value.slice(selection.start, selection.end);
-    const label = selectedText || 'link text';
-    const url = 'https://';
-    const replacement = `[${label}](${url})`;
-    const nextValue =
-      value.slice(0, selection.start) +
-      replacement +
-      value.slice(selection.end);
-    const selectionStart = selectedText
-      ? selection.start + label.length + 3
-      : selection.start + 1;
-    const selectionLength = selectedText ? url.length : label.length;
-
-    updateValueAndSelection(nextValue, {
-      start: selectionStart,
-      end: selectionStart + selectionLength,
-    });
-  };
 
   const toolbarActions = [
     {
       label: 'Bold',
       icon: Bold,
-      onPress: () => wrapSelection('**', '**', 'bold text'),
+      isActive: isWrapped(value, selection, '**', '**'),
+      onPress: () =>
+        applyTransformation(toggleWrappedText(value, selection, '**', '**')),
     },
     {
       label: 'Italic',
       icon: Italic,
-      onPress: () => wrapSelection('*', '*', 'italic text'),
+      isActive: isWrapped(value, selection, '*', '*'),
+      onPress: () =>
+        applyTransformation(toggleWrappedText(value, selection, '*', '*')),
     },
     {
       label: 'Block quote',
       icon: Quote,
-      onPress: () => prefixSelectedLines(() => '> '),
+      isActive: hasLinePrefix(value, selection, 'blockquote'),
+      onPress: () =>
+        applyTransformation(toggleLinePrefix(value, selection, 'blockquote')),
     },
     {
       label: 'Inline code',
       icon: Code,
-      onPress: () => wrapSelection('`', '`', 'code'),
+      isActive: isWrapped(value, selection, '`', '`'),
+      onPress: () =>
+        applyTransformation(toggleWrappedText(value, selection, '`', '`')),
     },
     {
       label: 'Code block',
       icon: FileCode2,
-      onPress: () => wrapSelection('```\n', '\n```', 'code'),
+      isActive: isWrapped(value, selection, '```\n', '\n```'),
+      onPress: () =>
+        applyTransformation(
+          toggleWrappedText(value, selection, '```\n', '\n```')
+        ),
     },
     {
       label: 'Link',
       icon: Link,
-      onPress: insertLink,
+      isActive: false,
+      onPress: () => applyTransformation(insertMarkdownLink(value, selection)),
     },
     {
       label: 'Bulleted list',
       icon: BulletList,
-      onPress: () => prefixSelectedLines(() => '- '),
+      isActive: hasLinePrefix(value, selection, 'bullet-list'),
+      onPress: () =>
+        applyTransformation(toggleLinePrefix(value, selection, 'bullet-list')),
     },
     {
       label: 'Numbered list',
       icon: ListOrdered,
-      onPress: () => prefixSelectedLines((index) => `${index + 1}. `),
+      isActive: hasLinePrefix(value, selection, 'numbered-list'),
+      onPress: () =>
+        applyTransformation(
+          toggleLinePrefix(value, selection, 'numbered-list')
+        ),
     },
   ];
 
@@ -151,14 +118,22 @@ export default function EventNotesToolbar({
             key={action.label}
             accessibilityLabel={action.label}
             accessibilityRole="button"
+            accessibilityState={{ selected: action.isActive }}
             hitSlop={4}
             onPress={action.onPress}
             style={({ pressed }) => [
               styles.toolbarButton,
+              action.isActive && {
+                backgroundColor: colors.interactiveMuted,
+              },
               pressed && { backgroundColor: colors.interactivePressed },
             ]}
           >
-            <Icon color={colors.textSecondary} size={18} strokeWidth={2} />
+            <Icon
+              color={action.isActive ? colors.text : colors.textSecondary}
+              size={18}
+              strokeWidth={2}
+            />
           </Pressable>
         );
       })}

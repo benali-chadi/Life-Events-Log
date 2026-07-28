@@ -1,7 +1,9 @@
 import { radius, spacing, typography } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
+  Linking,
   Pressable,
   StyleSheet,
   Text,
@@ -11,28 +13,39 @@ import {
 } from 'react-native';
 import Markdown from 'react-native-markdown-display';
 import EventNotesToolbar from './EventNotesToolbar';
+import { getAllowedLink } from './linkValidation';
+import type {
+  MarkdownTransformation,
+  TextSelection,
+} from './markdownTransforms';
 
 type EventNotesProps = {
-  value: string;
-  onChange: (value: string) => void;
-  onEditingComplete: () => void;
-};
-
-export type Selection = {
-  start: number;
-  end: number;
+  committedValue: string;
+  draftValue: string;
+  onDraftChange: (value: string) => void;
+  onSave: () => void;
+  onCancel: () => void;
 };
 
 export default function EventNotes({
-  value,
-  onChange,
-  onEditingComplete,
+  committedValue,
+  draftValue,
+  onDraftChange,
+  onSave,
+  onCancel,
 }: EventNotesProps) {
   const { colors } = useTheme();
   const { height: windowHeight } = useWindowDimensions();
   const inputRef = useRef<TextInput>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [selection, setSelection] = useState<Selection>({ start: 0, end: 0 });
+  const selectionRef = useRef<TextSelection>({ start: 0, end: 0 });
+  const [forcedSelection, setForcedSelection] = useState<TextSelection | null>(
+    null
+  );
+  const [, setSelection] = useState<TextSelection>({
+    start: 0,
+    end: 0,
+  });
 
   const markdownStyles = useMemo(
     () => ({
@@ -97,43 +110,88 @@ export default function EventNotes({
   );
 
   const enterEditMode = () => {
+    const endSelection = {
+      start: draftValue.length,
+      end: draftValue.length,
+    };
+
+    selectionRef.current = endSelection;
+    setForcedSelection(endSelection);
+    setSelection(endSelection);
     setIsEditing(true);
+  };
+
+  const applyTransformation = ({
+    value,
+    selection: nextSelection,
+  }: MarkdownTransformation) => {
+    selectionRef.current = nextSelection;
+    setForcedSelection(nextSelection);
+    setSelection(nextSelection);
+    onDraftChange(value);
     requestAnimationFrame(() => inputRef.current?.focus());
   };
 
-  const updateValueAndSelection = (
-    nextValue: string,
-    nextSelection: Selection
-  ) => {
-    onChange(nextValue);
-    setSelection(nextSelection);
-    requestAnimationFrame(() => inputRef.current?.focus());
-  };
+  const openLink = useCallback((value: string) => {
+    const allowedLink = getAllowedLink(value);
+
+    if (!allowedLink) {
+      Alert.alert('Unsupported link', 'Links must use http, https, or mailto.');
+      return false;
+    }
+
+    void Linking.openURL(allowedLink).catch(() => {
+      Alert.alert('Unable to open link', 'This link could not be opened.');
+    });
+
+    return false;
+  }, []);
 
   return (
     <View style={styles.root}>
       <View style={styles.header}>
         <Text style={[styles.heading, { color: colors.text }]}>Notes</Text>
         {isEditing ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Finish editing notes"
-            onPress={() => {
-              setIsEditing(false);
-              inputRef.current?.blur();
-              onEditingComplete();
-            }}
-            style={({ pressed }) => [
-              styles.modeButton,
-              pressed && { backgroundColor: colors.interactivePressed },
-            ]}
-          >
-            <Text style={[styles.modeButtonText, { color: colors.text }]}>
-              Done
-            </Text>
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Cancel notes editing"
+              onPress={() => {
+                onCancel();
+                setIsEditing(false);
+                inputRef.current?.blur();
+              }}
+              style={({ pressed }) => [
+                styles.modeButton,
+                pressed && { backgroundColor: colors.interactivePressed },
+              ]}
+            >
+              <Text
+                style={[styles.modeButtonText, { color: colors.textSecondary }]}
+              >
+                Cancel
+              </Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Save notes"
+              onPress={() => {
+                onSave();
+                setIsEditing(false);
+                inputRef.current?.blur();
+              }}
+              style={({ pressed }) => [
+                styles.modeButton,
+                pressed && { backgroundColor: colors.interactivePressed },
+              ]}
+            >
+              <Text style={[styles.modeButtonText, { color: colors.primary }]}>
+                Save
+              </Text>
+            </Pressable>
+          </View>
         ) : (
-          value.trim().length > 0 && (
+          committedValue.trim().length > 0 && (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Edit notes"
@@ -156,22 +214,33 @@ export default function EventNotes({
       {isEditing ? (
         <>
           <EventNotesToolbar
-            value={value}
-            selection={selection}
-            updateValueAndSelection={updateValueAndSelection}
+            value={draftValue}
+            selection={selectionRef.current}
+            applyTransformation={applyTransformation}
           />
 
           <TextInput
             ref={inputRef}
             accessibilityLabel="Event notes in Markdown"
             multiline
-            onChangeText={onChange}
-            onSelectionChange={(event) =>
-              setSelection(event.nativeEvent.selection)
-            }
+            onChangeText={onDraftChange}
+            onSelectionChange={(event) => {
+              const nextSelection = event.nativeEvent.selection;
+
+              selectionRef.current = nextSelection;
+              setSelection(nextSelection);
+
+              if (
+                forcedSelection &&
+                nextSelection.start === forcedSelection.start &&
+                nextSelection.end === forcedSelection.end
+              ) {
+                setForcedSelection(null);
+              }
+            }}
             placeholder="Write something about this event…"
             placeholderTextColor={colors.textMuted}
-            selection={selection}
+            selection={forcedSelection ?? undefined}
             selectionColor={colors.focus}
             style={[
               styles.editor,
@@ -184,10 +253,10 @@ export default function EventNotes({
             ]}
             scrollEnabled
             textAlignVertical="top"
-            value={value}
+            value={draftValue}
           />
         </>
-      ) : value.trim().length > 0 ? (
+      ) : committedValue.trim().length > 0 ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Edit event notes"
@@ -197,7 +266,9 @@ export default function EventNotes({
             pressed && { backgroundColor: colors.interactiveMuted },
           ]}
         >
-          <Markdown style={markdownStyles}>{value}</Markdown>
+          <Markdown onLinkPress={openLink} style={markdownStyles}>
+            {committedValue}
+          </Markdown>
         </Pressable>
       ) : (
         <Pressable
@@ -228,6 +299,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[1],
   },
   heading: {
     ...typography.h3,
