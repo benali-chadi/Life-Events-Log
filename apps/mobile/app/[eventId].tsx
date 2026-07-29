@@ -35,7 +35,7 @@ import DateMetadata, {
 import { useRef, useState } from 'react';
 import EventNotes from '@/components/event-notes/EventNotes';
 import EventAttachments from '@/components/event-attachments/EventAttachments';
-import type { EventAttachment } from '@/components/event-attachments/types';
+import type { AttachmentPreview } from '@/components/event-attachments/types';
 import EventTitleHeader from '@/components/event-title/EventTitleHeader';
 import type { SelectOption } from '@/components/ui/select';
 import { useEventDeletion } from '@/components/event-deletion/EventDeletionProvider';
@@ -143,7 +143,7 @@ export default function EventScreen() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [committedNotes, setCommittedNotes] = useState(initialNotes);
   const [draftNotes, setDraftNotes] = useState(initialNotes);
-  const [attachments, setAttachments] = useState<EventAttachment[]>([]);
+  const [attachments, setAttachments] = useState<AttachmentPreview[]>([]);
   const hasUnsavedNotes = draftNotes !== committedNotes;
   const hasUnsavedTitle = isEditingTitle && draftTitle !== title;
   const hasUnsavedChanges = hasUnsavedNotes || hasUnsavedTitle;

@@ -1,19 +1,20 @@
-import type { LELEvent } from '@/components/event-card/types';
+import type { EventCardData } from '@/components/event-card/types';
+import type { LocalDate } from '@/models';
 
-export type { LELEvent } from '@/components/event-card/types';
+export type { EventCardData } from '@/components/event-card/types';
 
 type EventSection = {
   title: string;
-  data: LELEvent[];
+  data: EventCardData[];
 };
 
-type EventSeed = Omit<LELEvent, 'date' | 'createdAt'> & {
+type EventSeed = Omit<EventCardData, 'date' | 'createdAt'> & {
   createdAt?: string;
 };
 
 type EventSectionSeed = {
   title: string;
-  date: string;
+  date: LocalDate;
   data: EventSeed[];
 };
 
@@ -267,7 +268,10 @@ const eventSectionSeeds: EventSectionSeed[] = [
   },
 ];
 
-export function compareEventsNewestFirst(first: LELEvent, second: LELEvent) {
+export function compareEventsNewestFirst(
+  first: EventCardData,
+  second: EventCardData
+) {
   if (first.time && second.time) {
     return (
       second.time.localeCompare(first.time) ||

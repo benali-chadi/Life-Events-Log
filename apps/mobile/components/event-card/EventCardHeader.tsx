@@ -7,7 +7,7 @@ import {
   type getSignificanceStyle,
 } from './eventCardSignificance';
 import { eventCardStyles as styles } from './eventCardStyles';
-import type { EventSignificance } from './types';
+import type { EventSignificance } from '@/models';
 
 const COLLAPSED_TITLE_LINE_LIMIT = 2;
 

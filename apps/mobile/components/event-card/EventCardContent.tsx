@@ -10,10 +10,11 @@ import {
   significanceLabels,
 } from './eventCardSignificance';
 import { eventCardStyles as styles } from './eventCardStyles';
-import type { EventSignificance, LELEvent } from './types';
+import type { EventSignificance } from '@/models';
+import type { EventCardData } from './types';
 
 type EventCardContentProps = {
-  event: LELEvent;
+  event: EventCardData;
   significance: EventSignificance;
   colors: ReturnType<typeof useTheme>['colors'];
   isDark: boolean;

@@ -1,2 +1,2 @@
 export { default } from './EventCard';
-export type { EventSignificance, LELEvent } from './types';
+export type { EventCardData } from './types';

@@ -8,10 +8,10 @@ import { confirmEventDeletion } from '../event-deletion/confirmEventDeletion';
 import SwipeReveal, { closeOpenSwipe } from '../ui/SwipeReveal';
 import EventCardContent from './EventCardContent';
 import { eventCardStyles as styles } from './eventCardStyles';
-import type { LELEvent } from './types';
+import type { EventCardData } from './types';
 
 type EventCardProps = {
-  event: LELEvent;
+  event: EventCardData;
 };
 
 export default function EventCard({ event }: EventCardProps) {

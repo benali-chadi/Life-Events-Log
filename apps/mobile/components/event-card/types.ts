@@ -1,14 +1,17 @@
-import type { eventColors } from '@lel/design';
+import type {
+  CategoryColor,
+  EventSignificance,
+  LocalDate,
+  LocalTime,
+  Timestamp,
+} from '@/models';
 
-export type EventSignificance =
-  'ordinary' | 'notable' | 'major' | 'turning-point';
-
-export type LELEvent = {
+export type EventCardData = {
   title: string;
-  date: string;
-  time?: string;
-  createdAt: string;
-  categoryColor?: keyof typeof eventColors;
+  date: LocalDate;
+  time?: LocalTime;
+  createdAt: Timestamp;
+  categoryColor?: CategoryColor;
   categoryName?: string;
   tags?: string[];
   location?: string;

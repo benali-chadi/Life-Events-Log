@@ -1,5 +1,5 @@
 import type { useTheme } from '@lel/design/useTheme';
-import type { EventSignificance } from './types';
+import type { EventSignificance } from '@/models';
 import { eventCardStyles } from './eventCardStyles';
 
 type ThemeColors = ReturnType<typeof useTheme>['colors'];

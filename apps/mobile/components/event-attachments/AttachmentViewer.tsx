@@ -13,10 +13,10 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import type { EventAttachment } from './types';
+import type { AttachmentPreview } from './types';
 
 type AttachmentViewerProps = {
-  attachments: EventAttachment[];
+  attachments: AttachmentPreview[];
   initialIndex: number;
   visible: boolean;
   onClose: () => void;
@@ -29,7 +29,7 @@ export default function AttachmentViewer({
   onClose,
 }: AttachmentViewerProps) {
   const { width } = useWindowDimensions();
-  const listRef = useRef<FlatList<EventAttachment>>(null);
+  const listRef = useRef<FlatList<AttachmentPreview>>(null);
   const [activeIndex, setActiveIndex] = useState(initialIndex);
 
   useEffect(() => {

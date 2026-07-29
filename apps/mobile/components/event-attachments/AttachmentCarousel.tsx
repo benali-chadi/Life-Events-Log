@@ -3,12 +3,12 @@ import { useTheme } from '@lel/design/useTheme';
 import { Image } from 'expo-image';
 import { X } from 'lucide-react-native';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import type { EventAttachment } from './types';
+import type { AttachmentPreview } from './types';
 
 type AttachmentCarouselProps = {
-  attachments: EventAttachment[];
+  attachments: AttachmentPreview[];
   onOpen: (index: number) => void;
-  onRemove: (attachment: EventAttachment) => void;
+  onRemove: (attachment: AttachmentPreview) => void;
 };
 
 export default function AttachmentCarousel({

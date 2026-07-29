@@ -2,10 +2,10 @@ import type { useTheme } from '@lel/design/useTheme';
 import { Text, View } from 'react-native';
 import { significanceLabels } from './eventCardSignificance';
 import { eventCardStyles as styles } from './eventCardStyles';
-import type { LELEvent } from './types';
+import type { EventCardData } from './types';
 
 type EventCardExpandedContentProps = {
-  event: LELEvent;
+  event: EventCardData;
   colors: ReturnType<typeof useTheme>['colors'];
 };
 

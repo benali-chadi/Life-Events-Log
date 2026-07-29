@@ -6,11 +6,11 @@ import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import AttachmentCarousel from './AttachmentCarousel';
 import AttachmentViewer from './AttachmentViewer';
-import type { EventAttachment } from './types';
+import type { AttachmentPreview } from './types';
 
 type EventAttachmentsProps = {
-  attachments: EventAttachment[];
-  onChange: (attachments: EventAttachment[]) => void;
+  attachments: AttachmentPreview[];
+  onChange: (attachments: AttachmentPreview[]) => void;
 };
 
 export default function EventAttachments({
@@ -48,7 +48,7 @@ export default function EventAttachments({
     onChange([...attachments, ...addedAttachments]);
   };
 
-  const confirmRemove = (attachment: EventAttachment) => {
+  const confirmRemove = (attachment: AttachmentPreview) => {
     Alert.alert(
       'Remove attachment?',
       `${attachment.filename} will be removed from this event.`,
