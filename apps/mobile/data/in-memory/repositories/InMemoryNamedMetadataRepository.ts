@@ -10,6 +10,12 @@ import {
   type RepositoryDependencies,
   type UpdateNamedMetadataInput,
 } from '@/data/repositories';
+import {
+  cloneMetadataEntity,
+  comparableMetadataName,
+  compareMetadataNames,
+  normalizeMetadataName,
+} from './namedMetadataUtils';
 
 type NamedMetadataEntity = {
   id: UUID;
@@ -24,20 +30,6 @@ type NamedMetadataRepositoryOptions<TEntity extends NamedMetadataEntity> = {
   createEntity: (entity: NamedMetadataEntity) => TEntity;
 };
 
-function normalizeName(name: string) {
-  return name.trim().replace(/\s+/g, ' ');
-}
-
-function comparableName(name: string) {
-  return normalizeName(name).toLowerCase();
-}
-
-function cloneEntity<TEntity extends NamedMetadataEntity>(
-  entity: TEntity
-): TEntity {
-  return { ...entity };
-}
-
 export class InMemoryNamedMetadataRepository<
   TEntity extends NamedMetadataEntity,
 > implements NamedMetadataRepository<TEntity> {
@@ -50,25 +42,22 @@ export class InMemoryNamedMetadataRepository<
   async getById(id: UUID) {
     const entity = this.table.get(id);
 
-    return entity && entity.deletedAt === null ? cloneEntity(entity) : null;
+    return entity && entity.deletedAt === null
+      ? cloneMetadataEntity(entity)
+      : null;
   }
 
   async list(query?: MetadataListQuery) {
-    const search = query?.search ? comparableName(query.search) : '';
+    const search = query?.search ? comparableMetadataName(query.search) : '';
 
     return [...this.table.values()]
       .filter(
         (entity) =>
           entity.deletedAt === null &&
-          (!search || comparableName(entity.name).includes(search))
+          (!search || comparableMetadataName(entity.name).includes(search))
       )
-      .sort(
-        (first, second) =>
-          first.name.localeCompare(second.name, undefined, {
-            sensitivity: 'base',
-          }) || first.id.localeCompare(second.id)
-      )
-      .map(cloneEntity);
+      .sort(compareMetadataNames)
+      .map(cloneMetadataEntity);
   }
 
   async create(input: CreateNamedMetadataInput) {
@@ -94,7 +83,7 @@ export class InMemoryNamedMetadataRepository<
 
     this.table.set(id, entity);
 
-    return cloneEntity(entity);
+    return cloneMetadataEntity(entity);
   }
 
   async update(id: UUID, input: UpdateNamedMetadataInput) {
@@ -110,7 +99,7 @@ export class InMemoryNamedMetadataRepository<
 
     this.table.set(id, updated);
 
-    return cloneEntity(updated);
+    return cloneMetadataEntity(updated);
   }
 
   async softDelete(id: UUID) {
@@ -142,7 +131,7 @@ export class InMemoryNamedMetadataRepository<
   }
 
   private validName(value: string) {
-    const name = normalizeName(value);
+    const name = normalizeMetadataName(value);
 
     if (!name) {
       throw new ModelValidationError(
@@ -154,10 +143,11 @@ export class InMemoryNamedMetadataRepository<
   }
 
   private assertUniqueName(name: string, excludedId?: UUID) {
-    const comparison = comparableName(name);
+    const comparison = comparableMetadataName(name);
     const duplicate = [...this.table.values()].some(
       (entity) =>
-        entity.id !== excludedId && comparableName(entity.name) === comparison
+        entity.id !== excludedId &&
+        comparableMetadataName(entity.name) === comparison
     );
 
     if (duplicate) {
