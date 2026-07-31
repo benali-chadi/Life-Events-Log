@@ -122,4 +122,4 @@ export const DEVELOPMENT_SEED = {
       personId: ids.people.mounir,
     },
   ],
-} satisfies InMemorySeed;
+} as const satisfies InMemorySeed;

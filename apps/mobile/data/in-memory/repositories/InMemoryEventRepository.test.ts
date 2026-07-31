@@ -113,7 +113,11 @@ describe('InMemoryEventRepository', () => {
     ).toBe(true);
 
     details.event.title = 'External mutation';
-    details.tags[0].name = 'External mutation';
+    const [returnedTag] = details.tags;
+
+    if (!returnedTag) throw new Error('Expected the created event tag.');
+
+    returnedTag.name = 'External mutation';
 
     expect(database.events.get(NEW_EVENT_ID)?.title).toBe('A new chapter');
     expect(database.tags.get(DEVELOPMENT_SEED.tags[0].id)?.name).toBe(
@@ -426,6 +430,7 @@ describe('InMemoryEventRepository', () => {
     const projectId = DEVELOPMENT_SEED.events[0].id;
     const coffeeId = DEVELOPMENT_SEED.events[1].id;
     const tagIds = DEVELOPMENT_SEED.tags.map((tag) => tag.id);
+    const firstTagId = DEVELOPMENT_SEED.tags[0].id;
     const personId = DEVELOPMENT_SEED.people[0].id;
 
     await expect(
@@ -439,7 +444,7 @@ describe('InMemoryEventRepository', () => {
     await expect(
       repository.list({
         limit: 10,
-        tagIds: { ids: [tagIds[0], 'missing-tag'], match: 'any' },
+        tagIds: { ids: [firstTagId, 'missing-tag'], match: 'any' },
       })
     ).resolves.toMatchObject({
       items: [{ event: { id: projectId } }],
@@ -447,7 +452,7 @@ describe('InMemoryEventRepository', () => {
     await expect(
       repository.list({
         limit: 10,
-        tagIds: { ids: [tagIds[0], 'missing-tag'], match: 'all' },
+        tagIds: { ids: [firstTagId, 'missing-tag'], match: 'all' },
       })
     ).resolves.toMatchObject({ items: [] });
     await expect(
@@ -517,7 +522,7 @@ describe('InMemoryEventRepository', () => {
           ids: [],
           match: 'neither',
         },
-      } as EventListQuery)
+      } as unknown as EventListQuery)
     ).rejects.toBeInstanceOf(ModelValidationError);
     await expect(
       repository.list({ limit: 10, cursor: 'not-a-cursor' })

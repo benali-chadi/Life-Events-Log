@@ -501,7 +501,9 @@ export class InMemoryEventRepository implements EventRepository {
       );
     }
 
-    const [year, month, day] = date.split('-').map(Number);
+    const year = Number(date.slice(0, 4));
+    const month = Number(date.slice(5, 7));
+    const day = Number(date.slice(8, 10));
     const parsed = new Date(Date.UTC(year, month - 1, day));
 
     if (
