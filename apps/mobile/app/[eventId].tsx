@@ -10,7 +10,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import {
@@ -32,7 +31,7 @@ import { radius, spacing, typography } from '@lel/design';
 import DateMetadata, {
   type DateValue,
 } from '@/components/metadata/DateMetadata';
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import EventNotes from '@/components/event-notes/EventNotes';
 import EventAttachments from '@/components/event-attachments/EventAttachments';
 import type {
@@ -162,7 +161,6 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
   const updateEvent = useUpdateEventMutation();
   const createAttachment = useCreateAttachmentMutation();
   const deleteAttachment = useDeleteAttachmentMutation();
-  const titleInputRef = useRef<TextInput>(null);
   const immediateSaveVersions = useRef<Record<ImmediateEventField, number>>({
     date: 0,
     category: 0,
@@ -193,7 +191,8 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
     metadataOption(details.location)
   );
   const [title, setTitle] = useState(event.title);
-  const [draftTitle, setDraftTitle] = useState(event.title);
+  const draftTitleRef = useRef(event.title);
+  const [isTitleDirty, setIsTitleDirty] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isSavingTitle, setIsSavingTitle] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -207,7 +206,7 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
     })
   );
   const hasUnsavedNotes = draftNotes !== committedNotes;
-  const hasUnsavedTitle = isEditingTitle && draftTitle !== title;
+  const hasUnsavedTitle = isEditingTitle && isTitleDirty;
   const hasUnsavedChanges = hasUnsavedNotes || hasUnsavedTitle;
 
   usePreventRemove(hasUnsavedChanges && !isDeleting, ({ data }) => {
@@ -228,17 +227,25 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
     );
   });
 
-  const beginTitleEditing = () => {
-    setDraftTitle(title);
+  const beginTitleEditing = useCallback(() => {
+    draftTitleRef.current = title;
+    setIsTitleDirty(false);
     setIsEditingTitle(true);
-    requestAnimationFrame(() => titleInputRef.current?.focus());
-  };
+  }, [title]);
 
   const cancelTitleEditing = () => {
-    setDraftTitle(title);
+    draftTitleRef.current = title;
+    setIsTitleDirty(false);
     setIsEditingTitle(false);
-    titleInputRef.current?.blur();
   };
+
+  const changeDraftTitle = useCallback(
+    (nextTitle: string) => {
+      draftTitleRef.current = nextTitle;
+      setIsTitleDirty(nextTitle.trim() !== title);
+    },
+    [title]
+  );
 
   const showSaveError = () => {
     Alert.alert(
@@ -248,7 +255,7 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
   };
 
   const saveTitle = async () => {
-    const nextTitle = draftTitle.trim();
+    const nextTitle = draftTitleRef.current.trim();
 
     if (!nextTitle || isSavingTitle) {
       if (isSavingTitle) return;
@@ -267,9 +274,9 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
       const savedTitle = updated.event.title;
 
       setTitle(savedTitle);
-      setDraftTitle(savedTitle);
+      draftTitleRef.current = savedTitle;
+      setIsTitleDirty(false);
       setIsEditingTitle(false);
-      titleInputRef.current?.blur();
     } catch {
       showSaveError();
     } finally {
@@ -354,20 +361,29 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
     });
   };
 
+  const saveTitleRef = useRef(saveTitle);
+  saveTitleRef.current = saveTitle;
+  const submitTitle = useCallback(() => {
+    void saveTitleRef.current();
+  }, []);
+  const renderEventTitle = useCallback(
+    () => (
+      <EventTitleHeader
+        isEditing={isEditingTitle}
+        onBeginEditing={beginTitleEditing}
+        onChange={changeDraftTitle}
+        onSubmit={submitTitle}
+        title={isEditingTitle ? draftTitleRef.current : title}
+      />
+    ),
+    [beginTitleEditing, changeDraftTitle, isEditingTitle, submitTitle, title]
+  );
+
   return (
     <>
       <Stack.Screen
         options={{
-          headerTitle: () => (
-            <EventTitleHeader
-              inputRef={titleInputRef}
-              isEditing={isEditingTitle}
-              onBeginEditing={beginTitleEditing}
-              onChange={setDraftTitle}
-              onSubmit={() => void saveTitle()}
-              title={isEditingTitle ? draftTitle : title}
-            />
-          ),
+          headerTitle: renderEventTitle,
           headerBackTitle: 'Back',
           headerLeft: isEditingTitle
             ? () => (

@@ -1,10 +1,9 @@
 import { radius, spacing, typography } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
-import { RefObject } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput } from 'react-native';
 
 type EventTitleHeaderProps = {
-  inputRef: RefObject<TextInput | null>;
   isEditing: boolean;
   title: string;
   onBeginEditing: () => void;
@@ -13,7 +12,6 @@ type EventTitleHeaderProps = {
 };
 
 export default function EventTitleHeader({
-  inputRef,
   isEditing,
   title,
   onBeginEditing,
@@ -21,6 +19,20 @@ export default function EventTitleHeader({
   onSubmit,
 }: EventTitleHeaderProps) {
   const { colors } = useTheme();
+  const inputRef = useRef<TextInput>(null);
+  const [draftTitle, setDraftTitle] = useState(title);
+
+  useEffect(() => {
+    setDraftTitle(title);
+  }, [title]);
+
+  useEffect(() => {
+    if (!isEditing) return;
+
+    const frame = requestAnimationFrame(() => inputRef.current?.focus());
+
+    return () => cancelAnimationFrame(frame);
+  }, [isEditing]);
 
   if (isEditing) {
     return (
@@ -31,7 +43,10 @@ export default function EventTitleHeader({
         autoCorrect
         enterKeyHint="done"
         maxLength={160}
-        onChangeText={onChange}
+        onChangeText={(nextTitle) => {
+          setDraftTitle(nextTitle);
+          onChange(nextTitle);
+        }}
         onSubmitEditing={onSubmit}
         placeholder="Event title"
         placeholderTextColor={colors.textMuted}
@@ -46,7 +61,7 @@ export default function EventTitleHeader({
             borderColor: colors.focus,
           },
         ]}
-        value={title}
+        value={draftTitle}
       />
     );
   }
@@ -72,7 +87,7 @@ export default function EventTitleHeader({
 
 const styles = StyleSheet.create({
   titleButton: {
-    maxWidth: 240,
+    maxWidth: '100%',
     borderRadius: radius.sm,
     paddingHorizontal: spacing[1],
     paddingVertical: 2,
