@@ -21,6 +21,7 @@ type SingleSelectProps = {
   options: SelectOption[];
   onChange: (value: SelectOption | null) => void;
   onCreate?: (label: string) => SelectOption | Promise<SelectOption>;
+  onCreateError?: (error: unknown) => void;
   placeholder?: string;
   searchPlaceholder?: string;
   emptySuggestionsText?: string;
@@ -35,6 +36,7 @@ export default function SingleSelect({
   options,
   onChange,
   onCreate,
+  onCreateError,
   placeholder = 'Select a value',
   searchPlaceholder = 'Search...',
   emptySuggestionsText = 'No options found',
@@ -114,10 +116,12 @@ export default function SingleSelect({
     setIsCreating(true);
     try {
       selectOption(await onCreate(label));
+    } catch (error) {
+      onCreateError?.(error);
     } finally {
       setIsCreating(false);
     }
-  }, [isCreating, onCreate, query, selectOption]);
+  }, [isCreating, onCreate, onCreateError, query, selectOption]);
 
   const submitQuery = () => {
     const highlightedSuggestion = suggestions[highlightedIndex];

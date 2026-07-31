@@ -4,9 +4,11 @@ import type {
   LocalDate,
   LocalTime,
   Timestamp,
+  UUID,
 } from '@/models';
 
 export type EventCardData = {
+  id?: UUID;
   title: string;
   date: LocalDate;
   time?: LocalTime;

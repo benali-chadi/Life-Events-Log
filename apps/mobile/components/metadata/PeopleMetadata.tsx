@@ -1,14 +1,8 @@
+import { Alert } from 'react-native';
 import { useState } from 'react';
+import { useCreatePersonMutation, usePeopleQuery } from '@/data/query';
 import CreatableTokenInput from '../ui/CreatableTokenInput';
 import type { SelectOption } from '../ui/select';
-
-const initialPeople: SelectOption[] = [
-  { id: '1', label: 'Mounir' },
-  { id: '2', label: 'Bilal' },
-  { id: '3', label: 'Issam' },
-  { id: '4', label: 'Chadi' },
-  { id: '5', label: 'Ali' },
-];
 
 type PeopleMetadataProps = {
   value?: SelectOption[];
@@ -19,34 +13,36 @@ export default function PeopleMetadata({
   value,
   onChange,
 }: PeopleMetadataProps = {}) {
-  const [availablePeople, setAvailablePeople] = useState(initialPeople);
-  const [internalValue, setInternalValue] = useState<SelectOption[]>([
-    { id: '1', label: 'Mounir' },
-    { id: '3', label: 'Issam' },
-  ]);
+  const peopleQuery = usePeopleQuery();
+  const createPerson = useCreatePersonMutation();
+  const [internalValue, setInternalValue] = useState<SelectOption[]>([]);
   const selectedPeople = value ?? internalValue;
   const setSelectedPeople = onChange ?? setInternalValue;
-
-  const creatPerson = (label: string): SelectOption => {
-    const newPerson = {
-      id: Date.now().toString(),
-      label,
-    };
-
-    setAvailablePeople((current) => [...current, newPerson]);
-
-    return newPerson;
-  };
+  const options = (peopleQuery.data ?? []).map((person) => ({
+    id: person.id,
+    label: person.name,
+  }));
 
   return (
     <CreatableTokenInput
       prefix="@"
       placeholder="Add person"
       searchPlaceholder="Search or create a person..."
-      options={availablePeople}
+      options={options}
       values={selectedPeople}
       onChange={setSelectedPeople}
-      onCreate={creatPerson}
+      onCreate={async (label) => {
+        const person = await createPerson.mutateAsync({ name: label });
+
+        return { id: person.id, label: person.name };
+      }}
+      onCreateError={(error) =>
+        Alert.alert(
+          'Couldn’t create person',
+          error instanceof Error ? error.message : 'Please try again.'
+        )
+      }
+      disabled={peopleQuery.isPending || peopleQuery.isError}
     />
   );
 }

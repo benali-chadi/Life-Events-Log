@@ -83,14 +83,6 @@ export default function NewEventScreen() {
         pathname: '/[eventId]',
         params: {
           eventId: `${Date.now()}`,
-          title: nextTitle,
-          date: date.date,
-          time: date.time ?? '',
-          category: category ? JSON.stringify(category) : '',
-          people: JSON.stringify(people),
-          tags: JSON.stringify(tags),
-          significance: significance ? JSON.stringify(significance) : '',
-          location: location ? JSON.stringify(location) : '',
         },
       });
     });

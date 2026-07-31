@@ -37,7 +37,7 @@ export default function EventCard({ event }: EventCardProps) {
 
     router.navigate({
       pathname: '/[eventId]',
-      params: { eventId: event.title, title: event.title },
+      params: { eventId: event.id ?? event.title },
     });
   };
 

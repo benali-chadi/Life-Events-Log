@@ -10,6 +10,7 @@ type EventSection = {
 
 type EventSeed = Omit<EventCardData, 'date' | 'createdAt'> & {
   createdAt?: string;
+  id?: string;
 };
 
 type EventSectionSeed = {
@@ -23,6 +24,19 @@ const eventSectionSeeds: EventSectionSeed[] = [
     title: 'Today',
     date: '2026-07-22',
     data: [
+      {
+        id: '50000000-0000-4000-8000-000000000001',
+        title: 'Started working on Life Events Log',
+        // date: '2026-07-01',
+        time: '14:30',
+        significance: 'turning-point',
+        // categoryId: ids.categories.projects,
+        // locationId: ids.locations.rabat,
+        notes: 'Started the first working version of the project.',
+        // createdAt: CREATED_AT,
+        // updatedAt: CREATED_AT,
+        // deletedAt: null,
+      },
       {
         title: 'Started implementing event filters',
         time: '18:40',

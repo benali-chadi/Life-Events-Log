@@ -23,7 +23,7 @@ type EventNotesProps = {
   committedValue: string;
   draftValue: string;
   onDraftChange: (value: string) => void;
-  onSave: () => void;
+  onSave: () => boolean | void | Promise<boolean | void>;
   onCancel: () => void;
 };
 
@@ -38,6 +38,7 @@ export default function EventNotes({
   const { height: windowHeight } = useWindowDimensions();
   const inputRef = useRef<TextInput>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const selectionRef = useRef<TextSelection>({ start: 0, end: 0 });
   const [forcedSelection, setForcedSelection] = useState<TextSelection | null>(
     null
@@ -147,6 +148,23 @@ export default function EventNotes({
     return false;
   }, []);
 
+  const save = async () => {
+    if (isSaving) return;
+
+    setIsSaving(true);
+
+    try {
+      const saved = await onSave();
+
+      if (saved === false) return;
+
+      setIsEditing(false);
+      inputRef.current?.blur();
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <View style={styles.root}>
       <View style={styles.header}>
@@ -156,6 +174,7 @@ export default function EventNotes({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Cancel notes editing"
+              disabled={isSaving}
               onPress={() => {
                 onCancel();
                 setIsEditing(false);
@@ -175,13 +194,11 @@ export default function EventNotes({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Save notes"
-              onPress={() => {
-                onSave();
-                setIsEditing(false);
-                inputRef.current?.blur();
-              }}
+              disabled={isSaving}
+              onPress={() => void save()}
               style={({ pressed }) => [
                 styles.modeButton,
+                isSaving && styles.disabledButton,
                 pressed && { backgroundColor: colors.interactivePressed },
               ]}
             >
@@ -317,6 +334,9 @@ const styles = StyleSheet.create({
   modeButtonText: {
     ...typography.small,
     fontWeight: '600',
+  },
+  disabledButton: {
+    opacity: 0.5,
   },
   editor: {
     ...typography.body,

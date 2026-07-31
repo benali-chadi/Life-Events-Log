@@ -23,6 +23,7 @@ type CreatableTokenInputProps = {
   onChange: (values: SelectOption[]) => void;
 
   onCreate?: (label: string) => SelectOption | Promise<SelectOption>;
+  onCreateError?: (error: unknown) => void;
 
   placeholder?: string;
   searchPlaceholder?: string;
@@ -39,6 +40,7 @@ export default function CreatableTokenInput({
   options,
   onChange,
   onCreate,
+  onCreateError,
 
   placeholder = 'Add a value',
   searchPlaceholder = 'Search or create...',
@@ -156,10 +158,12 @@ export default function CreatableTokenInput({
       const createdOption = await onCreate(trimmedQuery);
 
       addOption(createdOption);
+    } catch (error) {
+      onCreateError?.(error);
     } finally {
       setIsCreating(false);
     }
-  }, [addOption, isCreating, onCreate, query]);
+  }, [addOption, isCreating, onCreate, onCreateError, query]);
 
   const enterEditMode = useCallback(() => {
     if (disabled) return;
