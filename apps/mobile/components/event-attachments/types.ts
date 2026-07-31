@@ -3,3 +3,12 @@ export type AttachmentPreview = {
   uri: string;
   filename: string;
 };
+
+export type AttachmentDraft = {
+  uri: string;
+  filename: string;
+  mimeType: string | null;
+  width: number | null;
+  height: number | null;
+  fileSize: number | null;
+};

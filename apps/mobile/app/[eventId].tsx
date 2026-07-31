@@ -35,12 +35,20 @@ import DateMetadata, {
 import { useRef, useState } from 'react';
 import EventNotes from '@/components/event-notes/EventNotes';
 import EventAttachments from '@/components/event-attachments/EventAttachments';
-import type { AttachmentPreview } from '@/components/event-attachments/types';
+import type {
+  AttachmentDraft,
+  AttachmentPreview,
+} from '@/components/event-attachments/types';
 import EventTitleHeader from '@/components/event-title/EventTitleHeader';
 import type { SelectOption } from '@/components/ui/select';
 import { useEventDeletion } from '@/components/event-deletion/EventDeletionProvider';
 import { confirmEventDeletion } from '@/components/event-deletion/confirmEventDeletion';
-import { useEventDetailsQuery, useUpdateEventMutation } from '@/data/query';
+import {
+  useCreateAttachmentMutation,
+  useDeleteAttachmentMutation,
+  useEventDetailsQuery,
+  useUpdateEventMutation,
+} from '@/data/query';
 import type { UpdateEventInput } from '@/data/repositories';
 import type {
   EventDetails,
@@ -152,6 +160,8 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
   const navigation = useNavigation();
   const { deleteEvent } = useEventDeletion();
   const updateEvent = useUpdateEventMutation();
+  const createAttachment = useCreateAttachmentMutation();
+  const deleteAttachment = useDeleteAttachmentMutation();
   const titleInputRef = useRef<TextInput>(null);
   const immediateSaveVersions = useRef<Record<ImmediateEventField, number>>({
     date: 0,
@@ -189,12 +199,12 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [committedNotes, setCommittedNotes] = useState(event.notes);
   const [draftNotes, setDraftNotes] = useState(event.notes);
-  const [attachments, setAttachments] = useState<AttachmentPreview[]>(() =>
-    details.attachments.map((attachment) => ({
+  const attachments: AttachmentPreview[] = details.attachments.map(
+    (attachment) => ({
       id: attachment.id,
       uri: attachment.relativePath,
       filename: attachment.filename,
-    }))
+    })
   );
   const hasUnsavedNotes = draftNotes !== committedNotes;
   const hasUnsavedTitle = isEditingTitle && draftTitle !== title;
@@ -302,6 +312,27 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
         showSaveError();
       }
     }
+  };
+
+  const addAttachments = async (drafts: AttachmentDraft[]) => {
+    for (const draft of drafts) {
+      await createAttachment.mutateAsync({
+        eventId: event.id,
+        relativePath: draft.uri,
+        filename: draft.filename,
+        mimeType: draft.mimeType,
+        width: draft.width,
+        height: draft.height,
+        fileSize: draft.fileSize,
+      });
+    }
+  };
+
+  const removeAttachment = async (attachment: AttachmentPreview) => {
+    await deleteAttachment.mutateAsync({
+      id: attachment.id,
+      eventId: event.id,
+    });
   };
 
   const confirmDelete = () => {
@@ -544,7 +575,8 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
           <View style={styles.contentSection}>
             <EventAttachments
               attachments={attachments}
-              onChange={setAttachments}
+              onAdd={addAttachments}
+              onRemove={removeAttachment}
             />
           </View>
         </ScrollView>

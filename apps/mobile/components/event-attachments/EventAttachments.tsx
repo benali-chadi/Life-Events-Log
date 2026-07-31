@@ -6,19 +6,22 @@ import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import AttachmentCarousel from './AttachmentCarousel';
 import AttachmentViewer from './AttachmentViewer';
-import type { AttachmentPreview } from './types';
+import type { AttachmentDraft, AttachmentPreview } from './types';
 
 type EventAttachmentsProps = {
   attachments: AttachmentPreview[];
-  onChange: (attachments: AttachmentPreview[]) => void;
+  onAdd: (attachments: AttachmentDraft[]) => Promise<void>;
+  onRemove: (attachment: AttachmentPreview) => Promise<void>;
 };
 
 export default function EventAttachments({
   attachments,
-  onChange,
+  onAdd,
+  onRemove,
 }: EventAttachmentsProps) {
   const { colors } = useTheme();
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const [isAdding, setIsAdding] = useState(false);
 
   const addAttachments = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -39,13 +42,27 @@ export default function EventAttachments({
 
     if (result.canceled) return;
 
-    const addedAttachments = result.assets.map((asset, index) => ({
-      id: `${Date.now()}-${index}-${Math.random().toString(36).slice(2)}`,
+    const addedAttachments: AttachmentDraft[] = result.assets.map((asset) => ({
       uri: asset.uri,
-      filename: asset.fileName ?? `image-${attachments.length + index + 1}`,
+      filename: asset.fileName ?? `image-${asset.assetId ?? 'attachment'}`,
+      mimeType: asset.mimeType ?? null,
+      width: asset.width || null,
+      height: asset.height || null,
+      fileSize: asset.fileSize ?? null,
     }));
 
-    onChange([...attachments, ...addedAttachments]);
+    setIsAdding(true);
+
+    try {
+      await onAdd(addedAttachments);
+    } catch {
+      Alert.alert(
+        'Couldn’t add attachments',
+        'One or more attachments could not be added.'
+      );
+    } finally {
+      setIsAdding(false);
+    }
   };
 
   const confirmRemove = (attachment: AttachmentPreview) => {
@@ -60,10 +77,14 @@ export default function EventAttachments({
         {
           text: 'Remove',
           style: 'destructive',
-          onPress: () =>
-            onChange(
-              attachments.filter((candidate) => candidate.id !== attachment.id)
-            ),
+          onPress: () => {
+            void onRemove(attachment).catch(() => {
+              Alert.alert(
+                'Couldn’t remove attachment',
+                'The attachment was not removed. Please try again.'
+              );
+            });
+          },
         },
       ]
     );
@@ -80,15 +101,17 @@ export default function EventAttachments({
         <Pressable
           accessibilityLabel="Add attachments"
           accessibilityRole="button"
-          onPress={addAttachments}
+          disabled={isAdding}
+          onPress={() => void addAttachments()}
           style={({ pressed }) => [
             styles.addButton,
+            isAdding && styles.disabled,
             pressed && { backgroundColor: colors.interactivePressed },
           ]}
         >
           <ImagePlus color={colors.textSecondary} size={17} strokeWidth={2} />
           <Text style={[styles.addButtonText, { color: colors.textSecondary }]}>
-            Add
+            {isAdding ? 'Adding…' : 'Add'}
           </Text>
         </Pressable>
       </View>
@@ -103,10 +126,12 @@ export default function EventAttachments({
         <Pressable
           accessibilityLabel="Add an attachment"
           accessibilityRole="button"
-          onPress={addAttachments}
+          disabled={isAdding}
+          onPress={() => void addAttachments()}
           style={({ pressed }) => [
             styles.emptyState,
             { borderColor: colors.border },
+            isAdding && styles.disabled,
             pressed && { backgroundColor: colors.interactiveMuted },
           ]}
         >
@@ -151,6 +176,9 @@ const styles = StyleSheet.create({
   addButtonText: {
     ...typography.small,
     fontWeight: '600',
+  },
+  disabled: {
+    opacity: 0.55,
   },
   emptyState: {
     minHeight: 104,
