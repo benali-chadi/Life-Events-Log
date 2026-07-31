@@ -14,7 +14,10 @@ export interface AttachmentRepository {
   getById(id: UUID): Promise<EventAttachment | null>;
   listForEvent(eventId: UUID): Promise<EventAttachment[]>;
   create(input: CreateAttachmentInput): Promise<EventAttachment>;
-  reorder(eventId: UUID, attachmentIds: UUID[]): Promise<EventAttachment[]>;
+  reorder(
+    eventId: UUID,
+    attachmentIds: readonly UUID[]
+  ): Promise<EventAttachment[]>;
   softDelete(id: UUID): Promise<void>;
   restore(id: UUID): Promise<void>;
 }

@@ -1,3 +1,4 @@
+export * from './InMemoryAttachmentRepository';
 export * from './InMemoryCategoryRepository';
 export * from './InMemoryEventRepository';
 export * from './InMemoryLocationRepository';
