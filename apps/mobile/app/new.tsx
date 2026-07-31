@@ -122,7 +122,7 @@ export default function NewEventScreen() {
     <>
       <Stack.Screen
         options={{
-          title: 'New event',
+          title: 'Create event',
           headerLeft: () => (
             <Pressable
               accessibilityRole="button"
