@@ -9,6 +9,12 @@ import PeopleMetadata from '@/components/metadata/PeopleMetadata';
 import SignificanceMetadata from '@/components/metadata/SignificanceMetadata';
 import TagsMetadata from '@/components/metadata/TagsMetadata';
 import type { SelectOption } from '@/components/ui/select';
+import { useCreateEventMutation } from '@/data/query';
+import type {
+  EventSignificance,
+  LocalDate,
+  LocalTime,
+} from '@/models';
 import { radius, spacing, typography } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
 import { useNavigation, usePreventRemove } from '@react-navigation/native';
@@ -34,6 +40,11 @@ import {
   View,
 } from 'react-native';
 
+const DEFAULT_SIGNIFICANCE: SelectOption = {
+  id: 'ordinary',
+  label: 'Ordinary',
+};
+
 export default function NewEventScreen() {
   const { colors } = useTheme();
   const navigation = useNavigation();
@@ -43,11 +54,14 @@ export default function NewEventScreen() {
   const [category, setCategory] = useState<SelectOption | null>(null);
   const [people, setPeople] = useState<SelectOption[]>([]);
   const [tags, setTags] = useState<SelectOption[]>([]);
-  const [significance, setSignificance] = useState<SelectOption | null>(null);
+  const [significance, setSignificance] = useState<SelectOption | null>(
+    DEFAULT_SIGNIFICANCE
+  );
   const [location, setLocation] = useState<SelectOption | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const createEventMutation = useCreateEventMutation();
 
-  const canCreate = title.trim().length > 0;
+  const canCreate = title.trim().length > 0 && !isCreating;
   const hasChanges =
     title.length > 0 ||
     date.date !== initialDate.date ||
@@ -55,7 +69,7 @@ export default function NewEventScreen() {
     category !== null ||
     people.length > 0 ||
     tags.length > 0 ||
-    significance !== null ||
+    significance?.id !== DEFAULT_SIGNIFICANCE.id ||
     location !== null;
 
   usePreventRemove(hasChanges && !isCreating, ({ data }) => {
@@ -73,19 +87,39 @@ export default function NewEventScreen() {
     );
   });
 
-  const createEvent = () => {
+  const createEvent = async () => {
     const nextTitle = title.trim();
-    if (!nextTitle) return;
+    if (!nextTitle || isCreating) return;
 
     setIsCreating(true);
-    requestAnimationFrame(() => {
+
+    try {
+      const details = await createEventMutation.mutateAsync({
+        title: nextTitle,
+        date: date.date as LocalDate,
+        time: (date.time as LocalTime | undefined) ?? null,
+        significance: (significance?.id ??
+          DEFAULT_SIGNIFICANCE.id) as EventSignificance,
+        categoryId: category?.id ?? null,
+        locationId: location?.id ?? null,
+        notes: '',
+        tagIds: tags.map((tag) => tag.id),
+        peopleIds: people.map((person) => person.id),
+      });
+
       router.replace({
         pathname: '/[eventId]',
         params: {
-          eventId: `${Date.now()}`,
+          eventId: details.event.id,
         },
       });
-    });
+    } catch (error) {
+      setIsCreating(false);
+      Alert.alert(
+        'Couldn’t create event',
+        error instanceof Error ? error.message : 'Please try again.'
+      );
+    }
   };
 
   return (

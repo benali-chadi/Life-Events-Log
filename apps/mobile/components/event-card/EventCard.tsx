@@ -2,16 +2,16 @@ import { useTheme } from '@lel/design/useTheme';
 import { useRouter } from 'expo-router';
 import { Trash2 } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
-import { Pressable, Text } from 'react-native';
+import { Alert, Pressable, Text } from 'react-native';
 import { useEventDeletion } from '../event-deletion/EventDeletionProvider';
 import { confirmEventDeletion } from '../event-deletion/confirmEventDeletion';
 import SwipeReveal, { closeOpenSwipe } from '../ui/SwipeReveal';
 import EventCardContent from './EventCardContent';
 import { eventCardStyles as styles } from './eventCardStyles';
-import type { EventCardData } from './types';
+import type { EventListItem } from '@/data/repositories';
 
 type EventCardProps = {
-  event: EventCardData;
+  event: EventListItem;
 };
 
 export default function EventCard({ event }: EventCardProps) {
@@ -21,12 +21,17 @@ export default function EventCard({ event }: EventCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [hasTitleOverflow, setHasTitleOverflow] = useState(false);
 
-  const significance = event.significance ?? 'ordinary';
+  const significance = event.event.significance;
   const hasExpandableContent =
     hasTitleOverflow ||
-    (event.tags?.length ?? 0) > 2 ||
-    (event.people?.length ?? 0) > 2 ||
-    Boolean(event.categoryName || event.significance || event.notes);
+    event.tags.length > 2 ||
+    event.people.length > 2 ||
+    Boolean(
+      event.category ||
+      event.event.significance ||
+      event.event.notesPreview ||
+      event.attachmentCount
+    );
 
   const handleTitleOverflowChange = useCallback((hasOverflow: boolean) => {
     setHasTitleOverflow(hasOverflow);
@@ -37,7 +42,7 @@ export default function EventCard({ event }: EventCardProps) {
 
     router.navigate({
       pathname: '/[eventId]',
-      params: { eventId: event.id ?? event.title },
+      params: { eventId: event.event.id },
     });
   };
 
@@ -46,10 +51,17 @@ export default function EventCard({ event }: EventCardProps) {
       actionWidth={80}
       action={
         <Pressable
-          accessibilityLabel={`Delete ${event.title}`}
+          accessibilityLabel={`Delete ${event.event.title}`}
           accessibilityRole="button"
           onPress={() =>
-            confirmEventDeletion(event.title, () => deleteEvent(event.title))
+            confirmEventDeletion(event.event.title, () => {
+              void deleteEvent(event.event).catch(() => {
+                Alert.alert(
+                  'Could not delete event',
+                  'The event was not deleted. Please try again.'
+                );
+              });
+            })
           }
           style={({ pressed }) => [
             styles.deleteAction,

@@ -337,9 +337,20 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
 
   const confirmDelete = () => {
     confirmEventDeletion(title, () => {
-      setIsDeleting(true);
-      deleteEvent(event.id);
-      requestAnimationFrame(() => router.back());
+      void (async () => {
+        setIsDeleting(true);
+
+        try {
+          await deleteEvent({ id: event.id, title });
+          router.back();
+        } catch {
+          setIsDeleting(false);
+          Alert.alert(
+            'Could not delete event',
+            'The event was not deleted. Please try again.'
+          );
+        }
+      })();
     });
   };
 
