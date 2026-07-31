@@ -10,11 +10,7 @@ import SignificanceMetadata from '@/components/metadata/SignificanceMetadata';
 import TagsMetadata from '@/components/metadata/TagsMetadata';
 import type { SelectOption } from '@/components/ui/select';
 import { useCreateEventMutation } from '@/data/query';
-import type {
-  EventSignificance,
-  LocalDate,
-  LocalTime,
-} from '@/models';
+import type { EventSignificance, LocalDate, LocalTime } from '@/models';
 import { radius, spacing, typography } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
 import { useNavigation, usePreventRemove } from '@react-navigation/native';
@@ -130,6 +126,8 @@ export default function NewEventScreen() {
           headerLeft: () => (
             <Pressable
               accessibilityRole="button"
+              accessibilityState={{ disabled: isCreating }}
+              disabled={isCreating}
               onPress={() => router.back()}
               style={styles.headerButton}
             >
@@ -143,7 +141,7 @@ export default function NewEventScreen() {
               accessibilityRole="button"
               accessibilityState={{ disabled: !canCreate }}
               disabled={!canCreate}
-              onPress={createEvent}
+              onPress={() => void createEvent()}
               style={styles.headerButton}
             >
               <Text
@@ -155,7 +153,7 @@ export default function NewEventScreen() {
                   },
                 ]}
               >
-                Create
+                {isCreating ? 'Creating…' : 'Create'}
               </Text>
             </Pressable>
           ),
@@ -176,9 +174,10 @@ export default function NewEventScreen() {
           <TextInput
             accessibilityLabel="Event title"
             autoFocus
+            editable={!isCreating}
             maxLength={160}
             onChangeText={setTitle}
-            onSubmitEditing={createEvent}
+            onSubmitEditing={() => void createEvent()}
             placeholder="Event title"
             placeholderTextColor={colors.textMuted}
             returnKeyType="done"
