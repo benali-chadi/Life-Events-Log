@@ -2,6 +2,7 @@ import type { useTheme } from '@lel/design/useTheme';
 import { Text, View } from 'react-native';
 import { significanceLabels } from './eventCardSignificance';
 import { eventCardStyles as styles } from './eventCardStyles';
+import EventCardAttachmentPreview from './EventCardAttachmentPreview';
 import type { EventListItem } from '@/data/repositories';
 
 type EventCardExpandedContentProps = {
@@ -34,6 +35,13 @@ export default function EventCardExpandedContent({
         >
           {event.event.notesPreview}
         </Text>
+      )}
+      {event.attachmentPreview && (
+        <EventCardAttachmentPreview
+          attachment={event.attachmentPreview}
+          attachmentCount={event.attachmentCount}
+          colors={colors}
+        />
       )}
     </View>
   );
