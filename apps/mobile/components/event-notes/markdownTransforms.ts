@@ -8,6 +8,13 @@ export type MarkdownTransformation = {
   selection: TextSelection;
 };
 
+type ListMarkerMatch = {
+  indentation: string;
+  marker: string;
+  spacing: string;
+  content: string;
+};
+
 type LinePrefix = 'blockquote' | 'bullet-list' | 'numbered-list';
 
 const linePrefixConfig: Record<
@@ -42,6 +49,71 @@ function replaceRange(
     value: value.slice(0, start) + replacement + value.slice(end),
     selection,
   };
+}
+
+function matchListMarker(line: string): ListMarkerMatch | null {
+  const bullet = /^(\s*)([-+*])([ \t]+)(.*)$/.exec(line);
+
+  if (bullet) {
+    return {
+      indentation: bullet[1] ?? '',
+      marker: bullet[2] ?? '-',
+      spacing: bullet[3] ?? ' ',
+      content: bullet[4] ?? '',
+    };
+  }
+
+  const numbered = /^(\s*)\d+\.([ \t]+)(.*)$/.exec(line);
+
+  if (!numbered) return null;
+
+  return {
+    indentation: numbered[1] ?? '',
+    marker: '1.',
+    spacing: numbered[2] ?? ' ',
+    content: numbered[3] ?? '',
+  };
+}
+
+export function transformMarkdownListEnter(
+  value: string,
+  nextValue: string,
+  selection: TextSelection
+): MarkdownTransformation | null {
+  if (selection.start !== selection.end) return null;
+
+  const caret = selection.start;
+  const nativeNewlineValue = `${value.slice(0, caret)}\n${value.slice(caret)}`;
+
+  if (nextValue !== nativeNewlineValue) return null;
+
+  const lineStart = value.lastIndexOf('\n', caret - 1) + 1;
+  const nextLineBreak = value.indexOf('\n', caret);
+  const lineEnd = nextLineBreak === -1 ? value.length : nextLineBreak;
+  const line = value.slice(lineStart, lineEnd);
+  const list = matchListMarker(line);
+
+  if (!list) return null;
+
+  const prefix = `${list.indentation}${list.marker}${list.spacing}`;
+  const contentStart = lineStart + line.length - list.content.length;
+
+  if (caret < contentStart) return null;
+
+  if (!list.content.trim()) {
+    return replaceRange(value, lineStart, lineEnd, list.indentation, {
+      start: lineStart + list.indentation.length,
+      end: lineStart + list.indentation.length,
+    });
+  }
+
+  const insertion = `\n${prefix}`;
+  const nextCaret = caret + insertion.length;
+
+  return replaceRange(value, caret, caret, insertion, {
+    start: nextCaret,
+    end: nextCaret,
+  });
 }
 
 function selectedTextHasExactMarkers(

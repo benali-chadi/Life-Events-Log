@@ -18,6 +18,7 @@ import type {
   MarkdownTransformation,
   TextSelection,
 } from './markdownTransforms';
+import { transformMarkdownListEnter } from './markdownTransforms';
 
 type EventNotesProps = {
   committedValue: string;
@@ -240,7 +241,20 @@ export default function EventNotes({
             ref={inputRef}
             accessibilityLabel="Event notes in Markdown"
             multiline
-            onChangeText={onDraftChange}
+            onChangeText={(nextValue) => {
+              const listTransformation = transformMarkdownListEnter(
+                draftValue,
+                nextValue,
+                selectionRef.current
+              );
+
+              if (listTransformation) {
+                applyTransformation(listTransformation);
+                return;
+              }
+
+              onDraftChange(nextValue);
+            }}
             onSelectionChange={(event) => {
               const nextSelection = event.nativeEvent.selection;
 
