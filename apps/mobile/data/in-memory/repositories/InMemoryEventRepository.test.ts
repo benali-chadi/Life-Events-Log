@@ -13,6 +13,7 @@ import type {
   LocalDate,
   LocalTime,
 } from '@/models';
+import { EVENT_TITLE_MAX_LENGTH } from '@/models';
 import { describe, expect, it } from 'vitest';
 import { createInMemoryDatabase } from '../createInMemoryDatabase';
 import { eventPersonKey, eventTagKey } from '../relationshipKeys';
@@ -125,8 +126,20 @@ describe('InMemoryEventRepository', () => {
     );
   });
 
+  it('accepts a title at the character limit', async () => {
+    const { repository } = createRepository();
+    const title = 'a'.repeat(EVENT_TITLE_MAX_LENGTH);
+
+    await expect(
+      repository.create(validInput({ title }))
+    ).resolves.toMatchObject({
+      event: { title },
+    });
+  });
+
   it.each([
     ['empty title', { title: '   ' }],
+    ['title over the limit', { title: 'a'.repeat(EVENT_TITLE_MAX_LENGTH + 1) }],
     ['impossible date', { date: '2026-02-29' as LocalDate }],
     ['malformed date', { date: '2026-2-03' as LocalDate }],
     ['invalid time', { time: '24:00' as LocalTime }],

@@ -12,6 +12,8 @@ export const EVENT_SIGNIFICANCE_VALUES = [
   'turning-point',
 ] as const;
 
+export const EVENT_TITLE_MAX_LENGTH = 100;
+
 export type EventSignificance = (typeof EVENT_SIGNIFICANCE_VALUES)[number];
 
 export type LELEvent = {

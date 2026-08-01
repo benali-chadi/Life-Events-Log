@@ -1,5 +1,6 @@
 import {
   EVENT_SIGNIFICANCE_VALUES,
+  EVENT_TITLE_MAX_LENGTH,
   type EventDetails,
   type EventPerson,
   type EventSignificance,
@@ -242,6 +243,12 @@ export class InMemoryEventRepository implements EventRepository {
 
     if (!title) {
       throw new ModelValidationError('Event title cannot be empty.');
+    }
+
+    if (title.length > EVENT_TITLE_MAX_LENGTH) {
+      throw new ModelValidationError(
+        `Event title cannot exceed ${EVENT_TITLE_MAX_LENGTH} characters.`
+      );
     }
 
     this.assertValidDate(input.date);

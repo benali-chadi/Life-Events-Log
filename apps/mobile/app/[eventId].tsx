@@ -31,7 +31,7 @@ import { radius, spacing, typography } from '@lel/design';
 import DateMetadata, {
   type DateValue,
 } from '@/components/metadata/DateMetadata';
-import { useCallback, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import EventNotes from '@/components/event-notes/EventNotes';
 import EventAttachments from '@/components/event-attachments/EventAttachments';
 import type {
@@ -39,6 +39,7 @@ import type {
   AttachmentPreview,
 } from '@/components/event-attachments/types';
 import EventTitleHeader from '@/components/event-title/EventTitleHeader';
+import EventTitleEditor from '@/components/event-title/EventTitleEditor';
 import type { SelectOption } from '@/components/ui/select';
 import { useEventDeletion } from '@/components/event-deletion/EventDeletionProvider';
 import { confirmEventDeletion } from '@/components/event-deletion/confirmEventDeletion';
@@ -191,8 +192,7 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
     metadataOption(details.location)
   );
   const [title, setTitle] = useState(event.title);
-  const draftTitleRef = useRef(event.title);
-  const [isTitleDirty, setIsTitleDirty] = useState(false);
+  const [draftTitle, setDraftTitle] = useState(event.title);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isSavingTitle, setIsSavingTitle] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -206,7 +206,7 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
     })
   );
   const hasUnsavedNotes = draftNotes !== committedNotes;
-  const hasUnsavedTitle = isEditingTitle && isTitleDirty;
+  const hasUnsavedTitle = isEditingTitle && draftTitle.trim() !== title;
   const hasUnsavedChanges = hasUnsavedNotes || hasUnsavedTitle;
 
   usePreventRemove(hasUnsavedChanges && !isDeleting, ({ data }) => {
@@ -227,25 +227,15 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
     );
   });
 
-  const beginTitleEditing = useCallback(() => {
-    draftTitleRef.current = title;
-    setIsTitleDirty(false);
+  const beginTitleEditing = () => {
+    setDraftTitle(title);
     setIsEditingTitle(true);
-  }, [title]);
-
-  const cancelTitleEditing = () => {
-    draftTitleRef.current = title;
-    setIsTitleDirty(false);
-    setIsEditingTitle(false);
   };
 
-  const changeDraftTitle = useCallback(
-    (nextTitle: string) => {
-      draftTitleRef.current = nextTitle;
-      setIsTitleDirty(nextTitle.trim() !== title);
-    },
-    [title]
-  );
+  const cancelTitleEditing = () => {
+    setDraftTitle(title);
+    setIsEditingTitle(false);
+  };
 
   const showSaveError = () => {
     Alert.alert(
@@ -255,7 +245,7 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
   };
 
   const saveTitle = async () => {
-    const nextTitle = draftTitleRef.current.trim();
+    const nextTitle = draftTitle.trim();
 
     if (!nextTitle || isSavingTitle) {
       if (isSavingTitle) return;
@@ -274,8 +264,7 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
       const savedTitle = updated.event.title;
 
       setTitle(savedTitle);
-      draftTitleRef.current = savedTitle;
-      setIsTitleDirty(false);
+      setDraftTitle(savedTitle);
       setIsEditingTitle(false);
     } catch {
       showSaveError();
@@ -361,99 +350,32 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
     });
   };
 
-  const saveTitleRef = useRef(saveTitle);
-  saveTitleRef.current = saveTitle;
-  const submitTitle = useCallback(() => {
-    void saveTitleRef.current();
-  }, []);
-  const renderEventTitle = useCallback(
-    () => (
-      <EventTitleHeader
-        isEditing={isEditingTitle}
-        onBeginEditing={beginTitleEditing}
-        onChange={changeDraftTitle}
-        onSubmit={submitTitle}
-        title={isEditingTitle ? draftTitleRef.current : title}
-      />
-    ),
-    [beginTitleEditing, changeDraftTitle, isEditingTitle, submitTitle, title]
-  );
-
   return (
     <>
       <Stack.Screen
         options={{
-          headerTitle: renderEventTitle,
+          headerTitle: () => <EventTitleHeader title={title} />,
           headerBackTitle: 'Back',
-          headerLeft: isEditingTitle
-            ? () => (
-                <Pressable
-                  accessibilityLabel="Cancel title editing"
-                  accessibilityRole="button"
-                  disabled={isSavingTitle}
-                  hitSlop={8}
-                  onPress={cancelTitleEditing}
-                  style={({ pressed }) => [
-                    styles.headerTextButton,
-                    pressed && {
-                      backgroundColor: colors.interactivePressed,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.headerButtonLabel,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    Cancel
-                  </Text>
-                </Pressable>
-              )
-            : undefined,
-          headerRight: isEditingTitle
-            ? () => (
-                <Pressable
-                  accessibilityLabel="Save event title"
-                  accessibilityRole="button"
-                  disabled={isSavingTitle}
-                  hitSlop={8}
-                  onPress={() => void saveTitle()}
-                  style={({ pressed }) => [
-                    styles.headerTextButton,
-                    isSavingTitle && styles.disabledButton,
-                    pressed && {
-                      backgroundColor: colors.interactivePressed,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[styles.doneButtonLabel, { color: colors.primary }]}
-                  >
-                    Done
-                  </Text>
-                </Pressable>
-              )
-            : () => (
-                <Pressable
-                  accessibilityLabel="Event actions"
-                  accessibilityRole="button"
-                  hitSlop={8}
-                  onPress={confirmDelete}
-                  style={({ pressed }) => [
-                    styles.headerMenuButton,
-                    pressed && {
-                      backgroundColor: colors.interactivePressed,
-                    },
-                  ]}
-                >
-                  <MoreVertical
-                    color={colors.textSecondary}
-                    size={21}
-                    strokeWidth={2}
-                  />
-                </Pressable>
-              ),
+          headerRight: () => (
+            <Pressable
+              accessibilityLabel="Event actions"
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={confirmDelete}
+              style={({ pressed }) => [
+                styles.headerMenuButton,
+                pressed && {
+                  backgroundColor: colors.interactivePressed,
+                },
+              ]}
+            >
+              <MoreVertical
+                color={colors.textSecondary}
+                size={21}
+                strokeWidth={2}
+              />
+            </Pressable>
+          ),
         }}
       />
 
@@ -467,6 +389,19 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
+          <View style={styles.titleSection}>
+            <EventTitleEditor
+              value={draftTitle}
+              savedValue={title}
+              isEditing={isEditingTitle}
+              isSaving={isSavingTitle}
+              onBeginEditing={beginTitleEditing}
+              onChange={setDraftTitle}
+              onSave={() => void saveTitle()}
+              onCancel={cancelTitleEditing}
+            />
+          </View>
+
           <View>
             <MetadataRow
               label="Date"
@@ -643,22 +578,16 @@ const styles = StyleSheet.create({
     ...typography.small,
     fontWeight: '700',
   },
-  disabledButton: {
-    opacity: 0.5,
-  },
   scrollContent: {
     flexGrow: 1,
     padding: spacing[2],
     paddingBottom: 160,
   },
+  titleSection: {
+    marginBottom: spacing[3],
+  },
   contentSection: {
     marginTop: spacing[6],
-  },
-  headerTextButton: {
-    minHeight: 36,
-    justifyContent: 'center',
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing[1],
   },
   headerMenuButton: {
     width: 40,
@@ -666,13 +595,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.sm,
-  },
-  headerButtonLabel: {
-    ...typography.small,
-    fontWeight: '600',
-  },
-  doneButtonLabel: {
-    ...typography.small,
-    fontWeight: '700',
   },
 });

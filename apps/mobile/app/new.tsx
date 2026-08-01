@@ -10,7 +10,12 @@ import SignificanceMetadata from '@/components/metadata/SignificanceMetadata';
 import TagsMetadata from '@/components/metadata/TagsMetadata';
 import type { SelectOption } from '@/components/ui/select';
 import { useCreateEventMutation } from '@/data/query';
-import type { EventSignificance, LocalDate, LocalTime } from '@/models';
+import {
+  EVENT_TITLE_MAX_LENGTH,
+  type EventSignificance,
+  type LocalDate,
+  type LocalTime,
+} from '@/models';
 import { radius, spacing, typography } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
 import { useNavigation, usePreventRemove } from '@react-navigation/native';
@@ -175,7 +180,7 @@ export default function NewEventScreen() {
             accessibilityLabel="Event title"
             autoFocus
             editable={!isCreating}
-            maxLength={160}
+            maxLength={EVENT_TITLE_MAX_LENGTH}
             onChangeText={setTitle}
             onSubmitEditing={() => void createEvent()}
             placeholder="Event title"
@@ -192,6 +197,11 @@ export default function NewEventScreen() {
             ]}
             value={title}
           />
+          {title.length >= 80 && (
+            <Text style={[styles.titleCounter, { color: colors.textMuted }]}>
+              {title.length}/{EVENT_TITLE_MAX_LENGTH}
+            </Text>
+          )}
 
           <View style={styles.metadata}>
             <MetadataRow
@@ -258,6 +268,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingHorizontal: spacing[3],
     ...typography.body,
+  },
+  titleCounter: {
+    ...typography.small,
+    alignSelf: 'flex-end',
+    marginTop: spacing[1],
   },
   metadata: {
     marginTop: spacing[5],

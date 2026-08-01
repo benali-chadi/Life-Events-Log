@@ -17,7 +17,7 @@ import { useInfiniteEventListQuery } from '@/data/query';
 import type { EventListItem } from '@/data/repositories';
 import type { LocalDate } from '@/models';
 
-const PAGE_SIZE = 6;
+const PAGE_SIZE = 5;
 
 function localDateToday(): LocalDate {
   const now = new Date();
