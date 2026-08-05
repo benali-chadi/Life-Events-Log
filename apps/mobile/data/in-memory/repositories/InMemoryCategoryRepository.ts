@@ -13,6 +13,7 @@ import {
   type CreateCategoryInput,
   type DeleteMetadataResult,
   type MetadataListQuery,
+  type MetadataUsageItem,
   type RepositoryDependencies,
   type UpdateCategoryInput,
 } from '@/data/repositories';
@@ -23,6 +24,7 @@ import {
   compareMetadataNames,
   normalizeMetadataName,
 } from './namedMetadataUtils';
+import { countActiveEventFieldUsage } from './metadataUsageUtils';
 
 export class InMemoryCategoryRepository implements CategoryRepository {
   constructor(
@@ -46,6 +48,27 @@ export class InMemoryCategoryRepository implements CategoryRepository {
       )
       .sort(compareMetadataNames)
       .map(cloneMetadataEntity);
+  }
+
+  async listWithUsage(
+    query?: MetadataListQuery
+  ): Promise<MetadataUsageItem<Category>[]> {
+    const categories = await this.list(query);
+    const usageCounts = countActiveEventFieldUsage(
+      this.database,
+      (event) => event.categoryId
+    );
+
+    return categories
+      .map((category) => ({
+        metadata: category,
+        eventCount: usageCounts.get(category.id) ?? 0,
+      }))
+      .sort(
+        (left, right) =>
+          right.eventCount - left.eventCount ||
+          compareMetadataNames(left.metadata, right.metadata)
+      );
   }
 
   async create(input: CreateCategoryInput) {

@@ -43,6 +43,37 @@ describe('InMemoryCategoryRepository', () => {
     ).resolves.toMatchObject([{ name: 'Projects' }]);
   });
 
+  it('lists categories by active-event usage and then name', async () => {
+    const { database, repository } = createRepository();
+    const unusedCategory = {
+      id: '10000000-0000-4000-8000-000000000099',
+      name: 'Unused',
+      color: 'slate' as const,
+      createdAt: '2026-07-01T12:00:00.000Z',
+      updatedAt: '2026-07-01T12:00:00.000Z',
+    };
+    database.categories.set(unusedCategory.id, unusedCategory);
+
+    for (const [eventId, event] of database.events) {
+      database.events.set(eventId, {
+        ...event,
+        deletedAt: '2026-08-01T10:00:00.000Z',
+      });
+    }
+
+    for (const event of DEVELOPMENT_SEED.events.slice(0, 3)) {
+      database.events.set(event.id, event);
+    }
+
+    const result = await repository.listWithUsage();
+
+    expect(result).toMatchObject([
+      { metadata: { name: 'Projects' }, eventCount: 2 },
+      { metadata: { name: 'Personal' }, eventCount: 1 },
+      { metadata: { name: 'Unused' }, eventCount: 0 },
+    ]);
+  });
+
   it('creates normalized categories with a validated color', async () => {
     const { database, repository } = createRepository();
 

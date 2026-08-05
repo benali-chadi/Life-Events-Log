@@ -23,9 +23,17 @@ export type DeleteMetadataResult = {
   affectedEventIds: UUID[];
 };
 
+export type MetadataUsageItem<TEntity> = {
+  metadata: TEntity;
+  eventCount: number;
+};
+
 export interface NamedMetadataRepository<TEntity> {
   getById(id: UUID): Promise<TEntity | null>;
   list(query?: MetadataListQuery): Promise<TEntity[]>;
+  listWithUsage(
+    query?: MetadataListQuery
+  ): Promise<MetadataUsageItem<TEntity>[]>;
   create(input: CreateNamedMetadataInput): Promise<TEntity>;
   update(id: UUID, input: UpdateNamedMetadataInput): Promise<TEntity>;
   delete(id: UUID): Promise<DeleteMetadataResult>;
@@ -45,6 +53,9 @@ export type UpdateCategoryInput = Partial<CreateCategoryInput>;
 export interface CategoryRepository {
   getById(id: UUID): Promise<Category | null>;
   list(query?: MetadataListQuery): Promise<Category[]>;
+  listWithUsage(
+    query?: MetadataListQuery
+  ): Promise<MetadataUsageItem<Category>[]>;
   create(input: CreateCategoryInput): Promise<Category>;
   update(id: UUID, input: UpdateCategoryInput): Promise<Category>;
   delete(id: UUID): Promise<DeleteMetadataResult>;

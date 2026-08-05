@@ -7,6 +7,7 @@ import {
   type CreateNamedMetadataInput,
   type DeleteMetadataResult,
   type MetadataListQuery,
+  type MetadataUsageItem,
   type NamedMetadataRepository,
   type RepositoryDependencies,
   type UpdateNamedMetadataInput,
@@ -28,6 +29,7 @@ type NamedMetadataEntity = {
 type NamedMetadataRepositoryOptions<TEntity extends NamedMetadataEntity> = {
   entityName: string;
   createEntity: (entity: NamedMetadataEntity) => TEntity;
+  getUsageCounts: () => ReadonlyMap<UUID, number>;
 };
 
 export class InMemoryNamedMetadataRepository<
@@ -55,6 +57,24 @@ export class InMemoryNamedMetadataRepository<
       )
       .sort(compareMetadataNames)
       .map(cloneMetadataEntity);
+  }
+
+  async listWithUsage(
+    query?: MetadataListQuery
+  ): Promise<MetadataUsageItem<TEntity>[]> {
+    const metadata = await this.list(query);
+    const usageCounts = this.options.getUsageCounts();
+
+    return metadata
+      .map((entity) => ({
+        metadata: entity,
+        eventCount: usageCounts.get(entity.id) ?? 0,
+      }))
+      .sort(
+        (left, right) =>
+          right.eventCount - left.eventCount ||
+          compareMetadataNames(left.metadata, right.metadata)
+      );
   }
 
   async create(input: CreateNamedMetadataInput) {

@@ -15,6 +15,18 @@ const dependencies: RepositoryDependencies = {
 };
 
 describe('InMemoryPersonRepository', () => {
+  it('lists people by usage and then alphabetically', async () => {
+    const database = createInMemoryDatabase(DEVELOPMENT_SEED);
+    const repository = new InMemoryPersonRepository(database, dependencies);
+
+    await expect(repository.listWithUsage()).resolves.toMatchObject([
+      { metadata: { name: 'Salma' }, eventCount: 2 },
+      { metadata: { name: 'Yassine' }, eventCount: 2 },
+      { metadata: { name: 'Lina' }, eventCount: 1 },
+      { metadata: { name: 'Mounir' }, eventCount: 1 },
+    ]);
+  });
+
   it('uses the people table and shared named-metadata behavior', async () => {
     const database = createInMemoryDatabase(DEVELOPMENT_SEED);
     const repository = new InMemoryPersonRepository(database, dependencies);
@@ -54,6 +66,17 @@ describe('InMemoryPersonRepository', () => {
 });
 
 describe('InMemoryLocationRepository', () => {
+  it('lists all matching locations with active-event usage', async () => {
+    const database = createInMemoryDatabase(DEVELOPMENT_SEED);
+    const repository = new InMemoryLocationRepository(database, dependencies);
+
+    await expect(
+      repository.listWithUsage({ search: 'cinéma' })
+    ).resolves.toMatchObject([
+      { metadata: { name: 'Cinéma Renaissance' }, eventCount: 1 },
+    ]);
+  });
+
   it('uses the locations table and supports create and update', async () => {
     const database = createInMemoryDatabase(DEVELOPMENT_SEED);
     const repository = new InMemoryLocationRepository(database, dependencies);

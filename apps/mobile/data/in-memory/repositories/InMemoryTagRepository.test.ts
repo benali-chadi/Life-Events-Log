@@ -42,6 +42,23 @@ describe('InMemoryTagRepository', () => {
     ).resolves.toMatchObject([{ name: 'local-first' }]);
   });
 
+  it('lists usage for active events, including unused tags', async () => {
+    const { database, repository } = createRepository();
+    const developmentTag = DEVELOPMENT_SEED.tags[0];
+    const localFirstTag = DEVELOPMENT_SEED.tags[1];
+    const projectStarted = DEVELOPMENT_SEED.events[0];
+
+    database.events.set(projectStarted.id, {
+      ...projectStarted,
+      deletedAt: '2026-08-01T10:00:00.000Z',
+    });
+
+    await expect(repository.listWithUsage()).resolves.toEqual([
+      { metadata: developmentTag, eventCount: 0 },
+      { metadata: localFirstTag, eventCount: 0 },
+    ]);
+  });
+
   it('creates normalized tags with repository-owned IDs and timestamps', async () => {
     const { database, repository } = createRepository();
 
