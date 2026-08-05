@@ -31,16 +31,11 @@ function createRepository(dependencies = createDependencies()) {
 }
 
 describe('InMemoryCategoryRepository', () => {
-  it('lists active categories alphabetically and supports normalized search', async () => {
-    const { database, repository } = createRepository();
-    const personal = DEVELOPMENT_SEED.categories[0];
-
-    database.categories.set(personal.id, {
-      ...personal,
-      deletedAt: '2026-07-30T09:00:00.000Z',
-    });
+  it('lists categories alphabetically and supports normalized search', async () => {
+    const { repository } = createRepository();
 
     await expect(repository.list()).resolves.toMatchObject([
+      { name: 'Personal' },
       { name: 'Projects' },
     ]);
     await expect(
@@ -62,7 +57,6 @@ describe('InMemoryCategoryRepository', () => {
       color: 'violet',
       createdAt: '2026-07-30T10:00:00.000Z',
       updatedAt: '2026-07-30T10:00:00.000Z',
-      deletedAt: null,
     });
     expect(database.categories.get(created.id)).not.toBe(created);
   });
@@ -95,8 +89,6 @@ describe('InMemoryCategoryRepository', () => {
       repository.create({ name: ' projects ', color: 'green' })
     ).rejects.toBeInstanceOf(DuplicateNameError);
 
-    await repository.softDelete(DEVELOPMENT_SEED.categories[0].id);
-
     await expect(
       repository.create({ name: 'PERSONAL', color: 'amber' })
     ).rejects.toBeInstanceOf(DuplicateNameError);
@@ -116,24 +108,23 @@ describe('InMemoryCategoryRepository', () => {
     ).rejects.toBeInstanceOf(ModelValidationError);
   });
 
-  it('soft deletes, restores, and reports missing or colliding IDs', async () => {
+  it('reports missing and colliding IDs', async () => {
     const categoryId = DEVELOPMENT_SEED.categories[0].id;
     const { repository } = createRepository(createDependencies(categoryId));
 
-    await repository.softDelete(categoryId);
-    await expect(repository.getById(categoryId)).resolves.toBeNull();
-
-    await repository.restore(categoryId);
-    await expect(repository.getById(categoryId)).resolves.toMatchObject({
-      id: categoryId,
-      deletedAt: null,
-    });
-
     await expect(
-      repository.softDelete('missing-category')
+      repository.update('missing-category', { name: 'Missing' })
     ).rejects.toBeInstanceOf(EntityNotFoundError);
     await expect(
       repository.create({ name: 'Unique category', color: 'teal' })
     ).rejects.toBeInstanceOf(RepositoryError);
+  });
+
+  it('exposes an explicit permanent-deletion placeholder', async () => {
+    const { repository } = createRepository();
+
+    await expect(
+      repository.delete(DEVELOPMENT_SEED.categories[0].id)
+    ).rejects.toThrow('Permanent category deletion is not implemented yet.');
   });
 });

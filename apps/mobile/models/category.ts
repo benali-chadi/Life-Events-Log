@@ -26,5 +26,4 @@ export type Category = {
 
   createdAt: Timestamp;
   updatedAt: Timestamp;
-  deletedAt: Timestamp | null;
 };

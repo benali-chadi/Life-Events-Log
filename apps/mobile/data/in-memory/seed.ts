@@ -49,7 +49,6 @@ export const DEVELOPMENT_SEED = {
       color: 'green',
       createdAt: CREATED_AT,
       updatedAt: CREATED_AT,
-      deletedAt: null,
     },
     {
       id: ids.categories.projects,
@@ -57,7 +56,6 @@ export const DEVELOPMENT_SEED = {
       color: 'blue',
       createdAt: CREATED_AT,
       updatedAt: CREATED_AT,
-      deletedAt: null,
     },
   ],
   tags: [
@@ -66,14 +64,12 @@ export const DEVELOPMENT_SEED = {
       name: 'development',
       createdAt: CREATED_AT,
       updatedAt: CREATED_AT,
-      deletedAt: null,
     },
     {
       id: ids.tags.localFirst,
       name: 'local-first',
       createdAt: CREATED_AT,
       updatedAt: CREATED_AT,
-      deletedAt: null,
     },
   ],
   people: [
@@ -82,28 +78,24 @@ export const DEVELOPMENT_SEED = {
       name: 'Mounir',
       createdAt: CREATED_AT,
       updatedAt: CREATED_AT,
-      deletedAt: null,
     },
     {
       id: ids.people.salma,
       name: 'Salma',
       createdAt: CREATED_AT,
       updatedAt: CREATED_AT,
-      deletedAt: null,
     },
     {
       id: ids.people.yassine,
       name: 'Yassine',
       createdAt: CREATED_AT,
       updatedAt: CREATED_AT,
-      deletedAt: null,
     },
     {
       id: ids.people.lina,
       name: 'Lina',
       createdAt: CREATED_AT,
       updatedAt: CREATED_AT,
-      deletedAt: null,
     },
   ],
   locations: [
@@ -112,28 +104,24 @@ export const DEVELOPMENT_SEED = {
       name: 'Rabat',
       createdAt: CREATED_AT,
       updatedAt: CREATED_AT,
-      deletedAt: null,
     },
     {
       id: ids.locations.casablanca,
       name: 'Casablanca Corniche',
       createdAt: CREATED_AT,
       updatedAt: CREATED_AT,
-      deletedAt: null,
     },
     {
       id: ids.locations.cinemaRenaissance,
       name: 'Cinéma Renaissance',
       createdAt: CREATED_AT,
       updatedAt: CREATED_AT,
-      deletedAt: null,
     },
     {
       id: ids.locations.home,
       name: 'Home',
       createdAt: CREATED_AT,
       updatedAt: CREATED_AT,
-      deletedAt: null,
     },
   ],
   events: [

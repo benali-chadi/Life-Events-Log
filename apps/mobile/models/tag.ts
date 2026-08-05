@@ -6,5 +6,4 @@ export type Tag = {
 
   createdAt: Timestamp;
   updatedAt: Timestamp;
-  deletedAt: Timestamp | null;
 };

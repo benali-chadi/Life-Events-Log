@@ -24,7 +24,6 @@ describe('InMemoryPersonRepository', () => {
     expect(created).toMatchObject({
       name: 'Chadi A.',
       createdAt: '2026-07-30T10:00:00.000Z',
-      deletedAt: null,
     });
     expect(database.people.get(created.id)).toEqual(created);
     expect(database.tags.has(created.id)).toBe(false);
@@ -43,7 +42,9 @@ describe('InMemoryPersonRepository', () => {
         message: 'Person named “mounir” already exists.',
       })
     );
-    await expect(repository.softDelete('missing-person')).rejects.toEqual(
+    await expect(
+      repository.update('missing-person', { name: 'Missing' })
+    ).rejects.toEqual(
       expect.objectContaining<EntityNotFoundError>({
         name: 'EntityNotFoundError',
         message: 'Person with ID “missing-person” was not found.',
@@ -53,7 +54,7 @@ describe('InMemoryPersonRepository', () => {
 });
 
 describe('InMemoryLocationRepository', () => {
-  it('uses the locations table and supports the full lifecycle', async () => {
+  it('uses the locations table and supports create and update', async () => {
     const database = createInMemoryDatabase(DEVELOPMENT_SEED);
     const repository = new InMemoryLocationRepository(database, dependencies);
 
@@ -66,13 +67,8 @@ describe('InMemoryLocationRepository', () => {
     expect(database.people.has(created.id)).toBe(false);
     expect(updated.updatedAt).toBe('2026-07-30T10:00:00.000Z');
 
-    await repository.softDelete(created.id);
-    await expect(repository.getById(created.id)).resolves.toBeNull();
-
-    await repository.restore(created.id);
     await expect(repository.getById(created.id)).resolves.toMatchObject({
       name: 'Casablanca Marina',
-      deletedAt: null,
     });
   });
 

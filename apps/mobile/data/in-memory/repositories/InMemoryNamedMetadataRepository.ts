@@ -5,6 +5,7 @@ import {
   ModelValidationError,
   RepositoryError,
   type CreateNamedMetadataInput,
+  type DeleteMetadataResult,
   type MetadataListQuery,
   type NamedMetadataRepository,
   type RepositoryDependencies,
@@ -22,7 +23,6 @@ type NamedMetadataEntity = {
   name: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
-  deletedAt: Timestamp | null;
 };
 
 type NamedMetadataRepositoryOptions<TEntity extends NamedMetadataEntity> = {
@@ -42,9 +42,7 @@ export class InMemoryNamedMetadataRepository<
   async getById(id: UUID) {
     const entity = this.table.get(id);
 
-    return entity && entity.deletedAt === null
-      ? cloneMetadataEntity(entity)
-      : null;
+    return entity ? cloneMetadataEntity(entity) : null;
   }
 
   async list(query?: MetadataListQuery) {
@@ -53,8 +51,7 @@ export class InMemoryNamedMetadataRepository<
     return [...this.table.values()]
       .filter(
         (entity) =>
-          entity.deletedAt === null &&
-          (!search || comparableMetadataName(entity.name).includes(search))
+          !search || comparableMetadataName(entity.name).includes(search)
       )
       .sort(compareMetadataNames)
       .map(cloneMetadataEntity);
@@ -78,7 +75,6 @@ export class InMemoryNamedMetadataRepository<
       name,
       createdAt: timestamp,
       updatedAt: timestamp,
-      deletedAt: null,
     });
 
     this.table.set(id, entity);
@@ -87,7 +83,7 @@ export class InMemoryNamedMetadataRepository<
   }
 
   async update(id: UUID, input: UpdateNamedMetadataInput) {
-    const existing = this.activeEntityOrThrow(id);
+    const existing = this.entityOrThrow(id);
     const name = this.validName(input.name);
     this.assertUniqueName(name, id);
 
@@ -102,32 +98,10 @@ export class InMemoryNamedMetadataRepository<
     return cloneMetadataEntity(updated);
   }
 
-  async softDelete(id: UUID) {
-    const entity = this.entityOrThrow(id);
-
-    if (entity.deletedAt !== null) return;
-
-    const timestamp = this.dependencies.now();
-
-    this.table.set(id, {
-      ...entity,
-      updatedAt: timestamp,
-      deletedAt: timestamp,
-    });
-  }
-
-  async restore(id: UUID) {
-    const entity = this.entityOrThrow(id);
-
-    if (entity.deletedAt === null) return;
-
-    this.assertUniqueName(entity.name, id);
-
-    this.table.set(id, {
-      ...entity,
-      updatedAt: this.dependencies.now(),
-      deletedAt: null,
-    });
+  async delete(_id: UUID): Promise<DeleteMetadataResult> {
+    throw new RepositoryError(
+      `Permanent ${this.options.entityName.toLowerCase()} deletion is not implemented yet.`
+    );
   }
 
   private validName(value: string) {
@@ -159,16 +133,6 @@ export class InMemoryNamedMetadataRepository<
     const entity = this.table.get(id);
 
     if (!entity) throw new EntityNotFoundError(this.options.entityName, id);
-
-    return entity;
-  }
-
-  private activeEntityOrThrow(id: UUID) {
-    const entity = this.entityOrThrow(id);
-
-    if (entity.deletedAt !== null) {
-      throw new EntityNotFoundError(this.options.entityName, id);
-    }
 
     return entity;
   }

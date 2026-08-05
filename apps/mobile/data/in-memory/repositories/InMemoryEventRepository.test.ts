@@ -157,15 +157,12 @@ describe('InMemoryEventRepository', () => {
     );
   });
 
-  it('rejects inactive, missing, and duplicate metadata references atomically', async () => {
+  it('rejects missing and duplicate metadata references atomically', async () => {
     const { database, repository } = createRepository();
-    const tag = DEVELOPMENT_SEED.tags[0];
     const eventCount = database.events.size;
 
-    database.tags.set(tag.id, { ...tag, deletedAt: NOW });
-
     await expect(
-      repository.create(validInput({ tagIds: [tag.id] }))
+      repository.create(validInput({ tagIds: ['missing-tag'] }))
     ).rejects.toBeInstanceOf(EntityNotFoundError);
     await expect(
       repository.create(validInput({ peopleIds: ['missing-person'] }))
@@ -179,9 +176,9 @@ describe('InMemoryEventRepository', () => {
     ).rejects.toBeInstanceOf(ModelValidationError);
 
     expect(database.events.size).toBe(eventCount);
-    expect(database.eventTags.has(eventTagKey(NEW_EVENT_ID, tag.id))).toBe(
-      false
-    );
+    expect(
+      database.eventTags.has(eventTagKey(NEW_EVENT_ID, 'missing-tag'))
+    ).toBe(false);
   });
 
   it('applies partial scalar and relationship updates with replacement semantics', async () => {
@@ -224,30 +221,7 @@ describe('InMemoryEventRepository', () => {
     expect([...database.eventTags.entries()]).toEqual(relationshipsBefore);
   });
 
-  it('allows unrelated updates when existing metadata is later soft deleted', async () => {
-    const { database, repository } = createRepository();
-    const event = DEVELOPMENT_SEED.events[0];
-    const category = DEVELOPMENT_SEED.categories.find(
-      (item) => item.id === event.categoryId
-    );
-    const tag = DEVELOPMENT_SEED.tags[0];
-
-    if (!category) throw new Error('Expected the seeded event category.');
-
-    database.categories.set(category.id, { ...category, deletedAt: NOW });
-    database.tags.set(tag.id, { ...tag, deletedAt: NOW });
-
-    const updated = await repository.update(event.id, {
-      title: 'Still editable',
-    });
-
-    expect(updated.event.title).toBe('Still editable');
-    expect(updated.event.categoryId).toBe(category.id);
-    expect(updated.category).toBeNull();
-    expect(updated.tags.map((item) => item.name)).toEqual(['local-first']);
-  });
-
-  it('resolves only active related records and orders attachments', async () => {
+  it('resolves related records and orders attachments', async () => {
     const { database, repository } = createRepository();
     const eventId = DEVELOPMENT_SEED.events[0].id;
     const attachmentBase = {
@@ -273,12 +247,12 @@ describe('InMemoryEventRepository', () => {
       id: 'attachment-1',
       sortOrder: 1,
     });
-    const tag = DEVELOPMENT_SEED.tags[0];
-    database.tags.set(tag.id, { ...tag, deletedAt: NOW });
-
     const details = await repository.getDetailsById(eventId);
 
-    expect(details?.tags.map((item) => item.name)).toEqual(['local-first']);
+    expect(details?.tags.map((item) => item.name)).toEqual([
+      'development',
+      'local-first',
+    ]);
     expect(details?.attachments.map((item) => item.id)).toEqual([
       'attachment-1',
       'attachment-2',

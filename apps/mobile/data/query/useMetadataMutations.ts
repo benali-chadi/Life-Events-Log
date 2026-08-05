@@ -6,6 +6,7 @@ import {
 import type {
   CreateCategoryInput,
   CreateNamedMetadataInput,
+  DeleteMetadataResult,
   UpdateCategoryInput,
   UpdateNamedMetadataInput,
 } from '@/data/repositories';
@@ -26,8 +27,10 @@ type MetadataEntity = {
 type MetadataRepository<TEntity, TCreateInput, TUpdateInput> = {
   create(input: TCreateInput): Promise<TEntity>;
   update(id: UUID, input: TUpdateInput): Promise<TEntity>;
-  softDelete(id: UUID): Promise<void>;
-  restore(id: UUID): Promise<void>;
+};
+
+type PermanentDeleteMetadataRepository = {
+  delete(id: UUID): Promise<DeleteMetadataResult>;
 };
 
 type MetadataKeys = {
@@ -75,38 +78,22 @@ function useUpdateMetadataMutation<
   });
 }
 
-function useDeleteMetadataMutation<TEntity>(
-  repository: Pick<MetadataRepository<TEntity, never, never>, 'softDelete'>,
+function usePermanentDeleteMetadataMutation(
+  repository: PermanentDeleteMetadataRepository,
   keys: MetadataKeys
 ) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: UUID) => repository.softDelete(id),
-    onSuccess: async (_, id) => {
+    mutationFn: (id: UUID) => repository.delete(id),
+    onSuccess: async (result, id) => {
       queryClient.setQueryData(keys.detail(id), null);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: keys.lists() }),
         invalidateEmbeddedMetadata(queryClient),
       ]);
-    },
-  });
-}
 
-function useRestoreMetadataMutation<TEntity>(
-  repository: Pick<MetadataRepository<TEntity, never, never>, 'restore'>,
-  keys: MetadataKeys
-) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (id: UUID) => repository.restore(id),
-    onSuccess: async (_, id) => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: keys.detail(id) }),
-        queryClient.invalidateQueries({ queryKey: keys.lists() }),
-        invalidateEmbeddedMetadata(queryClient),
-      ]);
+      return result;
     },
   });
 }
@@ -126,11 +113,7 @@ export function useUpdateTagMutation() {
 }
 
 export function useDeleteTagMutation() {
-  return useDeleteMetadataMutation(useTagRepository(), tagKeys);
-}
-
-export function useRestoreTagMutation() {
-  return useRestoreMetadataMutation(useTagRepository(), tagKeys);
+  return usePermanentDeleteMetadataMutation(useTagRepository(), tagKeys);
 }
 
 export function useCreateCategoryMutation() {
@@ -148,11 +131,10 @@ export function useUpdateCategoryMutation() {
 }
 
 export function useDeleteCategoryMutation() {
-  return useDeleteMetadataMutation(useCategoryRepository(), categoryKeys);
-}
-
-export function useRestoreCategoryMutation() {
-  return useRestoreMetadataMutation(useCategoryRepository(), categoryKeys);
+  return usePermanentDeleteMetadataMutation(
+    useCategoryRepository(),
+    categoryKeys
+  );
 }
 
 export function useCreatePersonMutation() {
@@ -170,11 +152,7 @@ export function useUpdatePersonMutation() {
 }
 
 export function useDeletePersonMutation() {
-  return useDeleteMetadataMutation(usePersonRepository(), personKeys);
-}
-
-export function useRestorePersonMutation() {
-  return useRestoreMetadataMutation(usePersonRepository(), personKeys);
+  return usePermanentDeleteMetadataMutation(usePersonRepository(), personKeys);
 }
 
 export function useCreateLocationMutation() {
@@ -192,9 +170,8 @@ export function useUpdateLocationMutation() {
 }
 
 export function useDeleteLocationMutation() {
-  return useDeleteMetadataMutation(useLocationRepository(), locationKeys);
-}
-
-export function useRestoreLocationMutation() {
-  return useRestoreMetadataMutation(useLocationRepository(), locationKeys);
+  return usePermanentDeleteMetadataMutation(
+    useLocationRepository(),
+    locationKeys
+  );
 }

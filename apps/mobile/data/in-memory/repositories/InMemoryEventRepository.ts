@@ -255,7 +255,7 @@ export class InMemoryEventRepository implements EventRepository {
     this.assertValidTime(input.time);
     this.assertValidSignificance(input.significance);
     if (references.category) {
-      this.assertActiveReference(
+      this.assertExistingReference(
         this.database.categories,
         'Category',
         input.categoryId
@@ -263,7 +263,7 @@ export class InMemoryEventRepository implements EventRepository {
     }
 
     if (references.location) {
-      this.assertActiveReference(
+      this.assertExistingReference(
         this.database.locations,
         'Location',
         input.locationId
@@ -538,23 +538,19 @@ export class InMemoryEventRepository implements EventRepository {
     }
   }
 
-  private assertActiveReference<TEntity extends { deletedAt: string | null }>(
+  private assertExistingReference<TEntity>(
     table: ReadonlyMap<UUID, TEntity>,
     entityName: string,
     id: UUID | null
   ) {
     if (id === null) return;
 
-    const entity = table.get(id);
-
-    if (!entity || entity.deletedAt !== null) {
+    if (!table.has(id)) {
       throw new EntityNotFoundError(entityName, id);
     }
   }
 
-  private validatedRelationshipIds<
-    TEntity extends { deletedAt: string | null },
-  >(
+  private validatedRelationshipIds<TEntity>(
     ids: readonly UUID[],
     table: ReadonlyMap<UUID, TEntity>,
     entityName: string
@@ -568,7 +564,7 @@ export class InMemoryEventRepository implements EventRepository {
         );
       }
 
-      this.assertActiveReference(table, entityName, id);
+      this.assertExistingReference(table, entityName, id);
       uniqueIds.add(id);
     }
 
@@ -584,12 +580,12 @@ export class InMemoryEventRepository implements EventRepository {
       : null;
     const tags = this.tagIdsForEvent(event.id)
       .map((id) => this.database.tags.get(id))
-      .filter((tag) => tag?.deletedAt === null)
+      .filter((tag) => tag !== undefined)
       .map((tag) => cloneMetadataEntity(tag!))
       .sort(compareMetadataNames);
     const people = this.peopleIdsForEvent(event.id)
       .map((id) => this.database.people.get(id))
-      .filter((person) => person?.deletedAt === null)
+      .filter((person) => person !== undefined)
       .map((person) => cloneMetadataEntity(person!))
       .sort(compareMetadataNames);
     const attachments = [...this.database.attachments.values()]
@@ -606,10 +602,8 @@ export class InMemoryEventRepository implements EventRepository {
 
     return {
       event: cloneEvent(event),
-      category:
-        category?.deletedAt === null ? cloneMetadataEntity(category) : null,
-      location:
-        location?.deletedAt === null ? cloneMetadataEntity(location) : null,
+      category: category ? cloneMetadataEntity(category) : null,
+      location: location ? cloneMetadataEntity(location) : null,
       tags,
       people,
       attachments,
@@ -630,16 +624,14 @@ export class InMemoryEventRepository implements EventRepository {
 
   private activeTagIdsForEvent(eventId: UUID) {
     return new Set(
-      this.tagIdsForEvent(eventId).filter(
-        (id) => this.database.tags.get(id)?.deletedAt === null
-      )
+      this.tagIdsForEvent(eventId).filter((id) => this.database.tags.has(id))
     );
   }
 
   private activePeopleIdsForEvent(eventId: UUID) {
     return new Set(
-      this.peopleIdsForEvent(eventId).filter(
-        (id) => this.database.people.get(id)?.deletedAt === null
+      this.peopleIdsForEvent(eventId).filter((id) =>
+        this.database.people.has(id)
       )
     );
   }

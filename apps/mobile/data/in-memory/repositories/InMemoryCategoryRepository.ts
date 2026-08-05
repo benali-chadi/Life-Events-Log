@@ -11,6 +11,7 @@ import {
   RepositoryError,
   type CategoryRepository,
   type CreateCategoryInput,
+  type DeleteMetadataResult,
   type MetadataListQuery,
   type RepositoryDependencies,
   type UpdateCategoryInput,
@@ -32,9 +33,7 @@ export class InMemoryCategoryRepository implements CategoryRepository {
   async getById(id: UUID) {
     const category = this.database.categories.get(id);
 
-    return category && category.deletedAt === null
-      ? cloneMetadataEntity(category)
-      : null;
+    return category ? cloneMetadataEntity(category) : null;
   }
 
   async list(query?: MetadataListQuery) {
@@ -43,8 +42,7 @@ export class InMemoryCategoryRepository implements CategoryRepository {
     return [...this.database.categories.values()]
       .filter(
         (category) =>
-          category.deletedAt === null &&
-          (!search || comparableMetadataName(category.name).includes(search))
+          !search || comparableMetadataName(category.name).includes(search)
       )
       .sort(compareMetadataNames)
       .map(cloneMetadataEntity);
@@ -70,7 +68,6 @@ export class InMemoryCategoryRepository implements CategoryRepository {
       color,
       createdAt: timestamp,
       updatedAt: timestamp,
-      deletedAt: null,
     };
 
     this.database.categories.set(id, category);
@@ -79,7 +76,7 @@ export class InMemoryCategoryRepository implements CategoryRepository {
   }
 
   async update(id: UUID, input: UpdateCategoryInput) {
-    const existing = this.activeCategoryOrThrow(id);
+    const existing = this.categoryOrThrow(id);
     const name =
       input.name === undefined ? existing.name : this.validName(input.name);
     const color =
@@ -103,32 +100,10 @@ export class InMemoryCategoryRepository implements CategoryRepository {
     return cloneMetadataEntity(updated);
   }
 
-  async softDelete(id: UUID) {
-    const category = this.categoryOrThrow(id);
-
-    if (category.deletedAt !== null) return;
-
-    const timestamp = this.dependencies.now();
-
-    this.database.categories.set(id, {
-      ...category,
-      updatedAt: timestamp,
-      deletedAt: timestamp,
-    });
-  }
-
-  async restore(id: UUID) {
-    const category = this.categoryOrThrow(id);
-
-    if (category.deletedAt === null) return;
-
-    this.assertUniqueName(category.name, id);
-
-    this.database.categories.set(id, {
-      ...category,
-      updatedAt: this.dependencies.now(),
-      deletedAt: null,
-    });
+  async delete(_id: UUID): Promise<DeleteMetadataResult> {
+    throw new RepositoryError(
+      'Permanent category deletion is not implemented yet.'
+    );
   }
 
   private validName(value: string) {
@@ -164,16 +139,6 @@ export class InMemoryCategoryRepository implements CategoryRepository {
     const category = this.database.categories.get(id);
 
     if (!category) throw new EntityNotFoundError('Category', id);
-
-    return category;
-  }
-
-  private activeCategoryOrThrow(id: UUID) {
-    const category = this.categoryOrThrow(id);
-
-    if (category.deletedAt !== null) {
-      throw new EntityNotFoundError('Category', id);
-    }
 
     return category;
   }
