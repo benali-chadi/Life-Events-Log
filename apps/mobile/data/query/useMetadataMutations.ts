@@ -17,7 +17,11 @@ import {
   usePersonRepository,
   useTagRepository,
 } from '@/data/RepositoryProvider';
-import { invalidateEmbeddedMetadata } from './invalidation';
+import {
+  invalidateAffectedEvents,
+  invalidateEmbeddedMetadata,
+  invalidateMetadataLists,
+} from './invalidation';
 import { categoryKeys, locationKeys, personKeys, tagKeys } from './queryKeys';
 
 type MetadataEntity = {
@@ -35,6 +39,7 @@ type PermanentDeleteMetadataRepository = {
 
 type MetadataKeys = {
   lists(): QueryKey;
+  usageLists(): QueryKey;
   detail(id: UUID): QueryKey;
 };
 
@@ -51,7 +56,7 @@ function useCreateMetadataMutation<
     mutationFn: (input: TCreateInput) => repository.create(input),
     onSuccess: async (entity) => {
       queryClient.setQueryData(keys.detail(entity.id), entity);
-      await queryClient.invalidateQueries({ queryKey: keys.lists() });
+      await invalidateMetadataLists(queryClient, keys);
     },
   });
 }
@@ -71,7 +76,7 @@ function useUpdateMetadataMutation<
     onSuccess: async (entity) => {
       queryClient.setQueryData(keys.detail(entity.id), entity);
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: keys.lists() }),
+        invalidateMetadataLists(queryClient, keys),
         invalidateEmbeddedMetadata(queryClient),
       ]);
     },
@@ -89,8 +94,8 @@ function usePermanentDeleteMetadataMutation(
     onSuccess: async (result, id) => {
       queryClient.setQueryData(keys.detail(id), null);
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: keys.lists() }),
-        invalidateEmbeddedMetadata(queryClient),
+        invalidateMetadataLists(queryClient, keys),
+        invalidateAffectedEvents(queryClient, result.affectedEventIds),
       ]);
 
       return result;

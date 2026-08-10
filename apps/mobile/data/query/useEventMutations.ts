@@ -2,7 +2,11 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { CreateEventInput, UpdateEventInput } from '@/data/repositories';
 import type { UUID } from '@/models';
 import { useEventRepository } from '@/data/RepositoryProvider';
-import { cacheEventDetails, invalidateEventLists } from './invalidation';
+import {
+  cacheEventDetails,
+  invalidateEventLists,
+  invalidateMetadataUsageLists,
+} from './invalidation';
 import { eventKeys } from './queryKeys';
 
 export function useCreateEventMutation() {
@@ -13,7 +17,10 @@ export function useCreateEventMutation() {
     mutationFn: (input: CreateEventInput) => repository.create(input),
     onSuccess: async (details) => {
       cacheEventDetails(queryClient, details);
-      await invalidateEventLists(queryClient);
+      await Promise.all([
+        invalidateEventLists(queryClient),
+        invalidateMetadataUsageLists(queryClient),
+      ]);
     },
   });
 }
@@ -27,7 +34,10 @@ export function useUpdateEventMutation() {
       repository.update(id, input),
     onSuccess: async (details) => {
       cacheEventDetails(queryClient, details);
-      await invalidateEventLists(queryClient);
+      await Promise.all([
+        invalidateEventLists(queryClient),
+        invalidateMetadataUsageLists(queryClient),
+      ]);
     },
   });
 }
@@ -41,7 +51,10 @@ export function useDeleteEventMutation() {
     onSuccess: async (_, id) => {
       queryClient.setQueryData(eventKeys.record(id), null);
       queryClient.setQueryData(eventKeys.detail(id), null);
-      await invalidateEventLists(queryClient);
+      await Promise.all([
+        invalidateEventLists(queryClient),
+        invalidateMetadataUsageLists(queryClient),
+      ]);
     },
   });
 }
@@ -57,6 +70,7 @@ export function useRestoreEventMutation() {
         queryClient.invalidateQueries({ queryKey: eventKeys.record(id) }),
         queryClient.invalidateQueries({ queryKey: eventKeys.detail(id) }),
         invalidateEventLists(queryClient),
+        invalidateMetadataUsageLists(queryClient),
       ]);
     },
   });
