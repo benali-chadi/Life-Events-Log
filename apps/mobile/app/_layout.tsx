@@ -7,6 +7,7 @@ import { useTheme } from '@lel/design/useTheme';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { QueryClientProvider } from '@tanstack/react-query';
 import EventDeletionProvider from '@/components/event-deletion/EventDeletionProvider';
+import TimelineOverflowMenu from '@/components/TimelineOverflowMenu';
 import { appRepositories } from '@/data/appRepositories';
 import { appQueryClient } from '@/data/query';
 import { RepositoryProvider } from '@/data/RepositoryProvider';
@@ -39,6 +40,7 @@ export default function RootLayout() {
                 options={{
                   title: 'Events',
                   headerTitle: () => <EventsHeader />,
+                  headerRight: () => <TimelineOverflowMenu />,
                 }}
               />
               <Stack.Screen
@@ -49,6 +51,10 @@ export default function RootLayout() {
                 }}
               />
               <Stack.Screen name="new" options={{ presentation: 'modal' }} />
+              <Stack.Screen
+                name="metadata"
+                options={{ title: 'Manage metadata', headerBackTitle: 'Back' }}
+              />
             </Stack>
 
             <StatusBar style={isDark ? 'light' : 'dark'} />
