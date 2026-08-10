@@ -21,6 +21,7 @@ type SingleSelectProps = {
   options: SelectOption[];
   onChange: (value: SelectOption | null) => void;
   onCreate?: (label: string) => SelectOption | Promise<SelectOption>;
+  onCreateRequest?: (label: string) => void;
   onCreateError?: (error: unknown) => void;
   placeholder?: string;
   searchPlaceholder?: string;
@@ -36,6 +37,7 @@ export default function SingleSelect({
   options,
   onChange,
   onCreate,
+  onCreateRequest,
   onCreateError,
   placeholder = 'Select a value',
   searchPlaceholder = 'Search...',
@@ -75,7 +77,9 @@ export default function SingleSelect({
     [maxVisibleSuggestions, options, query]
   );
   const canCreate =
-    Boolean(onCreate) && Boolean(normalizedQuery) && !exactMatch;
+    Boolean(onCreate || onCreateRequest) &&
+    Boolean(normalizedQuery) &&
+    !exactMatch;
   const selectableItemCount = suggestions.length + (canCreate ? 1 : 0);
 
   const resetInput = useCallback(() => {
@@ -111,7 +115,15 @@ export default function SingleSelect({
 
   const createOption = useCallback(async () => {
     const label = query.trim();
-    if (!label || !onCreate || isCreating) return;
+    if (!label || (!onCreate && !onCreateRequest) || isCreating) return;
+
+    if (onCreateRequest) {
+      leaveEditMode();
+      onCreateRequest(label);
+      return;
+    }
+
+    if (!onCreate) return;
 
     setIsCreating(true);
     try {
@@ -121,7 +133,15 @@ export default function SingleSelect({
     } finally {
       setIsCreating(false);
     }
-  }, [isCreating, onCreate, onCreateError, query, selectOption]);
+  }, [
+    isCreating,
+    leaveEditMode,
+    onCreate,
+    onCreateError,
+    onCreateRequest,
+    query,
+    selectOption,
+  ]);
 
   const submitQuery = () => {
     const highlightedSuggestion = suggestions[highlightedIndex];
