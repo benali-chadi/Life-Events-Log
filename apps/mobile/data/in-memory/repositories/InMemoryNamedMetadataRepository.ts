@@ -30,6 +30,7 @@ type NamedMetadataRepositoryOptions<TEntity extends NamedMetadataEntity> = {
   entityName: string;
   createEntity: (entity: NamedMetadataEntity) => TEntity;
   getUsageCounts: () => ReadonlyMap<UUID, number>;
+  deleteReferences?: (id: UUID, timestamp: Timestamp) => DeleteMetadataResult;
 };
 
 export class InMemoryNamedMetadataRepository<
@@ -118,10 +119,19 @@ export class InMemoryNamedMetadataRepository<
     return cloneMetadataEntity(updated);
   }
 
-  async delete(_id: UUID): Promise<DeleteMetadataResult> {
-    throw new RepositoryError(
-      `Permanent ${this.options.entityName.toLowerCase()} deletion is not implemented yet.`
-    );
+  async delete(id: UUID): Promise<DeleteMetadataResult> {
+    this.entityOrThrow(id);
+
+    if (!this.options.deleteReferences) {
+      throw new RepositoryError(
+        `Permanent ${this.options.entityName.toLowerCase()} deletion is not implemented yet.`
+      );
+    }
+
+    const result = this.options.deleteReferences(id, this.dependencies.now());
+    this.table.delete(id);
+
+    return result;
   }
 
   private validName(value: string) {

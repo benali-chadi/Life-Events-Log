@@ -3,6 +3,7 @@ import type { RepositoryDependencies } from '@/data/repositories';
 import type { InMemoryDatabase } from '../types';
 import { InMemoryNamedMetadataRepository } from './InMemoryNamedMetadataRepository';
 import { countActivePersonUsage } from './metadataUsageUtils';
+import { deleteMetadataRelationships } from './deleteMetadataRelationships';
 
 export class InMemoryPersonRepository extends InMemoryNamedMetadataRepository<Person> {
   constructor(
@@ -13,6 +14,14 @@ export class InMemoryPersonRepository extends InMemoryNamedMetadataRepository<Pe
       entityName: 'Person',
       createEntity: (person) => person,
       getUsageCounts: () => countActivePersonUsage(database),
+      deleteReferences: (personId, timestamp) =>
+        deleteMetadataRelationships({
+          database,
+          metadataId: personId,
+          relationships: database.eventPeople,
+          getMetadataId: (relationship) => relationship.personId,
+          timestamp,
+        }),
     });
   }
 }

@@ -63,6 +63,31 @@ describe('InMemoryPersonRepository', () => {
       })
     );
   });
+
+  it('permanently deletes a person and its event relationships', async () => {
+    const database = createInMemoryDatabase(DEVELOPMENT_SEED);
+    const repository = new InMemoryPersonRepository(database, dependencies);
+    const personId = DEVELOPMENT_SEED.people[1].id;
+    const affectedIds = [...database.eventPeople.values()]
+      .filter((relationship) => relationship.personId === personId)
+      .map((relationship) => relationship.eventId)
+      .sort();
+
+    const result = await repository.delete(personId);
+
+    expect(result.affectedEventIds).toEqual(affectedIds);
+    expect(database.people.has(personId)).toBe(false);
+    expect(
+      [...database.eventPeople.values()].some(
+        (relationship) => relationship.personId === personId
+      )
+    ).toBe(false);
+    for (const eventId of affectedIds) {
+      expect(database.events.get(eventId)?.updatedAt).toBe(
+        '2026-07-30T10:00:00.000Z'
+      );
+    }
+  });
 });
 
 describe('InMemoryLocationRepository', () => {

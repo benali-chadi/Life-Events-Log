@@ -114,11 +114,54 @@ describe('InMemoryTagRepository', () => {
     ).rejects.toBeInstanceOf(RepositoryError);
   });
 
-  it('exposes an explicit permanent-deletion placeholder', async () => {
-    const { repository } = createRepository();
+  it('permanently deletes a tag and its relationships', async () => {
+    const { database, repository } = createRepository();
+    const tagId = DEVELOPMENT_SEED.tags[0].id;
+    const affectedIds = [...database.eventTags.values()]
+      .filter((relationship) => relationship.tagId === tagId)
+      .map((relationship) => relationship.eventId)
+      .sort();
+    const unrelatedRelationships = [...database.eventTags.values()].filter(
+      (relationship) => relationship.tagId !== tagId
+    );
+    const affectedEvent = database.events.get(affectedIds[0]!);
+    database.events.set(affectedIds[0]!, {
+      ...affectedEvent!,
+      deletedAt: '2026-08-01T10:00:00.000Z',
+    });
 
-    await expect(
-      repository.delete(DEVELOPMENT_SEED.tags[0].id)
-    ).rejects.toThrow('Permanent tag deletion is not implemented yet.');
+    const result = await repository.delete(tagId);
+
+    expect(result.affectedEventIds).toEqual(affectedIds);
+    expect(database.tags.has(tagId)).toBe(false);
+    expect(
+      [...database.eventTags.values()].some(
+        (relationship) => relationship.tagId === tagId
+      )
+    ).toBe(false);
+    expect([...database.eventTags.values()]).toEqual(unrelatedRelationships);
+    for (const eventId of affectedIds) {
+      expect(database.events.get(eventId)?.updatedAt).toBe(
+        '2026-07-30T10:00:00.000Z'
+      );
+    }
+    expect(database.events.get(affectedIds[0]!)?.deletedAt).toBe(
+      '2026-08-01T10:00:00.000Z'
+    );
+  });
+
+  it('deletes unused tags and rejects missing IDs without changes', async () => {
+    const { database, repository } = createRepository();
+    const unused = await repository.create({ name: 'unused' });
+
+    await expect(repository.delete(unused.id)).resolves.toEqual({
+      affectedEventIds: [],
+    });
+
+    const relationshipsBefore = [...database.eventTags.entries()];
+    await expect(repository.delete('missing-tag')).rejects.toBeInstanceOf(
+      EntityNotFoundError
+    );
+    expect([...database.eventTags.entries()]).toEqual(relationshipsBefore);
   });
 });
