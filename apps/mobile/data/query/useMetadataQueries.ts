@@ -27,6 +27,15 @@ export function useTagsQuery(query?: MetadataListQuery) {
   });
 }
 
+export function useTagsWithUsageQuery(query?: MetadataListQuery) {
+  const repository = useTagRepository();
+
+  return useQuery({
+    queryKey: tagKeys.usageList(query),
+    queryFn: () => repository.listWithUsage(query),
+  });
+}
+
 export function useCategoryQuery(id: UUID) {
   const repository = useCategoryRepository();
 
@@ -42,6 +51,15 @@ export function useCategoriesQuery(query?: MetadataListQuery) {
   return useQuery({
     queryKey: categoryKeys.list(query),
     queryFn: () => repository.list(query),
+  });
+}
+
+export function useCategoriesWithUsageQuery(query?: MetadataListQuery) {
+  const repository = useCategoryRepository();
+
+  return useQuery({
+    queryKey: categoryKeys.usageList(query),
+    queryFn: () => repository.listWithUsage(query),
   });
 }
 
@@ -63,6 +81,15 @@ export function usePeopleQuery(query?: MetadataListQuery) {
   });
 }
 
+export function usePeopleWithUsageQuery(query?: MetadataListQuery) {
+  const repository = usePersonRepository();
+
+  return useQuery({
+    queryKey: personKeys.usageList(query),
+    queryFn: () => repository.listWithUsage(query),
+  });
+}
+
 export function useLocationQuery(id: UUID) {
   const repository = useLocationRepository();
 
@@ -78,5 +105,14 @@ export function useLocationsQuery(query?: MetadataListQuery) {
   return useQuery({
     queryKey: locationKeys.list(query),
     queryFn: () => repository.list(query),
+  });
+}
+
+export function useLocationsWithUsageQuery(query?: MetadataListQuery) {
+  const repository = useLocationRepository();
+
+  return useQuery({
+    queryKey: locationKeys.usageList(query),
+    queryFn: () => repository.listWithUsage(query),
   });
 }

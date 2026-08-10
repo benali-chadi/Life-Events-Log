@@ -8,6 +8,9 @@ function metadataKeys<const TScope extends string>(scope: TScope) {
     all: [scope] as const,
     lists: () => [scope, 'list'] as const,
     list: (query?: MetadataListQuery) => [scope, 'list', query ?? {}] as const,
+    usageLists: () => [scope, 'usage-list'] as const,
+    usageList: (query?: MetadataListQuery) =>
+      [scope, 'usage-list', query ?? {}] as const,
     details: () => [scope, 'detail'] as const,
     detail: (id: UUID) => [scope, 'detail', id] as const,
   };
