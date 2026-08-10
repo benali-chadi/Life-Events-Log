@@ -11,7 +11,6 @@ import {
   RepositoryError,
   type CategoryRepository,
   type CreateCategoryInput,
-  type DeleteMetadataResult,
   type MetadataListQuery,
   type MetadataUsageItem,
   type RepositoryDependencies,
@@ -25,6 +24,7 @@ import {
   normalizeMetadataName,
 } from './namedMetadataUtils';
 import { countActiveEventFieldUsage } from './metadataUsageUtils';
+import { deleteEventFieldMetadata } from './deleteEventFieldMetadata';
 
 export class InMemoryCategoryRepository implements CategoryRepository {
   constructor(
@@ -123,10 +123,15 @@ export class InMemoryCategoryRepository implements CategoryRepository {
     return cloneMetadataEntity(updated);
   }
 
-  async delete(_id: UUID): Promise<DeleteMetadataResult> {
-    throw new RepositoryError(
-      'Permanent category deletion is not implemented yet.'
-    );
+  async delete(id: UUID) {
+    return deleteEventFieldMetadata({
+      database: this.database,
+      metadataId: id,
+      metadataName: 'Category',
+      metadataTable: this.database.categories,
+      eventField: 'categoryId',
+      timestamp: this.dependencies.now(),
+    });
   }
 
   private validName(value: string) {

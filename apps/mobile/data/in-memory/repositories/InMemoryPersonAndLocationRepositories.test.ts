@@ -106,4 +106,36 @@ describe('InMemoryLocationRepository', () => {
       })
     );
   });
+
+  it('permanently deletes a location and clears references from every event', async () => {
+    const database = createInMemoryDatabase(DEVELOPMENT_SEED);
+    const repository = new InMemoryLocationRepository(database, dependencies);
+    const locationId = DEVELOPMENT_SEED.locations[0].id;
+    const affectedIds = [...database.events.values()]
+      .filter((event) => event.locationId === locationId)
+      .map((event) => event.id)
+      .sort();
+
+    const result = await repository.delete(locationId);
+
+    expect(result.affectedEventIds).toEqual(affectedIds);
+    expect(database.locations.has(locationId)).toBe(false);
+    for (const eventId of affectedIds) {
+      expect(database.events.get(eventId)).toMatchObject({
+        locationId: null,
+        updatedAt: '2026-07-30T10:00:00.000Z',
+      });
+    }
+  });
+
+  it('rejects deletion of a missing location without changing events', async () => {
+    const database = createInMemoryDatabase(DEVELOPMENT_SEED);
+    const repository = new InMemoryLocationRepository(database, dependencies);
+    const eventsBefore = [...database.events.entries()];
+
+    await expect(repository.delete('missing-location')).rejects.toBeInstanceOf(
+      EntityNotFoundError
+    );
+    expect([...database.events.entries()]).toEqual(eventsBefore);
+  });
 });

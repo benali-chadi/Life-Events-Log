@@ -151,11 +151,53 @@ describe('InMemoryCategoryRepository', () => {
     ).rejects.toBeInstanceOf(RepositoryError);
   });
 
-  it('exposes an explicit permanent-deletion placeholder', async () => {
-    const { repository } = createRepository();
+  it('permanently deletes a category and clears all event references', async () => {
+    const { database, repository } = createRepository();
+    const categoryId = DEVELOPMENT_SEED.categories[0].id;
+    const referencedEvents = [...database.events.values()].filter(
+      (event) => event.categoryId === categoryId
+    );
+    const softDeletedEvent = referencedEvents[0];
 
-    await expect(
-      repository.delete(DEVELOPMENT_SEED.categories[0].id)
-    ).rejects.toThrow('Permanent category deletion is not implemented yet.');
+    expect(softDeletedEvent).toBeDefined();
+    database.events.set(softDeletedEvent!.id, {
+      ...softDeletedEvent!,
+      deletedAt: '2026-08-01T10:00:00.000Z',
+    });
+
+    const result = await repository.delete(categoryId);
+
+    expect(database.categories.has(categoryId)).toBe(false);
+    expect(result.affectedEventIds).toEqual(
+      referencedEvents.map((event) => event.id).sort()
+    );
+    for (const eventId of result.affectedEventIds) {
+      expect(database.events.get(eventId)).toMatchObject({
+        categoryId: null,
+        updatedAt: '2026-07-30T10:00:00.000Z',
+      });
+    }
+    expect(database.events.get(softDeletedEvent!.id)?.deletedAt).toBe(
+      '2026-08-01T10:00:00.000Z'
+    );
+  });
+
+  it('deletes unused categories and rejects missing IDs without changes', async () => {
+    const { database, repository } = createRepository();
+    const category = await repository.create({
+      name: 'Unused',
+      color: 'slate',
+    });
+
+    await expect(repository.delete(category.id)).resolves.toEqual({
+      affectedEventIds: [],
+    });
+    expect(database.categories.has(category.id)).toBe(false);
+
+    const eventsBefore = [...database.events.entries()];
+    await expect(repository.delete('missing-category')).rejects.toBeInstanceOf(
+      EntityNotFoundError
+    );
+    expect([...database.events.entries()]).toEqual(eventsBefore);
   });
 });
