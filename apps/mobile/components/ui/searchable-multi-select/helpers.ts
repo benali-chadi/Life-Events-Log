@@ -27,6 +27,7 @@ export function createStyles(colors: ColorsTheme) {
       borderColor: colors.borderStrong,
       backgroundColor: colors.interactiveMuted,
     },
+    triggerDisabled: { opacity: 0.55 },
     triggerPressed: { backgroundColor: colors.interactivePressed },
     triggerContent: {
       flexShrink: 1,
@@ -56,7 +57,6 @@ export function createStyles(colors: ColorsTheme) {
     backdrop: {
       ...StyleSheet.absoluteFillObject,
       backgroundColor: overlay.backdrop,
-      height: '200%',
     },
     sheet: {
       maxHeight: '82%',
@@ -85,7 +85,6 @@ export function createStyles(colors: ColorsTheme) {
       paddingBottom: spacing[3],
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
       gap: spacing[3],
     },
     headerText: { flex: 1 },
@@ -121,7 +120,7 @@ export function createStyles(colors: ColorsTheme) {
     },
     optionSelected: { backgroundColor: colors.interactiveMuted },
     optionPressed: { backgroundColor: colors.interactivePressed },
-    optionMain: {
+    optionContent: {
       flex: 1,
       flexDirection: 'row',
       alignItems: 'center',

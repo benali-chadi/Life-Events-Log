@@ -21,6 +21,8 @@ export type MultiSelectOption = {
   color?: string;
 
   description?: string;
+
+  pinned?: boolean;
 };
 
 type SearchableMultiSelectProps = {
@@ -33,6 +35,7 @@ type SearchableMultiSelectProps = {
   placeholder?: string;
   searchPlaceholder?: string;
   emptyMessage?: string;
+  disabled?: boolean;
 
   applyImmediately?: boolean; // by default slections are only commited when the user clicks apply
 };
@@ -47,6 +50,7 @@ export default function SearchableMultiSelect({
   placeholder = 'All',
   searchPlaceholder = 'Search options...',
   emptyMessage = 'No options found',
+  disabled = false,
 
   applyImmediately = false,
 }: SearchableMultiSelectProps) {
@@ -84,6 +88,10 @@ export default function SearchableMultiSelect({
       : options;
 
     return [...matchingOptions].sort((a, b) => {
+      if (a.pinned !== b.pinned) {
+        return a.pinned ? -1 : 1;
+      }
+
       const aIsSelected = draftSelectedSet.has(a.id);
       const bIsSelected = draftSelectedSet.has(b.id);
 
@@ -108,6 +116,8 @@ export default function SearchableMultiSelect({
   }, [placeholder, selectedOptions]);
 
   const openMenu = () => {
+    if (disabled) return;
+
     setDraftSelectedIds(selectedIds);
     setSearchQuery('');
     setIsOpen(true);
@@ -157,11 +167,16 @@ export default function SearchableMultiSelect({
         accessibilityRole="button"
         accessibilityLabel={`${label}: ${selectionSummary}`}
         accessibilityState={{ expanded: isOpen }}
+        disabled={disabled}
         onPress={openMenu}
         style={({ pressed }) => [
           styles.trigger,
           selectedIds.length > 0 && styles.triggerActive,
-          pressed && { backgroundColor: colors.interactivePressed },
+          disabled && styles.triggerDisabled,
+          pressed &&
+            !disabled && {
+              backgroundColor: colors.interactivePressed,
+            },
         ]}
       >
         <View style={styles.triggerContent}>
@@ -199,7 +214,8 @@ export default function SearchableMultiSelect({
         onRequestClose={cancelChanges}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalRoot}
         >
           <Pressable
             accessibilityRole="button"
@@ -286,40 +302,6 @@ export default function SearchableMultiSelect({
                       pressed && styles.optionPressed,
                     ]}
                   >
-                    <View style={styles.optionMain}>
-                      {item.color && (
-                        <View
-                          style={[
-                            styles.colorIndicator,
-                            {
-                              backgroundColor: item.color,
-                            },
-                          ]}
-                        />
-                      )}
-                    </View>
-
-                    <View style={styles.optionText}>
-                      <Text
-                        numberOfLines={1}
-                        style={[
-                          styles.optionLabel,
-                          isSelected && styles.optionLabelSelected,
-                        ]}
-                      >
-                        {item.label}
-                      </Text>
-
-                      {item.description && (
-                        <Text
-                          numberOfLines={1}
-                          style={styles.optionDescription}
-                        >
-                          {item.description}
-                        </Text>
-                      )}
-                    </View>
-
                     <View
                       style={[
                         styles.checkIndicator,
@@ -333,6 +315,40 @@ export default function SearchableMultiSelect({
                           color={colors.text}
                         />
                       )}
+                    </View>
+
+                    <View style={styles.optionContent}>
+                      {item.color && (
+                        <View
+                          style={[
+                            styles.colorIndicator,
+                            {
+                              backgroundColor: item.color,
+                            },
+                          ]}
+                        />
+                      )}
+
+                      <View style={styles.optionText}>
+                        <Text
+                          numberOfLines={1}
+                          style={[
+                            styles.optionLabel,
+                            isSelected && styles.optionLabelSelected,
+                          ]}
+                        >
+                          {item.label}
+                        </Text>
+
+                        {item.description && (
+                          <Text
+                            numberOfLines={1}
+                            style={styles.optionDescription}
+                          >
+                            {item.description}
+                          </Text>
+                        )}
+                      </View>
                     </View>
                   </Pressable>
                 );

@@ -2,9 +2,11 @@ import { radius, spacing, typography } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
 import { router } from 'expo-router';
 import { Plus } from 'lucide-react-native';
-import { useMemo } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
+  type LayoutChangeEvent,
   Pressable,
   SectionList,
   StyleSheet,
@@ -12,12 +14,23 @@ import {
   View,
 } from 'react-native';
 import EventCard from '@/components/event-card';
+import EventsHeader from '@/components/EventsHeader';
 import { closeOpenSwipe } from '@/components/ui/SwipeReveal';
 import { useInfiniteEventListQuery } from '@/data/query';
 import type { EventListItem } from '@/data/repositories';
 import type { LocalDate } from '@/models';
 
 const PAGE_SIZE = 5;
+
+type TimelineSection = {
+  date: LocalDate;
+  title: string;
+  data: EventListItem[];
+};
+
+const AnimatedSectionList = Animated.createAnimatedComponent(
+  SectionList<EventListItem, TimelineSection>
+);
 
 function localDateToday(): LocalDate {
   const now = new Date();
@@ -74,6 +87,13 @@ function groupEventsByDate(items: EventListItem[]) {
 
 export default function Index() {
   const { colors } = useTheme();
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const [toolbarHeight, setToolbarHeight] = useState(0);
+  const clampedScrollY = useMemo(
+    () => Animated.diffClamp(scrollY, 0, toolbarHeight),
+    [scrollY, toolbarHeight]
+  );
+  const toolbarTranslateY = Animated.multiply(clampedScrollY, -1);
   const eventsQuery = useInfiniteEventListQuery({ limit: PAGE_SIZE });
   const sections = useMemo(
     () =>
@@ -87,6 +107,12 @@ export default function Index() {
     if (eventsQuery.hasNextPage && !eventsQuery.isFetchingNextPage) {
       void eventsQuery.fetchNextPage();
     }
+  };
+
+  const measureToolbar = (event: LayoutChangeEvent) => {
+    const measuredHeight = event.nativeEvent.layout.height;
+
+    if (measuredHeight !== toolbarHeight) setToolbarHeight(measuredHeight);
   };
 
   if (eventsQuery.isPending) {
@@ -126,10 +152,11 @@ export default function Index() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
-      <SectionList
+      <AnimatedSectionList
         sections={sections}
         contentContainerStyle={[
           styles.listContent,
+          { paddingTop: toolbarHeight },
           sections.length === 0 && styles.emptyListContent,
         ]}
         keyExtractor={(item) => item.event.id}
@@ -138,7 +165,12 @@ export default function Index() {
         onEndReachedThreshold={0.4}
         onRefresh={() => void eventsQuery.refetch()}
         refreshing={eventsQuery.isRefetching && !eventsQuery.isFetchingNextPage}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
+        )}
         onScrollBeginDrag={closeOpenSwipe}
+        scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         renderSectionHeader={({ section: { title } }) => (
           <View style={[styles.sectionHeader, { backgroundColor: colors.bg }]}>
@@ -172,6 +204,18 @@ export default function Index() {
         )}
         stickySectionHeadersEnabled
       />
+      <Animated.View
+        onLayout={measureToolbar}
+        style={[
+          styles.timelineToolbar,
+          {
+            backgroundColor: colors.bg,
+            transform: [{ translateY: toolbarTranslateY }],
+          },
+        ]}
+      >
+        <EventsHeader />
+      </Animated.View>
       <Pressable
         accessibilityLabel="Create event"
         accessibilityRole="button"
@@ -194,16 +238,22 @@ const styles = StyleSheet.create({
     height: '100%',
     gap: spacing[2],
     paddingHorizontal: 20,
-    paddingTop: 10,
   },
   list: {
-    maxHeight: '95%',
+    flex: 1,
   },
   listContent: {
     paddingBottom: 96,
   },
   emptyListContent: {
     flexGrow: 1,
+  },
+  timelineToolbar: {
+    position: 'absolute',
+    zIndex: 2,
+    top: 0,
+    left: 20,
+    right: 20,
   },
   sectionHeader: {
     paddingVertical: spacing[1],
