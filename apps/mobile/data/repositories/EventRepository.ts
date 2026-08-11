@@ -36,20 +36,28 @@ export type EventMultiValueFilter = {
 };
 
 export type EventListQuery = {
-  limit: number;
-  cursor?: string;
+  search?: string;
 
-  titleSearch?: string;
+  categoryIds?: readonly UUID[];
+  includeUncategorized?: boolean;
+
   significance?: readonly EventSignificance[];
 
-  categoryId?: UUID | null;
-  locationId?: UUID | null;
-
   tagIds?: EventMultiValueFilter;
+
   peopleIds?: EventMultiValueFilter;
+
+  locationIds?: readonly UUID[];
+  includeWithoutLocation?: boolean;
 
   dateFrom?: LocalDate;
   dateTo?: LocalDate;
+
+  timeFrom?: LocalTime;
+  timeTo?: LocalTime;
+
+  limit: number;
+  cursor?: string;
 };
 
 export type EventListItemEvent = Omit<LELEvent, 'notes'> & {

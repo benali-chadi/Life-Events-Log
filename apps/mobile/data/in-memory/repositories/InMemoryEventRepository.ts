@@ -298,6 +298,8 @@ export class InMemoryEventRepository implements EventRepository {
 
     if (query.dateFrom) this.assertValidDate(query.dateFrom);
     if (query.dateTo) this.assertValidDate(query.dateTo);
+    if (query.timeFrom) this.assertValidTime(query.timeFrom);
+    if (query.timeTo) this.assertValidTime(query.timeTo);
 
     if (
       query.dateFrom &&
@@ -318,8 +320,8 @@ export class InMemoryEventRepository implements EventRepository {
 
     return {
       ...query,
-      titleSearch: query.titleSearch
-        ? normalizeMetadataName(query.titleSearch).toLowerCase()
+      titleSearch: query.search
+        ? normalizeMetadataName(query.search).toLowerCase()
         : '',
     };
   }
@@ -359,22 +361,44 @@ export class InMemoryEventRepository implements EventRepository {
       return false;
     }
 
-    if (
-      query.categoryId !== undefined &&
-      event.categoryId !== query.categoryId
-    ) {
-      return false;
+    if (query.categoryIds?.length || query.includeUncategorized) {
+      if (event.categoryId === null) {
+        if (!query.includeUncategorized) return false;
+      } else if (!query.categoryIds?.includes(event.categoryId)) {
+        return false;
+      }
     }
 
-    if (
-      query.locationId !== undefined &&
-      event.locationId !== query.locationId
-    ) {
-      return false;
+    if (query.locationIds?.length || query.includeWithoutLocation) {
+      if (event.locationId === null) {
+        if (!query.includeWithoutLocation) return false;
+      } else if (!query.locationIds?.includes(event.locationId)) {
+        return false;
+      }
     }
 
     if (query.dateFrom && event.date < query.dateFrom) return false;
     if (query.dateTo && event.date > query.dateTo) return false;
+
+    if (query.timeFrom || query.timeTo) {
+      const { timeFrom, timeTo } = query;
+      const { time } = event;
+
+      if (!time) return false;
+
+      if (timeFrom && timeTo) {
+        const matchesRange =
+          timeFrom <= timeTo
+            ? time >= timeFrom && time <= timeTo
+            : time >= timeFrom || time <= timeTo;
+
+        if (!matchesRange) return false;
+      } else if (timeFrom && time < timeFrom) {
+        return false;
+      } else if (timeTo && time > timeTo) {
+        return false;
+      }
+    }
 
     if (
       !this.matchesMultiValueFilter(
