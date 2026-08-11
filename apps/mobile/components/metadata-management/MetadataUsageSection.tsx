@@ -1,7 +1,7 @@
 import { eventColors, radius, spacing, typography } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
 import type { UseQueryResult } from '@tanstack/react-query';
-import { ArrowDown, ArrowUp, Plus } from 'lucide-react-native';
+import { ArrowDown, ArrowUp, ChevronRight, Plus } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -22,6 +22,10 @@ import {
   useLocationsWithUsageQuery,
   usePeopleWithUsageQuery,
   useTagsWithUsageQuery,
+  useUpdateCategoryMutation,
+  useUpdateLocationMutation,
+  useUpdatePersonMutation,
+  useUpdateTagMutation,
 } from '@/data/query';
 import type { MetadataUsageItem } from '@/data/repositories';
 import type { Category, CategoryColor, Location, Person, Tag } from '@/models';
@@ -30,6 +34,7 @@ import { suggestCategoryColor } from '../metadata/suggestCategoryColor';
 import SearchInput from '../ui/SearchInput';
 import { normalizeOptionValue } from '../ui/select';
 import type { MetadataSectionId } from './MetadataTabs';
+import NamedMetadataEditSheet from './NamedMetadataEditSheet';
 
 export type MetadataUsageOrder = 'most' | 'least';
 
@@ -54,6 +59,7 @@ type MetadataUsageListProps<TEntity extends UsageEntity> =
     isCreating: boolean;
     creationError: string | null;
     onCreate: (name: string) => void;
+    onEdit: (entity: TEntity) => void;
   };
 
 function queryInput(search: string) {
@@ -78,6 +84,7 @@ function MetadataUsageList<TEntity extends UsageEntity>({
   isCreating,
   creationError,
   onCreate,
+  onEdit,
 }: MetadataUsageListProps<TEntity>) {
   const { colors, isDark } = useTheme();
   const normalizedSearch = normalizeOptionValue(search);
@@ -246,9 +253,14 @@ function MetadataUsageList<TEntity extends UsageEntity>({
             const count = usageLabel(item.eventCount);
 
             return (
-              <View
-                accessibilityLabel={`${item.metadata.name}, ${count}`}
-                style={styles.row}
+              <Pressable
+                accessibilityLabel={`Edit ${item.metadata.name}, ${count}`}
+                accessibilityRole="button"
+                onPress={() => onEdit(item.metadata)}
+                style={({ pressed }) => [
+                  styles.row,
+                  pressed && { backgroundColor: colors.interactiveMuted },
+                ]}
               >
                 <View style={styles.rowMain}>
                   {color && (
@@ -282,7 +294,12 @@ function MetadataUsageList<TEntity extends UsageEntity>({
                 >
                   {count}
                 </Text>
-              </View>
+                <ChevronRight
+                  color={colors.textMuted}
+                  size={17}
+                  strokeWidth={2}
+                />
+              </Pressable>
             );
           }}
           ListEmptyComponent={
@@ -311,7 +328,9 @@ function CategoriesSection(props: SectionContentProps) {
   const query = useCategoriesWithUsageQuery(input);
   const categoriesQuery = useCategoriesQuery();
   const createCategory = useCreateCategoryMutation();
+  const updateCategory = useUpdateCategoryMutation();
   const [creationName, setCreationName] = useState<string | null>(null);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
 
   return (
     <>
@@ -324,6 +343,10 @@ function CategoriesSection(props: SectionContentProps) {
         onCreate={(name) => {
           createCategory.reset();
           setCreationName(name);
+        }}
+        onEdit={(category) => {
+          updateCategory.reset();
+          setEditingCategory(category);
         }}
         query={query}
         singularLabel="Category"
@@ -358,6 +381,39 @@ function CategoriesSection(props: SectionContentProps) {
           }}
         />
       )}
+
+      {editingCategory !== null && (
+        <CategoryCreationSheet
+          mode="edit"
+          error={
+            updateCategory.error instanceof Error
+              ? updateCategory.error.message
+              : updateCategory.isError
+                ? 'Please try again.'
+                : null
+          }
+          initialColor={editingCategory.color}
+          initialName={editingCategory.name}
+          isCreating={updateCategory.isPending}
+          onCancel={() => {
+            updateCategory.reset();
+            setEditingCategory(null);
+          }}
+          onCreate={(name, color) => {
+            updateCategory.mutate(
+              { id: editingCategory.id, input: { name, color } },
+              {
+                onSuccess: (updated) => {
+                  if (props.search.trim()) {
+                    props.onSearchChange(updated.name);
+                  }
+                  setEditingCategory(null);
+                },
+              }
+            );
+          }}
+        />
+      )}
     </>
   );
 }
@@ -366,32 +422,72 @@ function TagsSection(props: SectionContentProps) {
   const input = useMemo(() => queryInput(props.search), [props.search]);
   const query = useTagsWithUsageQuery(input);
   const createTag = useCreateTagMutation();
+  const updateTag = useUpdateTagMutation();
+  const [editingTag, setEditingTag] = useState<Tag | null>(null);
 
   return (
-    <MetadataUsageList
-      {...props}
-      creationError={
-        createTag.error instanceof Error
-          ? createTag.error.message
-          : createTag.isError
-            ? 'Please try again.'
-            : null
-      }
-      isCreating={createTag.isPending}
-      label="Tags"
-      onCreate={(name) =>
-        createTag.mutate(
-          { name },
-          { onSuccess: (created) => props.onSearchChange(created.name) }
-        )
-      }
-      onSearchChange={(search) => {
-        createTag.reset();
-        props.onSearchChange(search);
-      }}
-      query={query}
-      singularLabel="Tag"
-    />
+    <>
+      <MetadataUsageList
+        {...props}
+        creationError={
+          createTag.error instanceof Error
+            ? createTag.error.message
+            : createTag.isError
+              ? 'Please try again.'
+              : null
+        }
+        isCreating={createTag.isPending}
+        label="Tags"
+        onCreate={(name) =>
+          createTag.mutate(
+            { name },
+            { onSuccess: (created) => props.onSearchChange(created.name) }
+          )
+        }
+        onEdit={(tag) => {
+          updateTag.reset();
+          setEditingTag(tag);
+        }}
+        onSearchChange={(search) => {
+          createTag.reset();
+          props.onSearchChange(search);
+        }}
+        query={query}
+        singularLabel="Tag"
+      />
+
+      {editingTag !== null && (
+        <NamedMetadataEditSheet
+          entityLabel="Tag"
+          error={
+            updateTag.error instanceof Error
+              ? updateTag.error.message
+              : updateTag.isError
+                ? 'Please try again.'
+                : null
+          }
+          initialName={editingTag.name}
+          isSaving={updateTag.isPending}
+          onCancel={() => {
+            updateTag.reset();
+            setEditingTag(null);
+          }}
+          onSave={(name) =>
+            updateTag.mutate(
+              { id: editingTag.id, input: { name } },
+              {
+                onSuccess: (updated) => {
+                  if (props.search.trim()) {
+                    props.onSearchChange(updated.name);
+                  }
+                  setEditingTag(null);
+                },
+              }
+            )
+          }
+        />
+      )}
+    </>
   );
 }
 
@@ -399,32 +495,72 @@ function PeopleSection(props: SectionContentProps) {
   const input = useMemo(() => queryInput(props.search), [props.search]);
   const query = usePeopleWithUsageQuery(input);
   const createPerson = useCreatePersonMutation();
+  const updatePerson = useUpdatePersonMutation();
+  const [editingPerson, setEditingPerson] = useState<Person | null>(null);
 
   return (
-    <MetadataUsageList
-      {...props}
-      creationError={
-        createPerson.error instanceof Error
-          ? createPerson.error.message
-          : createPerson.isError
-            ? 'Please try again.'
-            : null
-      }
-      isCreating={createPerson.isPending}
-      label="People"
-      onCreate={(name) =>
-        createPerson.mutate(
-          { name },
-          { onSuccess: (created) => props.onSearchChange(created.name) }
-        )
-      }
-      onSearchChange={(search) => {
-        createPerson.reset();
-        props.onSearchChange(search);
-      }}
-      query={query}
-      singularLabel="Person"
-    />
+    <>
+      <MetadataUsageList
+        {...props}
+        creationError={
+          createPerson.error instanceof Error
+            ? createPerson.error.message
+            : createPerson.isError
+              ? 'Please try again.'
+              : null
+        }
+        isCreating={createPerson.isPending}
+        label="People"
+        onCreate={(name) =>
+          createPerson.mutate(
+            { name },
+            { onSuccess: (created) => props.onSearchChange(created.name) }
+          )
+        }
+        onEdit={(person) => {
+          updatePerson.reset();
+          setEditingPerson(person);
+        }}
+        onSearchChange={(search) => {
+          createPerson.reset();
+          props.onSearchChange(search);
+        }}
+        query={query}
+        singularLabel="Person"
+      />
+
+      {editingPerson !== null && (
+        <NamedMetadataEditSheet
+          entityLabel="Person"
+          error={
+            updatePerson.error instanceof Error
+              ? updatePerson.error.message
+              : updatePerson.isError
+                ? 'Please try again.'
+                : null
+          }
+          initialName={editingPerson.name}
+          isSaving={updatePerson.isPending}
+          onCancel={() => {
+            updatePerson.reset();
+            setEditingPerson(null);
+          }}
+          onSave={(name) =>
+            updatePerson.mutate(
+              { id: editingPerson.id, input: { name } },
+              {
+                onSuccess: (updated) => {
+                  if (props.search.trim()) {
+                    props.onSearchChange(updated.name);
+                  }
+                  setEditingPerson(null);
+                },
+              }
+            )
+          }
+        />
+      )}
+    </>
   );
 }
 
@@ -432,32 +568,72 @@ function LocationsSection(props: SectionContentProps) {
   const input = useMemo(() => queryInput(props.search), [props.search]);
   const query = useLocationsWithUsageQuery(input);
   const createLocation = useCreateLocationMutation();
+  const updateLocation = useUpdateLocationMutation();
+  const [editingLocation, setEditingLocation] = useState<Location | null>(null);
 
   return (
-    <MetadataUsageList
-      {...props}
-      creationError={
-        createLocation.error instanceof Error
-          ? createLocation.error.message
-          : createLocation.isError
-            ? 'Please try again.'
-            : null
-      }
-      isCreating={createLocation.isPending}
-      label="Locations"
-      onCreate={(name) =>
-        createLocation.mutate(
-          { name },
-          { onSuccess: (created) => props.onSearchChange(created.name) }
-        )
-      }
-      onSearchChange={(search) => {
-        createLocation.reset();
-        props.onSearchChange(search);
-      }}
-      query={query}
-      singularLabel="Location"
-    />
+    <>
+      <MetadataUsageList
+        {...props}
+        creationError={
+          createLocation.error instanceof Error
+            ? createLocation.error.message
+            : createLocation.isError
+              ? 'Please try again.'
+              : null
+        }
+        isCreating={createLocation.isPending}
+        label="Locations"
+        onCreate={(name) =>
+          createLocation.mutate(
+            { name },
+            { onSuccess: (created) => props.onSearchChange(created.name) }
+          )
+        }
+        onEdit={(location) => {
+          updateLocation.reset();
+          setEditingLocation(location);
+        }}
+        onSearchChange={(search) => {
+          createLocation.reset();
+          props.onSearchChange(search);
+        }}
+        query={query}
+        singularLabel="Location"
+      />
+
+      {editingLocation !== null && (
+        <NamedMetadataEditSheet
+          entityLabel="Location"
+          error={
+            updateLocation.error instanceof Error
+              ? updateLocation.error.message
+              : updateLocation.isError
+                ? 'Please try again.'
+                : null
+          }
+          initialName={editingLocation.name}
+          isSaving={updateLocation.isPending}
+          onCancel={() => {
+            updateLocation.reset();
+            setEditingLocation(null);
+          }}
+          onSave={(name) =>
+            updateLocation.mutate(
+              { id: editingLocation.id, input: { name } },
+              {
+                onSuccess: (updated) => {
+                  if (props.search.trim()) {
+                    props.onSearchChange(updated.name);
+                  }
+                  setEditingLocation(null);
+                },
+              }
+            )
+          }
+        />
+      )}
+    </>
   );
 }
 

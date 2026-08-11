@@ -25,6 +25,7 @@ import {
 import { CATEGORY_COLOR_VALUES, type CategoryColor } from '@/models';
 
 type CategoryCreationSheetProps = {
+  mode?: 'create' | 'edit';
   initialName: string;
   initialColor: CategoryColor;
   isCreating: boolean;
@@ -38,6 +39,7 @@ function colorLabel(color: CategoryColor) {
 }
 
 export default function CategoryCreationSheet({
+  mode = 'create',
   initialName,
   initialColor,
   isCreating,
@@ -49,6 +51,11 @@ export default function CategoryCreationSheet({
   const [name, setName] = useState(initialName);
   const [color, setColor] = useState(initialColor);
   const normalizedName = name.trim();
+  const hasChanges =
+    normalizedName.replace(/\s+/g, ' ') !==
+      initialName.trim().replace(/\s+/g, ' ') || color !== initialColor;
+  const canSubmit =
+    Boolean(normalizedName) && (mode === 'create' || hasChanges);
   const categoryColor = eventColors[color][isDark ? 'dark' : 'light'];
 
   const cancel = () => {
@@ -64,11 +71,11 @@ export default function CategoryCreationSheet({
       visible
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.modalRoot}
       >
         <Pressable
-          accessibilityLabel="Cancel category creation"
+          accessibilityLabel={`Cancel category ${mode === 'create' ? 'creation' : 'editing'}`}
           accessibilityRole="button"
           onPress={cancel}
           style={styles.backdrop}
@@ -96,7 +103,7 @@ export default function CategoryCreationSheet({
             showsVerticalScrollIndicator={false}
           >
             <Text style={[styles.title, { color: colors.text }]}>
-              New category
+              {mode === 'create' ? 'New category' : 'Edit category'}
             </Text>
 
             <View style={styles.field}>
@@ -234,14 +241,14 @@ export default function CategoryCreationSheet({
               </Pressable>
               <Pressable
                 accessibilityRole="button"
-                disabled={!normalizedName || isCreating}
+                disabled={!canSubmit || isCreating}
                 onPress={() => onCreate(normalizedName, color)}
                 style={({ pressed }) => [
                   styles.button,
                   styles.createButton,
                   { backgroundColor: colors.primary },
                   pressed && { backgroundColor: colors.primaryPressed },
-                  (!normalizedName || isCreating) && styles.disabledButton,
+                  (!canSubmit || isCreating) && styles.disabledButton,
                 ]}
               >
                 {isCreating ? (
@@ -250,7 +257,7 @@ export default function CategoryCreationSheet({
                   <Text
                     style={[styles.buttonText, { color: colors.onPrimary }]}
                   >
-                    Create
+                    {mode === 'create' ? 'Create' : 'Save'}
                   </Text>
                 )}
               </Pressable>
