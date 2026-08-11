@@ -95,7 +95,7 @@ export default function NewEventScreen() {
     setIsCreating(true);
 
     try {
-      const details = await createEventMutation.mutateAsync({
+      await createEventMutation.mutateAsync({
         title: nextTitle,
         date: date.date as LocalDate,
         time: (date.time as LocalTime | undefined) ?? null,
@@ -109,10 +109,7 @@ export default function NewEventScreen() {
       });
 
       router.replace({
-        pathname: '/[eventId]',
-        params: {
-          eventId: details.event.id,
-        },
+        pathname: '/',
       });
     } catch (error) {
       setIsCreating(false);
