@@ -1,18 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import {
-  Pressable,
-  Text,
-  View,
-  Modal,
-  KeyboardAvoidingView,
-  Platform,
-  FlatList,
-} from 'react-native';
+import { Pressable, Text, View, Platform, FlatList } from 'react-native';
 import { ChevronDown, X, Search, Check } from 'lucide-react-native';
 import { createStyles } from './helpers';
 import { useTheme } from '@lel/design/useTheme';
 import { spacing } from '@lel/design';
 import SearchInput from '../SearchInput';
+import BottomSheetModal from '../BottomSheetModal';
 
 export type MultiSelectOption = {
   id: string;
@@ -206,196 +199,172 @@ export default function SearchableMultiSelect({
         />
       </Pressable>
 
-      <Modal
-        visible={isOpen}
-        transparent
-        animationType="fade"
-        statusBarTranslucent
+      <BottomSheetModal
+        closeAccessibilityLabel="Close filter"
         onRequestClose={cancelChanges}
+        sheetStyle={styles.sheet}
+        visible={isOpen}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalRoot}
-        >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Close filter"
-            onPress={cancelChanges}
-            style={styles.backdrop}
-          />
+        <>
+          <View style={styles.header}>
+            <View style={styles.headerText}>
+              <Text style={styles.title}>{label}</Text>
 
-          {/* TODO: maybe add Safe area view */}
-          <View style={styles.sheet}>
-            <View style={styles.sheetHandle} />
-
-            <View style={styles.header}>
-              <View style={styles.headerText}>
-                <Text style={styles.title}>{label}</Text>
-
-                <Text style={styles.subtitle}>
-                  {hasDraftSelection
-                    ? `${draftSelectedIds.length} selected`
-                    : 'No options selected'}
-                </Text>
-
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Close"
-                  hitSlop={spacing[2]}
-                  onPress={cancelChanges}
-                  style={({ pressed }) => [
-                    styles.iconButton,
-                    pressed && styles.iconButtonPressed,
-                  ]}
-                >
-                  <X size={20} strokeWidth={2} color={colors.textSecondary} />
-                </Pressable>
-              </View>
-            </View>
-
-            <SearchInput
-              autoFocus
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder={searchPlaceholder}
-              autoCorrect={false}
-              autoCapitalize="none"
-              clearButtonMode="while-editing"
-              showClear={searchQuery.length > 0 && Platform.OS !== 'ios'}
-              clear={() => setSearchQuery('')}
-            />
-
-            <FlatList
-              data={filteredOptions}
-              keyExtractor={(option) => option.id}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={[
-                styles.listContent,
-                filteredOptions.length === 0 && styles.emptyListContent,
-              ]}
-              ItemSeparatorComponent={() => (
-                <View style={styles.optionSeparator} />
-              )}
-              ListEmptyComponent={
-                <View style={styles.emptyState}>
-                  <Search
-                    size={24}
-                    strokeWidth={1.75}
-                    color={colors.textMuted}
-                  />
-
-                  <Text style={styles.emptyText}>{emptyMessage}</Text>
-                </View>
-              }
-              renderItem={({ item }) => {
-                const isSelected = draftSelectedSet.has(item.id);
-
-                return (
-                  <Pressable
-                    accessibilityRole="checkbox"
-                    accessibilityState={{ checked: isSelected }}
-                    onPress={() => toggleOption(item.id)}
-                    style={({ pressed }) => [
-                      styles.option,
-                      isSelected && styles.optionSelected,
-                      pressed && styles.optionPressed,
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.checkIndicator,
-                        isSelected && styles.checkIndicatorSelected,
-                      ]}
-                    >
-                      {isSelected && (
-                        <Check
-                          size={15}
-                          strokeWidth={2.5}
-                          color={colors.text}
-                        />
-                      )}
-                    </View>
-
-                    <View style={styles.optionContent}>
-                      {item.color && (
-                        <View
-                          style={[
-                            styles.colorIndicator,
-                            {
-                              backgroundColor: item.color,
-                            },
-                          ]}
-                        />
-                      )}
-
-                      <View style={styles.optionText}>
-                        <Text
-                          numberOfLines={1}
-                          style={[
-                            styles.optionLabel,
-                            isSelected && styles.optionLabelSelected,
-                          ]}
-                        >
-                          {item.label}
-                        </Text>
-
-                        {item.description && (
-                          <Text
-                            numberOfLines={1}
-                            style={styles.optionDescription}
-                          >
-                            {item.description}
-                          </Text>
-                        )}
-                      </View>
-                    </View>
-                  </Pressable>
-                );
-              }}
-            />
-
-            <View style={styles.footer}>
-              <Pressable
-                accessibilityRole="button"
-                disabled={!hasDraftSelection}
-                onPress={clearSelection}
-                style={({ pressed }) => [
-                  styles.secondaryButton,
-                  !hasDraftSelection && styles.secondaryButtonDisabled,
-                  pressed && hasDraftSelection && styles.secondaryButtonPressed,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.secondaryButtonText,
-                    !hasDraftSelection && styles.secondaryButtonTextDisabled,
-                  ]}
-                >
-                  Clear
-                </Text>
-              </Pressable>
+              <Text style={styles.subtitle}>
+                {hasDraftSelection
+                  ? `${draftSelectedIds.length} selected`
+                  : 'No options selected'}
+              </Text>
 
               <Pressable
                 accessibilityRole="button"
-                onPress={applyImmediately ? closeMenu : applySelection}
+                accessibilityLabel="Close"
+                hitSlop={spacing[2]}
+                onPress={cancelChanges}
                 style={({ pressed }) => [
-                  styles.primaryButton,
-                  pressed && styles.primaryButtonPressed,
+                  styles.iconButton,
+                  pressed && styles.iconButtonPressed,
                 ]}
               >
-                <Text style={styles.primaryButtonText}>
-                  {applyImmediately
-                    ? 'Done'
-                    : hasDraftSelection
-                      ? `Apply · ${draftSelectedIds.length} `
-                      : 'Apply'}
-                </Text>
+                <X size={20} strokeWidth={2} color={colors.textSecondary} />
               </Pressable>
             </View>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+
+          <SearchInput
+            autoFocus
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder={searchPlaceholder}
+            autoCorrect={false}
+            autoCapitalize="none"
+            clearButtonMode="while-editing"
+            showClear={searchQuery.length > 0 && Platform.OS !== 'ios'}
+            clear={() => setSearchQuery('')}
+          />
+
+          <FlatList
+            data={filteredOptions}
+            keyExtractor={(option) => option.id}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={[
+              styles.listContent,
+              filteredOptions.length === 0 && styles.emptyListContent,
+            ]}
+            ItemSeparatorComponent={() => (
+              <View style={styles.optionSeparator} />
+            )}
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <Search size={24} strokeWidth={1.75} color={colors.textMuted} />
+
+                <Text style={styles.emptyText}>{emptyMessage}</Text>
+              </View>
+            }
+            renderItem={({ item }) => {
+              const isSelected = draftSelectedSet.has(item.id);
+
+              return (
+                <Pressable
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: isSelected }}
+                  onPress={() => toggleOption(item.id)}
+                  style={({ pressed }) => [
+                    styles.option,
+                    isSelected && styles.optionSelected,
+                    pressed && styles.optionPressed,
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.checkIndicator,
+                      isSelected && styles.checkIndicatorSelected,
+                    ]}
+                  >
+                    {isSelected && (
+                      <Check size={15} strokeWidth={2.5} color={colors.text} />
+                    )}
+                  </View>
+
+                  <View style={styles.optionContent}>
+                    {item.color && (
+                      <View
+                        style={[
+                          styles.colorIndicator,
+                          {
+                            backgroundColor: item.color,
+                          },
+                        ]}
+                      />
+                    )}
+
+                    <View style={styles.optionText}>
+                      <Text
+                        numberOfLines={1}
+                        style={[
+                          styles.optionLabel,
+                          isSelected && styles.optionLabelSelected,
+                        ]}
+                      >
+                        {item.label}
+                      </Text>
+
+                      {item.description && (
+                        <Text
+                          numberOfLines={1}
+                          style={styles.optionDescription}
+                        >
+                          {item.description}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                </Pressable>
+              );
+            }}
+          />
+
+          <View style={styles.footer}>
+            <Pressable
+              accessibilityRole="button"
+              disabled={!hasDraftSelection}
+              onPress={clearSelection}
+              style={({ pressed }) => [
+                styles.secondaryButton,
+                !hasDraftSelection && styles.secondaryButtonDisabled,
+                pressed && hasDraftSelection && styles.secondaryButtonPressed,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.secondaryButtonText,
+                  !hasDraftSelection && styles.secondaryButtonTextDisabled,
+                ]}
+              >
+                Clear
+              </Text>
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
+              onPress={applyImmediately ? closeMenu : applySelection}
+              style={({ pressed }) => [
+                styles.primaryButton,
+                pressed && styles.primaryButtonPressed,
+              ]}
+            >
+              <Text style={styles.primaryButtonText}>
+                {applyImmediately
+                  ? 'Done'
+                  : hasDraftSelection
+                    ? `Apply · ${draftSelectedIds.length} `
+                    : 'Apply'}
+              </Text>
+            </Pressable>
+          </View>
+        </>
+      </BottomSheetModal>
     </>
   );
 }

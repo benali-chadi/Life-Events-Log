@@ -3,8 +3,6 @@ import {
   spacing,
   typography,
   controlSize,
-  elevation,
-  overlay,
   type ColorsTheme,
 } from '@lel/design';
 import { StyleSheet } from 'react-native';
@@ -53,30 +51,10 @@ export function createStyles(colors: ColorsTheme) {
     },
     selectionCountText: { ...typography.caption, color: colors.textSecondary },
 
-    modalRoot: { flex: 1, justifyContent: 'flex-end' },
-    backdrop: {
-      ...StyleSheet.absoluteFillObject,
-      backgroundColor: overlay.backdrop,
-    },
     sheet: {
       maxHeight: '82%',
       minHeight: 420,
       paddingTop: spacing[2],
-      borderTopLeftRadius: radius.xl,
-      borderTopRightRadius: radius.xl,
-      borderWidth: 1,
-      borderBottomWidth: 0,
-      borderColor: colors.border,
-      backgroundColor: colors.surfaceElevated,
-      ...elevation.dropdown,
-    },
-    sheetHandle: {
-      alignSelf: 'center',
-      width: spacing[10],
-      height: spacing[1],
-      marginBottom: spacing[2],
-      borderRadius: radius.sm,
-      backgroundColor: colors.borderStrong,
     },
 
     header: {
