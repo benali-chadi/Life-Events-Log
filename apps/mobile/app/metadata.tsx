@@ -6,6 +6,10 @@ import MetadataTabs, {
 } from '@/components/metadata-management/MetadataTabs';
 import MetadataUsageSection from '@/components/metadata-management/MetadataUsageSection';
 import type { MetadataUsageOrder } from '@/components/metadata-management/MetadataUsageSection';
+import MetadataDeletionProvider, {
+  useMetadataDeletion,
+} from '@/components/metadata-management/MetadataDeletionProvider';
+import { closeOpenSwipe } from '@/components/ui/SwipeReveal';
 
 const INITIAL_SEARCHES: Record<MetadataSectionId, string> = {
   categories: '',
@@ -14,15 +18,23 @@ const INITIAL_SEARCHES: Record<MetadataSectionId, string> = {
   locations: '',
 };
 
-export default function MetadataManagement() {
+function MetadataManagementContent() {
   const { colors } = useTheme();
+  const { finalizePending } = useMetadataDeletion();
   const [section, setSection] = useState<MetadataSectionId>('categories');
   const [searches, setSearches] = useState(INITIAL_SEARCHES);
   const [usageOrder, setUsageOrder] = useState<MetadataUsageOrder>('most');
 
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
-      <MetadataTabs value={section} onChange={setSection} />
+      <MetadataTabs
+        value={section}
+        onChange={(nextSection) => {
+          if (nextSection === section) return;
+          closeOpenSwipe();
+          void finalizePending().then(() => setSection(nextSection));
+        }}
+      />
 
       <MetadataUsageSection
         section={section}
@@ -34,6 +46,14 @@ export default function MetadataManagement() {
         }
       />
     </View>
+  );
+}
+
+export default function MetadataManagement() {
+  return (
+    <MetadataDeletionProvider>
+      <MetadataManagementContent />
+    </MetadataDeletionProvider>
   );
 }
 

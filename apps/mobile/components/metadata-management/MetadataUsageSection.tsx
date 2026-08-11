@@ -1,7 +1,13 @@
 import { eventColors, radius, spacing, typography } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
 import type { UseQueryResult } from '@tanstack/react-query';
-import { ArrowDown, ArrowUp, ChevronRight, Plus } from 'lucide-react-native';
+import {
+  ArrowDown,
+  ArrowUp,
+  ChevronRight,
+  Plus,
+  Trash2,
+} from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -33,6 +39,11 @@ import CategoryCreationSheet from '../metadata/CategoryCreationSheet';
 import { suggestCategoryColor } from '../metadata/suggestCategoryColor';
 import SearchInput from '../ui/SearchInput';
 import { normalizeOptionValue } from '../ui/select';
+import SwipeReveal, { closeOpenSwipe } from '../ui/SwipeReveal';
+import {
+  type MetadataDeletionKind,
+  useMetadataDeletion,
+} from './MetadataDeletionProvider';
 import type { MetadataSectionId } from './MetadataTabs';
 import NamedMetadataEditSheet from './NamedMetadataEditSheet';
 
@@ -54,12 +65,13 @@ type MetadataUsageListProps<TEntity extends UsageEntity> =
   SectionContentProps & {
     label: string;
     singularLabel: string;
+    kind: MetadataDeletionKind;
     query: UseQueryResult<MetadataUsageItem<TEntity>[]>;
     getColor?: (entity: TEntity) => CategoryColor;
     isCreating: boolean;
     creationError: string | null;
     onCreate: (name: string) => void;
-    onEdit: (entity: TEntity) => void;
+    onEdit: (item: MetadataUsageItem<TEntity>) => void;
   };
 
 function queryInput(search: string) {
@@ -75,6 +87,7 @@ function usageLabel(eventCount: number) {
 function MetadataUsageList<TEntity extends UsageEntity>({
   label,
   singularLabel,
+  kind,
   search,
   usageOrder,
   onSearchChange,
@@ -87,6 +100,7 @@ function MetadataUsageList<TEntity extends UsageEntity>({
   onEdit,
 }: MetadataUsageListProps<TEntity>) {
   const { colors, isDark } = useTheme();
+  const { pending, requestDeletion } = useMetadataDeletion();
   const normalizedSearch = normalizeOptionValue(search);
   const data = useMemo(
     () =>
@@ -125,6 +139,7 @@ function MetadataUsageList<TEntity extends UsageEntity>({
         clear={() => onSearchChange('')}
         clearButtonMode="while-editing"
         onChangeText={onSearchChange}
+        onFocus={closeOpenSwipe}
         onSubmitEditing={create}
         placeholder={`Search or create ${label.toLowerCase()}...`}
         returnKeyType={canCreate ? 'done' : 'search'}
@@ -136,7 +151,10 @@ function MetadataUsageList<TEntity extends UsageEntity>({
         <Pressable
           accessibilityRole="button"
           disabled={isCreating}
-          onPress={create}
+          onPress={() => {
+            closeOpenSwipe();
+            create();
+          }}
           style={({ pressed }) => [
             styles.createRow,
             {
@@ -178,9 +196,10 @@ function MetadataUsageList<TEntity extends UsageEntity>({
               usageOrder === 'most' ? 'least' : 'most'
             } used`}
             accessibilityRole="button"
-            onPress={() =>
-              onUsageOrderChange(usageOrder === 'most' ? 'least' : 'most')
-            }
+            onPress={() => {
+              closeOpenSwipe();
+              onUsageOrderChange(usageOrder === 'most' ? 'least' : 'most');
+            }}
             style={({ pressed }) => [
               styles.sortButton,
               pressed && { backgroundColor: colors.interactiveMuted },
@@ -247,18 +266,64 @@ function MetadataUsageList<TEntity extends UsageEntity>({
           keyboardShouldPersistTaps="handled"
           keyExtractor={(item) => item.metadata.id}
           onRefresh={() => void query.refetch()}
+          onScrollBeginDrag={closeOpenSwipe}
           refreshing={query.isRefetching}
           renderItem={({ item }) => {
             const color = getColor?.(item.metadata);
             const count = usageLabel(item.eventCount);
+            const isPendingDeletion =
+              pending?.kind === kind && pending.id === item.metadata.id;
+            const deletion = {
+              kind,
+              id: item.metadata.id,
+              name: item.metadata.name,
+              eventCount: item.eventCount,
+            };
 
-            return (
+            const row = isPendingDeletion ? (
+              <View
+                accessibilityLabel={`${item.metadata.name}, pending deletion`}
+                accessibilityState={{ disabled: true }}
+                style={[
+                  styles.row,
+                  styles.pendingRow,
+                  { backgroundColor: colors.bg },
+                ]}
+              >
+                <View style={styles.rowMain}>
+                  {color && (
+                    <View
+                      style={[
+                        styles.colorMarker,
+                        {
+                          backgroundColor:
+                            eventColors[color][isDark ? 'dark' : 'light'],
+                        },
+                      ]}
+                    />
+                  )}
+                  <Text
+                    numberOfLines={1}
+                    style={[styles.name, { color: colors.textMuted }]}
+                  >
+                    {item.metadata.name}
+                  </Text>
+                </View>
+                <Text style={[styles.usage, { color: colors.destructive }]}>
+                  Pending deletion
+                </Text>
+              </View>
+            ) : (
               <Pressable
                 accessibilityLabel={`Edit ${item.metadata.name}, ${count}`}
                 accessibilityRole="button"
-                onPress={() => onEdit(item.metadata)}
+                onPress={() => {
+                  if (closeOpenSwipe()) return;
+                  onEdit(item);
+                }}
                 style={({ pressed }) => [
                   styles.row,
+                  { backgroundColor: colors.bg },
                   pressed && { backgroundColor: colors.interactiveMuted },
                 ]}
               >
@@ -301,6 +366,45 @@ function MetadataUsageList<TEntity extends UsageEntity>({
                 />
               </Pressable>
             );
+
+            if (isPendingDeletion) return row;
+
+            return (
+              <SwipeReveal
+                actionWidth={80}
+                action={
+                  <Pressable
+                    accessibilityLabel={`Delete ${item.metadata.name}`}
+                    accessibilityRole="button"
+                    onPress={() => requestDeletion(deletion)}
+                    style={({ pressed }) => [
+                      styles.deleteAction,
+                      {
+                        backgroundColor: pressed
+                          ? colors.destructiveSurfacePressed
+                          : colors.destructiveSurface,
+                      },
+                    ]}
+                  >
+                    <Trash2
+                      color={colors.onDestructive}
+                      size={18}
+                      strokeWidth={2}
+                    />
+                    <Text
+                      style={[
+                        styles.deleteActionText,
+                        { color: colors.onDestructive },
+                      ]}
+                    >
+                      Delete
+                    </Text>
+                  </Pressable>
+                }
+              >
+                {row}
+              </SwipeReveal>
+            );
           }}
           ListEmptyComponent={
             <View style={styles.state}>
@@ -324,13 +428,15 @@ function MetadataUsageList<TEntity extends UsageEntity>({
 }
 
 function CategoriesSection(props: SectionContentProps) {
+  const { requestDeletion } = useMetadataDeletion();
   const input = useMemo(() => queryInput(props.search), [props.search]);
   const query = useCategoriesWithUsageQuery(input);
   const categoriesQuery = useCategoriesQuery();
   const createCategory = useCreateCategoryMutation();
   const updateCategory = useUpdateCategoryMutation();
   const [creationName, setCreationName] = useState<string | null>(null);
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [editingCategory, setEditingCategory] =
+    useState<MetadataUsageItem<Category> | null>(null);
 
   return (
     <>
@@ -339,14 +445,15 @@ function CategoriesSection(props: SectionContentProps) {
         creationError={null}
         getColor={(category) => category.color}
         isCreating={false}
+        kind="category"
         label="Categories"
         onCreate={(name) => {
           createCategory.reset();
           setCreationName(name);
         }}
-        onEdit={(category) => {
+        onEdit={(item) => {
           updateCategory.reset();
-          setEditingCategory(category);
+          setEditingCategory(item);
         }}
         query={query}
         singularLabel="Category"
@@ -392,8 +499,8 @@ function CategoriesSection(props: SectionContentProps) {
                 ? 'Please try again.'
                 : null
           }
-          initialColor={editingCategory.color}
-          initialName={editingCategory.name}
+          initialColor={editingCategory.metadata.color}
+          initialName={editingCategory.metadata.name}
           isCreating={updateCategory.isPending}
           onCancel={() => {
             updateCategory.reset();
@@ -401,7 +508,7 @@ function CategoriesSection(props: SectionContentProps) {
           }}
           onCreate={(name, color) => {
             updateCategory.mutate(
-              { id: editingCategory.id, input: { name, color } },
+              { id: editingCategory.metadata.id, input: { name, color } },
               {
                 onSuccess: (updated) => {
                   if (props.search.trim()) {
@@ -412,6 +519,17 @@ function CategoriesSection(props: SectionContentProps) {
               }
             );
           }}
+          onDelete={() =>
+            requestDeletion(
+              {
+                kind: 'category',
+                id: editingCategory.metadata.id,
+                name: editingCategory.metadata.name,
+                eventCount: editingCategory.eventCount,
+              },
+              () => setEditingCategory(null)
+            )
+          }
         />
       )}
     </>
@@ -419,11 +537,14 @@ function CategoriesSection(props: SectionContentProps) {
 }
 
 function TagsSection(props: SectionContentProps) {
+  const { requestDeletion } = useMetadataDeletion();
   const input = useMemo(() => queryInput(props.search), [props.search]);
   const query = useTagsWithUsageQuery(input);
   const createTag = useCreateTagMutation();
   const updateTag = useUpdateTagMutation();
-  const [editingTag, setEditingTag] = useState<Tag | null>(null);
+  const [editingTag, setEditingTag] = useState<MetadataUsageItem<Tag> | null>(
+    null
+  );
 
   return (
     <>
@@ -437,6 +558,7 @@ function TagsSection(props: SectionContentProps) {
               : null
         }
         isCreating={createTag.isPending}
+        kind="tag"
         label="Tags"
         onCreate={(name) =>
           createTag.mutate(
@@ -444,9 +566,9 @@ function TagsSection(props: SectionContentProps) {
             { onSuccess: (created) => props.onSearchChange(created.name) }
           )
         }
-        onEdit={(tag) => {
+        onEdit={(item) => {
           updateTag.reset();
-          setEditingTag(tag);
+          setEditingTag(item);
         }}
         onSearchChange={(search) => {
           createTag.reset();
@@ -466,7 +588,7 @@ function TagsSection(props: SectionContentProps) {
                 ? 'Please try again.'
                 : null
           }
-          initialName={editingTag.name}
+          initialName={editingTag.metadata.name}
           isSaving={updateTag.isPending}
           onCancel={() => {
             updateTag.reset();
@@ -474,7 +596,7 @@ function TagsSection(props: SectionContentProps) {
           }}
           onSave={(name) =>
             updateTag.mutate(
-              { id: editingTag.id, input: { name } },
+              { id: editingTag.metadata.id, input: { name } },
               {
                 onSuccess: (updated) => {
                   if (props.search.trim()) {
@@ -485,6 +607,17 @@ function TagsSection(props: SectionContentProps) {
               }
             )
           }
+          onDelete={() =>
+            requestDeletion(
+              {
+                kind: 'tag',
+                id: editingTag.metadata.id,
+                name: editingTag.metadata.name,
+                eventCount: editingTag.eventCount,
+              },
+              () => setEditingTag(null)
+            )
+          }
         />
       )}
     </>
@@ -492,11 +625,13 @@ function TagsSection(props: SectionContentProps) {
 }
 
 function PeopleSection(props: SectionContentProps) {
+  const { requestDeletion } = useMetadataDeletion();
   const input = useMemo(() => queryInput(props.search), [props.search]);
   const query = usePeopleWithUsageQuery(input);
   const createPerson = useCreatePersonMutation();
   const updatePerson = useUpdatePersonMutation();
-  const [editingPerson, setEditingPerson] = useState<Person | null>(null);
+  const [editingPerson, setEditingPerson] =
+    useState<MetadataUsageItem<Person> | null>(null);
 
   return (
     <>
@@ -510,6 +645,7 @@ function PeopleSection(props: SectionContentProps) {
               : null
         }
         isCreating={createPerson.isPending}
+        kind="person"
         label="People"
         onCreate={(name) =>
           createPerson.mutate(
@@ -517,9 +653,9 @@ function PeopleSection(props: SectionContentProps) {
             { onSuccess: (created) => props.onSearchChange(created.name) }
           )
         }
-        onEdit={(person) => {
+        onEdit={(item) => {
           updatePerson.reset();
-          setEditingPerson(person);
+          setEditingPerson(item);
         }}
         onSearchChange={(search) => {
           createPerson.reset();
@@ -539,7 +675,7 @@ function PeopleSection(props: SectionContentProps) {
                 ? 'Please try again.'
                 : null
           }
-          initialName={editingPerson.name}
+          initialName={editingPerson.metadata.name}
           isSaving={updatePerson.isPending}
           onCancel={() => {
             updatePerson.reset();
@@ -547,7 +683,7 @@ function PeopleSection(props: SectionContentProps) {
           }}
           onSave={(name) =>
             updatePerson.mutate(
-              { id: editingPerson.id, input: { name } },
+              { id: editingPerson.metadata.id, input: { name } },
               {
                 onSuccess: (updated) => {
                   if (props.search.trim()) {
@@ -558,6 +694,17 @@ function PeopleSection(props: SectionContentProps) {
               }
             )
           }
+          onDelete={() =>
+            requestDeletion(
+              {
+                kind: 'person',
+                id: editingPerson.metadata.id,
+                name: editingPerson.metadata.name,
+                eventCount: editingPerson.eventCount,
+              },
+              () => setEditingPerson(null)
+            )
+          }
         />
       )}
     </>
@@ -565,11 +712,13 @@ function PeopleSection(props: SectionContentProps) {
 }
 
 function LocationsSection(props: SectionContentProps) {
+  const { requestDeletion } = useMetadataDeletion();
   const input = useMemo(() => queryInput(props.search), [props.search]);
   const query = useLocationsWithUsageQuery(input);
   const createLocation = useCreateLocationMutation();
   const updateLocation = useUpdateLocationMutation();
-  const [editingLocation, setEditingLocation] = useState<Location | null>(null);
+  const [editingLocation, setEditingLocation] =
+    useState<MetadataUsageItem<Location> | null>(null);
 
   return (
     <>
@@ -583,6 +732,7 @@ function LocationsSection(props: SectionContentProps) {
               : null
         }
         isCreating={createLocation.isPending}
+        kind="location"
         label="Locations"
         onCreate={(name) =>
           createLocation.mutate(
@@ -590,9 +740,9 @@ function LocationsSection(props: SectionContentProps) {
             { onSuccess: (created) => props.onSearchChange(created.name) }
           )
         }
-        onEdit={(location) => {
+        onEdit={(item) => {
           updateLocation.reset();
-          setEditingLocation(location);
+          setEditingLocation(item);
         }}
         onSearchChange={(search) => {
           createLocation.reset();
@@ -612,7 +762,7 @@ function LocationsSection(props: SectionContentProps) {
                 ? 'Please try again.'
                 : null
           }
-          initialName={editingLocation.name}
+          initialName={editingLocation.metadata.name}
           isSaving={updateLocation.isPending}
           onCancel={() => {
             updateLocation.reset();
@@ -620,7 +770,7 @@ function LocationsSection(props: SectionContentProps) {
           }}
           onSave={(name) =>
             updateLocation.mutate(
-              { id: editingLocation.id, input: { name } },
+              { id: editingLocation.metadata.id, input: { name } },
               {
                 onSuccess: (updated) => {
                   if (props.search.trim()) {
@@ -629,6 +779,17 @@ function LocationsSection(props: SectionContentProps) {
                   setEditingLocation(null);
                 },
               }
+            )
+          }
+          onDelete={() =>
+            requestDeletion(
+              {
+                kind: 'location',
+                id: editingLocation.metadata.id,
+                name: editingLocation.metadata.name,
+                eventCount: editingLocation.eventCount,
+              },
+              () => setEditingLocation(null)
             )
           }
         />
@@ -701,6 +862,7 @@ const styles = StyleSheet.create({
     gap: spacing[3],
     paddingVertical: spacing[2],
   },
+  pendingRow: { opacity: 0.58 },
   rowMain: {
     minWidth: 0,
     flex: 1,
@@ -711,6 +873,14 @@ const styles = StyleSheet.create({
   colorMarker: { width: 10, height: 32, borderRadius: radius.sm },
   name: { ...typography.body, flex: 1 },
   usage: { ...typography.caption, flexShrink: 0 },
+  deleteAction: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing[1],
+    borderRadius: radius.sm,
+  },
+  deleteActionText: { ...typography.caption, fontWeight: '700' },
   separator: { height: StyleSheet.hairlineWidth },
   state: {
     flex: 1,

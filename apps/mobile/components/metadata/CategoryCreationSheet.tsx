@@ -8,7 +8,7 @@ import {
   typography,
 } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
-import { Check } from 'lucide-react-native';
+import { Check, Trash2 } from 'lucide-react-native';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -32,6 +32,7 @@ type CategoryCreationSheetProps = {
   error: string | null;
   onCancel: () => void;
   onCreate: (name: string, color: CategoryColor) => void;
+  onDelete?: () => void;
 };
 
 function colorLabel(color: CategoryColor) {
@@ -46,6 +47,7 @@ export default function CategoryCreationSheet({
   error,
   onCancel,
   onCreate,
+  onDelete,
 }: CategoryCreationSheetProps) {
   const { colors, isDark } = useTheme();
   const [name, setName] = useState(initialName);
@@ -222,45 +224,70 @@ export default function CategoryCreationSheet({
               </Text>
             )}
 
-            <View style={styles.actions}>
-              <Pressable
-                accessibilityRole="button"
-                disabled={isCreating}
-                onPress={cancel}
-                style={({ pressed }) => [
-                  styles.button,
-                  { borderColor: colors.border },
-                  pressed && { backgroundColor: colors.interactiveMuted },
-                ]}
-              >
-                <Text
-                  style={[styles.buttonText, { color: colors.textSecondary }]}
+            <View style={styles.footer}>
+              {mode === 'edit' && onDelete && (
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={isCreating}
+                  onPress={onDelete}
+                  style={({ pressed }) => [
+                    styles.deleteButton,
+                    pressed && { backgroundColor: colors.destructiveMuted },
+                  ]}
                 >
-                  Cancel
-                </Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                disabled={!canSubmit || isCreating}
-                onPress={() => onCreate(normalizedName, color)}
-                style={({ pressed }) => [
-                  styles.button,
-                  styles.createButton,
-                  { backgroundColor: colors.primary },
-                  pressed && { backgroundColor: colors.primaryPressed },
-                  (!canSubmit || isCreating) && styles.disabledButton,
-                ]}
-              >
-                {isCreating ? (
-                  <ActivityIndicator color={colors.onPrimary} size="small" />
-                ) : (
+                  <Trash2
+                    color={colors.destructive}
+                    size={17}
+                    strokeWidth={2}
+                  />
                   <Text
-                    style={[styles.buttonText, { color: colors.onPrimary }]}
+                    style={[styles.deleteText, { color: colors.destructive }]}
                   >
-                    {mode === 'create' ? 'Create' : 'Save'}
+                    Delete
                   </Text>
-                )}
-              </Pressable>
+                </Pressable>
+              )}
+
+              <View style={styles.actions}>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={isCreating}
+                  onPress={cancel}
+                  style={({ pressed }) => [
+                    styles.button,
+                    { borderColor: colors.border },
+                    pressed && { backgroundColor: colors.interactiveMuted },
+                  ]}
+                >
+                  <Text
+                    style={[styles.buttonText, { color: colors.textSecondary }]}
+                  >
+                    Cancel
+                  </Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={!canSubmit || isCreating}
+                  onPress={() => onCreate(normalizedName, color)}
+                  style={({ pressed }) => [
+                    styles.button,
+                    styles.createButton,
+                    { backgroundColor: colors.primary },
+                    pressed && { backgroundColor: colors.primaryPressed },
+                    (!canSubmit || isCreating) && styles.disabledButton,
+                  ]}
+                >
+                  {isCreating ? (
+                    <ActivityIndicator color={colors.onPrimary} size="small" />
+                  ) : (
+                    <Text
+                      style={[styles.buttonText, { color: colors.onPrimary }]}
+                    >
+                      {mode === 'create' ? 'Create' : 'Save'}
+                    </Text>
+                  )}
+                </Pressable>
+              </View>
             </View>
           </ScrollView>
         </View>
@@ -349,11 +376,26 @@ const styles = StyleSheet.create({
   previewTitle: { ...typography.small, fontWeight: '600' },
   previewMetadata: { ...typography.caption, marginTop: spacing[1] },
   error: { ...typography.small, marginBottom: spacing[3] },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing[2],
+  },
   actions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     gap: spacing[2],
   },
+  deleteButton: {
+    minHeight: controlSize.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[1],
+    paddingHorizontal: spacing[2],
+    borderRadius: radius.md,
+  },
+  deleteText: { ...typography.small, fontWeight: '600' },
   button: {
     minWidth: 92,
     minHeight: controlSize.md,

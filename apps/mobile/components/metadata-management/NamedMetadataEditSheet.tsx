@@ -7,6 +7,7 @@ import {
   typography,
 } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
+import { Trash2 } from 'lucide-react-native';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -25,6 +26,7 @@ type NamedMetadataEditSheetProps = {
   isSaving: boolean;
   error: string | null;
   onCancel: () => void;
+  onDelete: () => void;
   onSave: (name: string) => void;
 };
 
@@ -34,6 +36,7 @@ export default function NamedMetadataEditSheet({
   isSaving,
   error,
   onCancel,
+  onDelete,
   onSave,
 }: NamedMetadataEditSheetProps) {
   const { colors } = useTheme();
@@ -124,43 +127,62 @@ export default function NamedMetadataEditSheet({
             </Text>
           )}
 
-          <View style={styles.actions}>
+          <View style={styles.footer}>
             <Pressable
               accessibilityRole="button"
               disabled={isSaving}
-              onPress={cancel}
+              onPress={onDelete}
               style={({ pressed }) => [
-                styles.button,
-                { borderColor: colors.border },
-                pressed && { backgroundColor: colors.interactiveMuted },
+                styles.deleteButton,
+                pressed && { backgroundColor: colors.destructiveMuted },
               ]}
             >
-              <Text
-                style={[styles.buttonText, { color: colors.textSecondary }]}
-              >
-                Cancel
+              <Trash2 color={colors.destructive} size={17} strokeWidth={2} />
+              <Text style={[styles.deleteText, { color: colors.destructive }]}>
+                Delete
               </Text>
             </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              disabled={!canSave || isSaving}
-              onPress={save}
-              style={({ pressed }) => [
-                styles.button,
-                styles.saveButton,
-                { backgroundColor: colors.primary },
-                pressed && { backgroundColor: colors.primaryPressed },
-                (!canSave || isSaving) && styles.disabledButton,
-              ]}
-            >
-              {isSaving ? (
-                <ActivityIndicator color={colors.onPrimary} size="small" />
-              ) : (
-                <Text style={[styles.buttonText, { color: colors.onPrimary }]}>
-                  Save
+
+            <View style={styles.actions}>
+              <Pressable
+                accessibilityRole="button"
+                disabled={isSaving}
+                onPress={cancel}
+                style={({ pressed }) => [
+                  styles.button,
+                  { borderColor: colors.border },
+                  pressed && { backgroundColor: colors.interactiveMuted },
+                ]}
+              >
+                <Text
+                  style={[styles.buttonText, { color: colors.textSecondary }]}
+                >
+                  Cancel
                 </Text>
-              )}
-            </Pressable>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                disabled={!canSave || isSaving}
+                onPress={save}
+                style={({ pressed }) => [
+                  styles.button,
+                  styles.saveButton,
+                  { backgroundColor: colors.primary },
+                  pressed && { backgroundColor: colors.primaryPressed },
+                  (!canSave || isSaving) && styles.disabledButton,
+                ]}
+              >
+                {isSaving ? (
+                  <ActivityIndicator color={colors.onPrimary} size="small" />
+                ) : (
+                  <Text
+                    style={[styles.buttonText, { color: colors.onPrimary }]}
+                  >
+                    Save
+                  </Text>
+                )}
+              </Pressable>
+            </View>
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -206,12 +228,27 @@ const styles = StyleSheet.create({
     ...typography.body,
   },
   error: { ...typography.small, marginTop: spacing[3] },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing[2],
+    marginTop: spacing[5],
+  },
   actions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     gap: spacing[2],
-    marginTop: spacing[5],
   },
+  deleteButton: {
+    minHeight: controlSize.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[1],
+    paddingHorizontal: spacing[2],
+    borderRadius: radius.md,
+  },
+  deleteText: { ...typography.small, fontWeight: '600' },
   button: {
     minWidth: 92,
     minHeight: controlSize.md,
