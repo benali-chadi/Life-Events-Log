@@ -136,6 +136,34 @@ export const eventCardStyles = StyleSheet.create({
     ...typography.small,
     marginTop: spacing[1],
   },
+  attachmentPreview: {
+    minHeight: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[3],
+    overflow: 'hidden',
+    marginTop: spacing[2],
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing[1],
+  },
+  attachmentThumbnail: {
+    width: 80,
+    height: 58,
+    borderRadius: radius.sm,
+  },
+  attachmentSummary: {
+    flex: 1,
+    gap: 2,
+    paddingRight: spacing[2],
+  },
+  attachmentFilename: {
+    ...typography.small,
+    fontWeight: '600',
+  },
+  attachmentCount: {
+    ...typography.caption,
+  },
   locationRow: {
     flexDirection: 'row',
     alignItems: 'center',

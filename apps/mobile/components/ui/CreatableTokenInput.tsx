@@ -23,6 +23,7 @@ type CreatableTokenInputProps = {
   onChange: (values: SelectOption[]) => void;
 
   onCreate?: (label: string) => SelectOption | Promise<SelectOption>;
+  onCreateError?: (error: unknown) => void;
 
   placeholder?: string;
   searchPlaceholder?: string;
@@ -39,6 +40,7 @@ export default function CreatableTokenInput({
   options,
   onChange,
   onCreate,
+  onCreateError,
 
   placeholder = 'Add a value',
   searchPlaceholder = 'Search or create...',
@@ -52,6 +54,7 @@ export default function CreatableTokenInput({
 
   const inputRef = useRef<TextInput>(null);
   const selectingSuggestionRef = useRef(false);
+  const creatingOptionRef = useRef(false);
 
   const [isEditing, setIsEditing] = useState(false);
   const [query, setQuery] = useState('');
@@ -104,7 +107,9 @@ export default function CreatableTokenInput({
 
   useEffect(() => {
     const subscription = Keyboard.addListener('keyboardDidHide', () => {
-      leaveEditMode();
+      if (!selectingSuggestionRef.current && !creatingOptionRef.current) {
+        leaveEditMode();
+      }
     });
 
     return () => subscription.remove();
@@ -127,9 +132,10 @@ export default function CreatableTokenInput({
 
       onChange([...values, option]);
       resetInput();
-      // requestAnimationFrame(() => {
-      //   inputRef.current?.focus();
-      // });
+
+      requestAnimationFrame(() => {
+        inputRef.current?.focus();
+      });
     },
     [onChange, resetInput, selectedIds, values]
   );
@@ -150,16 +156,24 @@ export default function CreatableTokenInput({
 
     if (!trimmedQuery || !onCreate || isCreating) return;
 
+    creatingOptionRef.current = true;
     setIsCreating(true);
 
     try {
       const createdOption = await onCreate(trimmedQuery);
 
       addOption(createdOption);
+    } catch (error) {
+      onCreateError?.(error);
     } finally {
+      creatingOptionRef.current = false;
       setIsCreating(false);
+
+      requestAnimationFrame(() => {
+        inputRef.current?.focus();
+      });
     }
-  }, [addOption, isCreating, onCreate, query]);
+  }, [addOption, isCreating, onCreate, onCreateError, query]);
 
   const enterEditMode = useCallback(() => {
     if (disabled) return;
@@ -347,9 +361,11 @@ export default function CreatableTokenInput({
               autoCapitalize="none"
               autoCorrect={false}
               blurOnSubmit={false}
-              editable={!disabled && !isCreating}
+              editable={!disabled}
               onBlur={handleBlur}
               onChangeText={(value) => {
+                if (isCreating) return;
+
                 setQuery(value);
                 setHighlightedIndex(-1);
               }}

@@ -2,6 +2,7 @@ import { useTheme } from '@lel/design/useTheme';
 import { Stack, useLocalSearchParams, router } from 'expo-router';
 import { useNavigation, usePreventRemove } from '@react-navigation/native';
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -9,7 +10,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import {
@@ -29,123 +29,184 @@ import SignificanceMetadata from '@/components/metadata/SignificanceMetadata';
 import LocationMetadata from '@/components/metadata/LocationMetadata';
 import { radius, spacing, typography } from '@lel/design';
 import DateMetadata, {
-  currentDateValue,
   type DateValue,
 } from '@/components/metadata/DateMetadata';
 import { useRef, useState } from 'react';
 import EventNotes from '@/components/event-notes/EventNotes';
 import EventAttachments from '@/components/event-attachments/EventAttachments';
-import type { AttachmentPreview } from '@/components/event-attachments/types';
+import type {
+  AttachmentDraft,
+  AttachmentPreview,
+} from '@/components/event-attachments/types';
 import EventTitleHeader from '@/components/event-title/EventTitleHeader';
+import EventTitleEditor from '@/components/event-title/EventTitleEditor';
 import type { SelectOption } from '@/components/ui/select';
 import { useEventDeletion } from '@/components/event-deletion/EventDeletionProvider';
 import { confirmEventDeletion } from '@/components/event-deletion/confirmEventDeletion';
+import {
+  useCreateAttachmentMutation,
+  useDeleteAttachmentMutation,
+  useEventDetailsQuery,
+  useUpdateEventMutation,
+} from '@/data/query';
+import type { UpdateEventInput } from '@/data/repositories';
+import type {
+  EventDetails,
+  EventSignificance,
+  LocalDate,
+  LocalTime,
+} from '@/models';
+import type { Dispatch, SetStateAction } from 'react';
 
-const initialTitle = 'Started working on Life Events Log';
+type ImmediateEventField =
+  'date' | 'category' | 'people' | 'tags' | 'significance' | 'location';
 
-function parseOption(value?: string): SelectOption | null {
-  if (!value) return null;
-
-  try {
-    return JSON.parse(value) as SelectOption;
-  } catch {
-    return null;
-  }
+function metadataOption(
+  value: { id: string; name: string } | null
+): SelectOption | null {
+  return value ? { id: value.id, label: value.name } : null;
 }
 
-function parseOptions(value?: string): SelectOption[] {
-  if (!value) return [];
-
-  try {
-    return JSON.parse(value) as SelectOption[];
-  } catch {
-    return [];
-  }
+function significanceOption(value: string): SelectOption {
+  return {
+    id: value,
+    label:
+      value === 'turning-point'
+        ? 'Turning point'
+        : `${value[0]?.toUpperCase()}${value.slice(1)}`,
+  };
 }
-
-const initialNotes = `Started working on the first version today.
-
-The central idea is **a timeline, not a database**.
-
-- Keep capture lightweight
-- Make ordinary events worth recording
-- Preserve the user's ownership of their data
-
-> The product should feel closer to a personal archive than a social feed.`;
 
 export default function EventScreen() {
-  const {
-    eventId,
-    title: routeTitle,
-    date: routeDate,
-    time: routeTime,
-    category: routeCategory,
-    people: routePeople,
-    tags: routeTags,
-    significance: routeSignificance,
-    location: routeLocation,
-  } = useLocalSearchParams<{
-    eventId?: string;
-    title?: string;
-    date?: string;
-    time?: string;
-    category?: string;
-    people?: string;
-    tags?: string;
-    significance?: string;
-    location?: string;
-  }>();
+  const params = useLocalSearchParams<{ eventId?: string }>();
+  const eventId = typeof params.eventId === 'string' ? params.eventId : '';
+  const eventQuery = useEventDetailsQuery(eventId);
+
+  if (eventQuery.isPending) {
+    return <EventReadState state="loading" />;
+  }
+
+  if (eventQuery.isError) {
+    return (
+      <EventReadState state="error" onRetry={() => void eventQuery.refetch()} />
+    );
+  }
+
+  if (!eventQuery.data) {
+    return <EventReadState state="not-found" />;
+  }
+
+  return <LoadedEventScreen details={eventQuery.data} />;
+}
+
+function EventReadState({
+  state,
+  onRetry,
+}: {
+  state: 'loading' | 'error' | 'not-found';
+  onRetry?: () => void;
+}) {
+  const { colors } = useTheme();
+  const isLoading = state === 'loading';
+
+  return (
+    <>
+      <Stack.Screen options={{ title: 'Event', headerTitle: 'Event' }} />
+      <View style={[styles.readState, { backgroundColor: colors.bg }]}>
+        {isLoading ? (
+          <ActivityIndicator color={colors.primary} />
+        ) : (
+          <>
+            <Text style={[styles.readStateTitle, { color: colors.text }]}>
+              {state === 'error' ? 'Couldn’t load event' : 'Event not found'}
+            </Text>
+            <Text
+              style={[styles.readStateMessage, { color: colors.textSecondary }]}
+            >
+              {state === 'error'
+                ? 'Something went wrong while reading this event.'
+                : 'This event may have been deleted or no longer exists.'}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={state === 'error' ? onRetry : () => router.back()}
+              style={({ pressed }) => [
+                styles.readStateButton,
+                {
+                  backgroundColor: pressed
+                    ? colors.primaryPressed
+                    : colors.primary,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.readStateButtonText,
+                  { color: colors.onPrimary },
+                ]}
+              >
+                {state === 'error' ? 'Try again' : 'Go back'}
+              </Text>
+            </Pressable>
+          </>
+        )}
+      </View>
+    </>
+  );
+}
+
+function LoadedEventScreen({ details }: { details: EventDetails }) {
   const { colors } = useTheme();
   const navigation = useNavigation();
   const { deleteEvent } = useEventDeletion();
-  const titleInputRef = useRef<TextInput>(null);
+  const updateEvent = useUpdateEventMutation();
+  const createAttachment = useCreateAttachmentMutation();
+  const deleteAttachment = useDeleteAttachmentMutation();
+  const immediateSaveVersions = useRef<Record<ImmediateEventField, number>>({
+    date: 0,
+    category: 0,
+    people: 0,
+    tags: 0,
+    significance: 0,
+    location: 0,
+  });
+  const { event } = details;
 
-  const [eventDate, setEventDate] = useState<DateValue>(() =>
-    routeDate
-      ? { date: routeDate, time: routeTime || undefined }
-      : currentDateValue()
-  );
+  const [eventDate, setEventDate] = useState<DateValue>(() => ({
+    date: event.date,
+    ...(event.time ? { time: event.time } : {}),
+  }));
   const [category, setCategory] = useState<SelectOption | null>(() =>
-    routeDate ? parseOption(routeCategory) : { id: 'career', label: 'Career' }
+    metadataOption(details.category)
   );
   const [people, setPeople] = useState<SelectOption[]>(() =>
-    routeDate
-      ? parseOptions(routePeople)
-      : [
-          { id: '1', label: 'Mounir' },
-          { id: '3', label: 'Issam' },
-        ]
+    details.people.map((person) => ({ id: person.id, label: person.name }))
   );
   const [tags, setTags] = useState<SelectOption[]>(() =>
-    routeDate
-      ? parseOptions(routeTags)
-      : [
-          { id: '1', label: 'app' },
-          { id: '4', label: 'travel' },
-        ]
+    details.tags.map((tag) => ({ id: tag.id, label: tag.name }))
   );
   const [significance, setSignificance] = useState<SelectOption | null>(() =>
-    routeDate
-      ? parseOption(routeSignificance)
-      : { id: 'notable', label: 'Notable' }
+    significanceOption(event.significance)
   );
   const [location, setLocation] = useState<SelectOption | null>(() =>
-    routeDate ? parseOption(routeLocation) : { id: 'Sale', label: 'Sale' }
+    metadataOption(details.location)
   );
-
-  const eventTitle =
-    typeof routeTitle === 'string' && routeTitle.trim()
-      ? routeTitle
-      : initialTitle;
-  const [title, setTitle] = useState(eventTitle);
-  const [draftTitle, setDraftTitle] = useState(eventTitle);
+  const [title, setTitle] = useState(event.title);
+  const [draftTitle, setDraftTitle] = useState(event.title);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [isSavingTitle, setIsSavingTitle] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [committedNotes, setCommittedNotes] = useState(initialNotes);
-  const [draftNotes, setDraftNotes] = useState(initialNotes);
-  const [attachments, setAttachments] = useState<AttachmentPreview[]>([]);
+  const [committedNotes, setCommittedNotes] = useState(event.notes);
+  const [draftNotes, setDraftNotes] = useState(event.notes);
+  const attachments: AttachmentPreview[] = details.attachments.map(
+    (attachment) => ({
+      id: attachment.id,
+      uri: attachment.relativePath,
+      filename: attachment.filename,
+    })
+  );
   const hasUnsavedNotes = draftNotes !== committedNotes;
-  const hasUnsavedTitle = isEditingTitle && draftTitle !== title;
+  const hasUnsavedTitle = isEditingTitle && draftTitle.trim() !== title;
   const hasUnsavedChanges = hasUnsavedNotes || hasUnsavedTitle;
 
   usePreventRemove(hasUnsavedChanges && !isDeleting, ({ data }) => {
@@ -169,34 +230,123 @@ export default function EventScreen() {
   const beginTitleEditing = () => {
     setDraftTitle(title);
     setIsEditingTitle(true);
-    requestAnimationFrame(() => titleInputRef.current?.focus());
   };
 
   const cancelTitleEditing = () => {
     setDraftTitle(title);
     setIsEditingTitle(false);
-    titleInputRef.current?.blur();
   };
 
-  const saveTitle = () => {
+  const showSaveError = () => {
+    Alert.alert(
+      'Couldn’t save changes',
+      'Your changes were not saved. Please try again.'
+    );
+  };
+
+  const saveTitle = async () => {
     const nextTitle = draftTitle.trim();
 
-    if (!nextTitle) {
+    if (!nextTitle || isSavingTitle) {
+      if (isSavingTitle) return;
+
       Alert.alert('Title required', 'Enter a title for this event.');
       return;
     }
 
-    setTitle(nextTitle);
-    setDraftTitle(nextTitle);
-    setIsEditingTitle(false);
-    titleInputRef.current?.blur();
+    setIsSavingTitle(true);
+
+    try {
+      const updated = await updateEvent.mutateAsync({
+        id: event.id,
+        input: { title: nextTitle },
+      });
+      const savedTitle = updated.event.title;
+
+      setTitle(savedTitle);
+      setDraftTitle(savedTitle);
+      setIsEditingTitle(false);
+    } catch {
+      showSaveError();
+    } finally {
+      setIsSavingTitle(false);
+    }
+  };
+
+  const saveNotes = async () => {
+    try {
+      const updated = await updateEvent.mutateAsync({
+        id: event.id,
+        input: { notes: draftNotes },
+      });
+
+      setCommittedNotes(updated.event.notes);
+      setDraftNotes(updated.event.notes);
+      return true;
+    } catch {
+      showSaveError();
+      return false;
+    }
+  };
+
+  const saveImmediate = async <T,>(
+    field: ImmediateEventField,
+    nextValue: T,
+    previousValue: T,
+    setValue: Dispatch<SetStateAction<T>>,
+    input: UpdateEventInput
+  ) => {
+    const version = ++immediateSaveVersions.current[field];
+
+    setValue(nextValue);
+
+    try {
+      await updateEvent.mutateAsync({ id: event.id, input });
+    } catch {
+      if (immediateSaveVersions.current[field] === version) {
+        setValue(previousValue);
+        showSaveError();
+      }
+    }
+  };
+
+  const addAttachments = async (drafts: AttachmentDraft[]) => {
+    for (const draft of drafts) {
+      await createAttachment.mutateAsync({
+        eventId: event.id,
+        relativePath: draft.uri,
+        filename: draft.filename,
+        mimeType: draft.mimeType,
+        width: draft.width,
+        height: draft.height,
+        fileSize: draft.fileSize,
+      });
+    }
+  };
+
+  const removeAttachment = async (attachment: AttachmentPreview) => {
+    await deleteAttachment.mutateAsync({
+      id: attachment.id,
+      eventId: event.id,
+    });
   };
 
   const confirmDelete = () => {
     confirmEventDeletion(title, () => {
-      setIsDeleting(true);
-      deleteEvent(eventId ?? title);
-      requestAnimationFrame(() => router.back());
+      void (async () => {
+        setIsDeleting(true);
+
+        try {
+          await deleteEvent({ id: event.id, title });
+          router.back();
+        } catch {
+          setIsDeleting(false);
+          Alert.alert(
+            'Could not delete event',
+            'The event was not deleted. Please try again.'
+          );
+        }
+      })();
     });
   };
 
@@ -204,83 +354,28 @@ export default function EventScreen() {
     <>
       <Stack.Screen
         options={{
-          headerTitle: () => (
-            <EventTitleHeader
-              inputRef={titleInputRef}
-              isEditing={isEditingTitle}
-              onBeginEditing={beginTitleEditing}
-              onChange={setDraftTitle}
-              onSubmit={saveTitle}
-              title={isEditingTitle ? draftTitle : title}
-            />
-          ),
+          headerTitle: () => <EventTitleHeader title={title} />,
           headerBackTitle: 'Back',
-          headerLeft: isEditingTitle
-            ? () => (
-                <Pressable
-                  accessibilityLabel="Cancel title editing"
-                  accessibilityRole="button"
-                  hitSlop={8}
-                  onPress={cancelTitleEditing}
-                  style={({ pressed }) => [
-                    styles.headerTextButton,
-                    pressed && {
-                      backgroundColor: colors.interactivePressed,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.headerButtonLabel,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    Cancel
-                  </Text>
-                </Pressable>
-              )
-            : undefined,
-          headerRight: isEditingTitle
-            ? () => (
-                <Pressable
-                  accessibilityLabel="Save event title"
-                  accessibilityRole="button"
-                  hitSlop={8}
-                  onPress={saveTitle}
-                  style={({ pressed }) => [
-                    styles.headerTextButton,
-                    pressed && {
-                      backgroundColor: colors.interactivePressed,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[styles.doneButtonLabel, { color: colors.primary }]}
-                  >
-                    Done
-                  </Text>
-                </Pressable>
-              )
-            : () => (
-                <Pressable
-                  accessibilityLabel="Event actions"
-                  accessibilityRole="button"
-                  hitSlop={8}
-                  onPress={confirmDelete}
-                  style={({ pressed }) => [
-                    styles.headerMenuButton,
-                    pressed && {
-                      backgroundColor: colors.interactivePressed,
-                    },
-                  ]}
-                >
-                  <MoreVertical
-                    color={colors.textSecondary}
-                    size={21}
-                    strokeWidth={2}
-                  />
-                </Pressable>
-              ),
+          headerRight: () => (
+            <Pressable
+              accessibilityLabel="Event actions"
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={confirmDelete}
+              style={({ pressed }) => [
+                styles.headerMenuButton,
+                pressed && {
+                  backgroundColor: colors.interactivePressed,
+                },
+              ]}
+            >
+              <MoreVertical
+                color={colors.textSecondary}
+                size={21}
+                strokeWidth={2}
+              />
+            </Pressable>
+          ),
         }}
       />
 
@@ -294,6 +389,19 @@ export default function EventScreen() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
+          <View style={styles.titleSection}>
+            <EventTitleEditor
+              value={draftTitle}
+              savedValue={title}
+              isEditing={isEditingTitle}
+              isSaving={isSavingTitle}
+              onBeginEditing={beginTitleEditing}
+              onChange={setDraftTitle}
+              onSave={() => void saveTitle()}
+              onCancel={cancelTitleEditing}
+            />
+          </View>
+
           <View>
             <MetadataRow
               label="Date"
@@ -301,13 +409,34 @@ export default function EventScreen() {
                 <Calendar size={14} strokeWidth={2} color={colors.textMuted} />
               }
             >
-              <DateMetadata value={eventDate} onChange={setEventDate} />
+              <DateMetadata
+                value={eventDate}
+                onChange={(nextDate) =>
+                  void saveImmediate(
+                    'date',
+                    nextDate,
+                    eventDate,
+                    setEventDate,
+                    {
+                      date: nextDate.date as LocalDate,
+                      time: (nextDate.time as LocalTime | undefined) ?? null,
+                    }
+                  )
+                }
+              />
             </MetadataRow>
             <MetadataRow
               label="Tags"
               icon={<Tags size={14} strokeWidth={2} color={colors.textMuted} />}
             >
-              <TagsMetadata value={tags} onChange={setTags} />
+              <TagsMetadata
+                value={tags}
+                onChange={(nextTags) =>
+                  void saveImmediate('tags', nextTags, tags, setTags, {
+                    tagIds: nextTags.map((tag) => tag.id),
+                  })
+                }
+              />
             </MetadataRow>
             <MetadataRow
               label="Category"
@@ -315,7 +444,18 @@ export default function EventScreen() {
                 <Shapes size={14} strokeWidth={2} color={colors.textMuted} />
               }
             >
-              <CategoryMetadata value={category} onChange={setCategory} />
+              <CategoryMetadata
+                value={category}
+                onChange={(nextCategory) =>
+                  void saveImmediate(
+                    'category',
+                    nextCategory,
+                    category,
+                    setCategory,
+                    { categoryId: nextCategory?.id ?? null }
+                  )
+                }
+              />
             </MetadataRow>
             <MetadataRow
               label="People"
@@ -327,7 +467,14 @@ export default function EventScreen() {
                 />
               }
             >
-              <PeopleMetadata value={people} onChange={setPeople} />
+              <PeopleMetadata
+                value={people}
+                onChange={(nextPeople) =>
+                  void saveImmediate('people', nextPeople, people, setPeople, {
+                    peopleIds: nextPeople.map((person) => person.id),
+                  })
+                }
+              />
             </MetadataRow>
             <MetadataRow
               label="Significance"
@@ -341,7 +488,19 @@ export default function EventScreen() {
             >
               <SignificanceMetadata
                 value={significance}
-                onChange={setSignificance}
+                onChange={(nextSignificance) => {
+                  if (!nextSignificance) return;
+
+                  void saveImmediate(
+                    'significance',
+                    nextSignificance,
+                    significance,
+                    setSignificance,
+                    {
+                      significance: nextSignificance.id as EventSignificance,
+                    }
+                  );
+                }}
               />
             </MetadataRow>
             <MetadataRow
@@ -350,7 +509,18 @@ export default function EventScreen() {
                 <MapPin size={14} strokeWidth={2} color={colors.textMuted} />
               }
             >
-              <LocationMetadata value={location} onChange={setLocation} />
+              <LocationMetadata
+                value={location}
+                onChange={(nextLocation) =>
+                  void saveImmediate(
+                    'location',
+                    nextLocation,
+                    location,
+                    setLocation,
+                    { locationId: nextLocation?.id ?? null }
+                  )
+                }
+              />
             </MetadataRow>
           </View>
 
@@ -359,7 +529,7 @@ export default function EventScreen() {
               committedValue={committedNotes}
               draftValue={draftNotes}
               onDraftChange={setDraftNotes}
-              onSave={() => setCommittedNotes(draftNotes)}
+              onSave={saveNotes}
               onCancel={() => setDraftNotes(committedNotes)}
             />
           </View>
@@ -367,7 +537,8 @@ export default function EventScreen() {
           <View style={styles.contentSection}>
             <EventAttachments
               attachments={attachments}
-              onChange={setAttachments}
+              onAdd={addAttachments}
+              onRemove={removeAttachment}
             />
           </View>
         </ScrollView>
@@ -380,19 +551,43 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
   },
+  readState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing[2],
+    padding: spacing[6],
+  },
+  readStateTitle: {
+    ...typography.h3,
+    textAlign: 'center',
+  },
+  readStateMessage: {
+    ...typography.small,
+    maxWidth: 320,
+    textAlign: 'center',
+  },
+  readStateButton: {
+    minHeight: 42,
+    justifyContent: 'center',
+    marginTop: spacing[2],
+    borderRadius: radius.md,
+    paddingHorizontal: spacing[4],
+  },
+  readStateButtonText: {
+    ...typography.small,
+    fontWeight: '700',
+  },
   scrollContent: {
     flexGrow: 1,
     padding: spacing[2],
     paddingBottom: 160,
   },
+  titleSection: {
+    marginBottom: spacing[3],
+  },
   contentSection: {
     marginTop: spacing[6],
-  },
-  headerTextButton: {
-    minHeight: 36,
-    justifyContent: 'center',
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing[1],
   },
   headerMenuButton: {
     width: 40,
@@ -400,13 +595,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.sm,
-  },
-  headerButtonLabel: {
-    ...typography.small,
-    fontWeight: '600',
-  },
-  doneButtonLabel: {
-    ...typography.small,
-    fontWeight: '700',
   },
 });

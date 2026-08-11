@@ -11,10 +11,10 @@ import {
 } from './eventCardSignificance';
 import { eventCardStyles as styles } from './eventCardStyles';
 import type { EventSignificance } from '@/models';
-import type { EventCardData } from './types';
+import type { EventListItem } from '@/data/repositories';
 
 type EventCardContentProps = {
-  event: EventCardData;
+  event: EventListItem;
   significance: EventSignificance;
   colors: ReturnType<typeof useTheme>['colors'];
   isDark: boolean;
@@ -36,17 +36,17 @@ export default function EventCardContent({
   onToggleExpanded,
   onTitleOverflowChange,
 }: EventCardContentProps) {
-  const tags = event.tags ?? [];
-  const people = event.people ?? [];
+  const tags = event.tags.map((tag) => tag.name);
+  const people = event.people.map((person) => person.name);
   const significanceStyle = getSignificanceStyle(significance, colors);
-  const categoryColor = event.categoryColor
-    ? eventColors[event.categoryColor][isDark ? 'dark' : 'light']
+  const categoryColor = event.category
+    ? eventColors[event.category.color][isDark ? 'dark' : 'light']
     : colors.border;
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Open ${event.title}, ${significanceLabels[significance]} significance`}
+      accessibilityLabel={`Open ${event.event.title}, ${significanceLabels[significance]} significance`}
       onPress={onOpen}
       style={({ pressed }) => [
         styles.card,
@@ -73,8 +73,8 @@ export default function EventCardContent({
       )}
 
       <EventCardHeader
-        title={event.title}
-        time={event.time}
+        title={event.event.title}
+        time={event.event.time ?? undefined}
         significance={significance}
         significanceStyle={significanceStyle}
         colors={colors}
@@ -83,7 +83,7 @@ export default function EventCardContent({
       />
 
       <EventCardMetadata
-        title={event.title}
+        title={event.event.title}
         tags={tags}
         people={people}
         colors={colors}
@@ -104,7 +104,7 @@ export default function EventCardContent({
             color={colors.textMuted}
           />
           <Text style={[styles.locationText, { color: colors.textSecondary }]}>
-            {event.location}
+            {event.location.name}
           </Text>
         </View>
       )}

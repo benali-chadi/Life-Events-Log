@@ -11,16 +11,23 @@ import {
 } from 'react';
 import {
   AccessibilityInfo,
+  Alert,
   Animated,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { useDeleteEventMutation, useRestoreEventMutation } from '@/data/query';
+import type { UUID } from '@/models';
+
+type DeletableEvent = {
+  id: UUID;
+  title: string;
+};
 
 type EventDeletionContextValue = {
-  deletedTitles: Set<string>;
-  deleteEvent: (title: string) => void;
+  deleteEvent: (event: DeletableEvent) => Promise<void>;
 };
 
 const EventDeletionContext = createContext<EventDeletionContextValue | null>(
@@ -35,8 +42,9 @@ export default function EventDeletionProvider({
   children: ReactNode;
 }) {
   const { colors } = useTheme();
-  const [deletedTitles, setDeletedTitles] = useState(() => new Set<string>());
-  const [pendingTitle, setPendingTitle] = useState<string | null>(null);
+  const deleteEventMutation = useDeleteEventMutation();
+  const restoreEventMutation = useRestoreEventMutation();
+  const [pendingEvent, setPendingEvent] = useState<DeletableEvent | null>(null);
   const [reduceMotion, setReduceMotion] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const undoProgress = useRef(new Animated.Value(1)).current;
@@ -68,10 +76,10 @@ export default function EventDeletionProvider({
   }, []);
 
   const deleteEvent = useCallback(
-    (title: string) => {
+    async (event: DeletableEvent) => {
+      await deleteEventMutation.mutateAsync(event.id);
       clearUndoTimer();
-      setDeletedTitles((current) => new Set(current).add(title));
-      setPendingTitle(title);
+      setPendingEvent(event);
       undoProgress.setValue(1);
 
       if (!reduceMotion) {
@@ -83,30 +91,36 @@ export default function EventDeletionProvider({
       }
 
       timerRef.current = setTimeout(() => {
-        setPendingTitle(null);
+        setPendingEvent(null);
         timerRef.current = null;
       }, UNDO_WINDOW_MS);
     },
-    [clearUndoTimer, reduceMotion, undoProgress]
+    [clearUndoTimer, deleteEventMutation, reduceMotion, undoProgress]
   );
 
-  const undo = () => {
-    if (!pendingTitle) return;
+  const undo = async () => {
+    if (!pendingEvent) return;
 
     clearUndoTimer();
-    setDeletedTitles((current) => {
-      const next = new Set(current);
-      next.delete(pendingTitle);
-      return next;
-    });
-    setPendingTitle(null);
+    const eventToRestore = pendingEvent;
+
+    try {
+      await restoreEventMutation.mutateAsync(eventToRestore.id);
+      setPendingEvent(null);
+    } catch {
+      setPendingEvent(null);
+      Alert.alert(
+        'Could not restore event',
+        'The event could not be restored. Please try again.'
+      );
+    }
   };
 
   return (
-    <EventDeletionContext.Provider value={{ deletedTitles, deleteEvent }}>
+    <EventDeletionContext.Provider value={{ deleteEvent }}>
       {children}
 
-      {pendingTitle && (
+      {pendingEvent && (
         <View
           accessibilityLiveRegion="polite"
           style={[
@@ -125,7 +139,7 @@ export default function EventDeletionProvider({
           </Text>
           <Pressable
             accessibilityRole="button"
-            onPress={undo}
+            onPress={() => void undo()}
             style={({ pressed }) => [
               styles.undoButton,
               pressed && { opacity: 0.65 },

@@ -4,7 +4,7 @@ export type SelectOption = {
 };
 
 export function normalizeOptionValue(value: string) {
-  return value.trim().toLocaleLowerCase();
+  return value.trim().replace(/\s+/g, ' ').toLocaleLowerCase();
 }
 
 type FilterOptionsParams = {

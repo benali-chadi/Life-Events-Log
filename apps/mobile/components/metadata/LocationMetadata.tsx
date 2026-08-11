@@ -1,12 +1,8 @@
 import { useState } from 'react';
+import { Alert } from 'react-native';
+import { useCreateLocationMutation, useLocationsQuery } from '@/data/query';
 import type { SelectOption } from '../ui/select';
 import SingleSelect from '../ui/SingleSelect';
-
-const initialLocations: SelectOption[] = [
-  { id: 'rabat', label: 'Rabat' },
-  { id: 'Sale', label: 'Sale' },
-  { id: 'cafe-maure', label: 'Cafe Maure' },
-];
 
 type LocationMetadataProps = {
   value?: SelectOption | null;
@@ -17,25 +13,33 @@ export default function LocationMetadata({
   value,
   onChange,
 }: LocationMetadataProps = {}) {
-  const [locations, setLocations] = useState(initialLocations);
-  const [internalValue, setInternalValue] = useState<SelectOption | null>(
-    initialLocations[1] ?? null
-  );
+  const locationsQuery = useLocationsQuery();
+  const createLocation = useCreateLocationMutation();
+  const [internalValue, setInternalValue] = useState<SelectOption | null>(null);
   const location = value === undefined ? internalValue : value;
   const setLocation = onChange ?? setInternalValue;
-
-  const createLocation = (label: string) => {
-    const newLocation = { id: Date.now().toString(), label };
-    setLocations((current) => [...current, newLocation]);
-    return newLocation;
-  };
+  const options = (locationsQuery.data ?? []).map((item) => ({
+    id: item.id,
+    label: item.name,
+  }));
 
   return (
     <SingleSelect
       value={location}
-      options={locations}
+      options={options}
       onChange={setLocation}
-      onCreate={createLocation}
+      onCreate={async (label) => {
+        const created = await createLocation.mutateAsync({ name: label });
+
+        return { id: created.id, label: created.name };
+      }}
+      onCreateError={(error) =>
+        Alert.alert(
+          'Couldn’t create location',
+          error instanceof Error ? error.message : 'Please try again.'
+        )
+      }
+      disabled={locationsQuery.isPending || locationsQuery.isError}
       placeholder="Add location"
       searchPlaceholder="Search or create a location..."
     />
