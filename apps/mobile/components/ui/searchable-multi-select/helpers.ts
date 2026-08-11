@@ -83,6 +83,45 @@ export function createStyles(colors: ColorsTheme) {
     },
     iconButtonPressed: { backgroundColor: colors.interactivePressed },
 
+    matchModeRow: {
+      paddingHorizontal: spacing[4],
+      paddingVertical: spacing[3],
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: spacing[3],
+    },
+    matchModeText: { flex: 1 },
+    matchModeLabel: { ...typography.small, color: colors.text },
+    matchModeDescription: {
+      ...typography.caption,
+      color: colors.textMuted,
+      marginTop: spacing[1],
+    },
+    matchModeControl: {
+      flexDirection: 'row',
+      padding: 2,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      backgroundColor: colors.surface,
+    },
+    matchModeOption: {
+      minWidth: 46,
+      height: controlSize.sm,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: radius.sm,
+    },
+    matchModeOptionSelected: { backgroundColor: colors.interactiveMuted },
+    matchModeOptionPressed: { backgroundColor: colors.interactivePressed },
+    matchModeOptionText: {
+      ...typography.caption,
+      color: colors.textSecondary,
+      fontWeight: '500',
+    },
+    matchModeOptionTextSelected: { color: colors.text },
+
     listContent: { paddingHorizontal: spacing[3], paddingBottom: spacing[3] },
     emptyListContent: { flexGrow: 1, justifyContent: 'center' },
 

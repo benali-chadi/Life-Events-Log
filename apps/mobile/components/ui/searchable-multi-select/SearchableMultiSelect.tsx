@@ -18,6 +18,8 @@ export type MultiSelectOption = {
   pinned?: boolean;
 };
 
+export type MultiValueMatchMode = 'all' | 'any';
+
 type SearchableMultiSelectProps = {
   label: string;
   options: MultiSelectOption[];
@@ -29,6 +31,9 @@ type SearchableMultiSelectProps = {
   searchPlaceholder?: string;
   emptyMessage?: string;
   disabled?: boolean;
+
+  matchMode?: MultiValueMatchMode;
+  onMatchModeChange?: (matchMode: MultiValueMatchMode) => void;
 
   applyImmediately?: boolean; // by default slections are only commited when the user clicks apply
 };
@@ -45,6 +50,9 @@ export default function SearchableMultiSelect({
   emptyMessage = 'No options found',
   disabled = false,
 
+  matchMode,
+  onMatchModeChange,
+
   applyImmediately = false,
 }: SearchableMultiSelectProps) {
   const { colors } = useTheme();
@@ -53,6 +61,11 @@ export default function SearchableMultiSelect({
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [draftSelectedIds, setDraftSelectedIds] = useState(selectedIds);
+  const [draftMatchMode, setDraftMatchMode] = useState<MultiValueMatchMode>(
+    matchMode ?? 'all'
+  );
+  const showsMatchMode =
+    matchMode !== undefined && onMatchModeChange !== undefined;
 
   const draftSelectedSet = useMemo(
     () => new Set(draftSelectedIds),
@@ -112,6 +125,7 @@ export default function SearchableMultiSelect({
     if (disabled) return;
 
     setDraftSelectedIds(selectedIds);
+    setDraftMatchMode(matchMode ?? 'all');
     setSearchQuery('');
     setIsOpen(true);
   };
@@ -123,6 +137,7 @@ export default function SearchableMultiSelect({
 
   const cancelChanges = () => {
     setDraftSelectedIds(selectedIds);
+    setDraftMatchMode(matchMode ?? 'all');
     closeMenu();
   };
 
@@ -148,7 +163,16 @@ export default function SearchableMultiSelect({
 
   const applySelection = () => {
     onChange(draftSelectedIds);
+    if (showsMatchMode) onMatchModeChange(draftMatchMode);
     closeMenu();
+  };
+
+  const selectMatchMode = (nextMatchMode: MultiValueMatchMode) => {
+    setDraftMatchMode(nextMatchMode);
+
+    if (applyImmediately && showsMatchMode) {
+      onMatchModeChange(nextMatchMode);
+    }
   };
 
   const hasSelection = selectedIds.length > 0;
@@ -215,20 +239,20 @@ export default function SearchableMultiSelect({
                   ? `${draftSelectedIds.length} selected`
                   : 'No options selected'}
               </Text>
-
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Close"
-                hitSlop={spacing[2]}
-                onPress={cancelChanges}
-                style={({ pressed }) => [
-                  styles.iconButton,
-                  pressed && styles.iconButtonPressed,
-                ]}
-              >
-                <X size={20} strokeWidth={2} color={colors.textSecondary} />
-              </Pressable>
             </View>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+              hitSlop={spacing[2]}
+              onPress={cancelChanges}
+              style={({ pressed }) => [
+                styles.iconButton,
+                pressed && styles.iconButtonPressed,
+              ]}
+            >
+              <X size={20} strokeWidth={2} color={colors.textSecondary} />
+            </Pressable>
           </View>
 
           <SearchInput
@@ -242,6 +266,52 @@ export default function SearchableMultiSelect({
             showClear={searchQuery.length > 0 && Platform.OS !== 'ios'}
             clear={() => setSearchQuery('')}
           />
+
+          {showsMatchMode && (
+            <View style={styles.matchModeRow}>
+              <View style={styles.matchModeText}>
+                <Text style={styles.matchModeLabel}>Match selected</Text>
+                <Text style={styles.matchModeDescription}>
+                  {draftMatchMode === 'all'
+                    ? 'Events must include every selection'
+                    : 'Events may include any selection'}
+                </Text>
+              </View>
+
+              <View
+                accessibilityRole="radiogroup"
+                style={styles.matchModeControl}
+              >
+                {(['all', 'any'] as const).map((mode) => {
+                  const isSelected = draftMatchMode === mode;
+
+                  return (
+                    <Pressable
+                      key={mode}
+                      accessibilityLabel={`Match ${mode}`}
+                      accessibilityRole="radio"
+                      accessibilityState={{ checked: isSelected }}
+                      onPress={() => selectMatchMode(mode)}
+                      style={({ pressed }) => [
+                        styles.matchModeOption,
+                        isSelected && styles.matchModeOptionSelected,
+                        pressed && styles.matchModeOptionPressed,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.matchModeOptionText,
+                          isSelected && styles.matchModeOptionTextSelected,
+                        ]}
+                      >
+                        {mode === 'all' ? 'All' : 'Any'}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          )}
 
           <FlatList
             data={filteredOptions}
