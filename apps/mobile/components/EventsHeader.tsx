@@ -15,6 +15,10 @@ import SearchableMultiSelect, {
   type MultiSelectOption,
 } from './ui/searchable-multi-select/SearchableMultiSelect';
 import SearchInput from './ui/SearchInput';
+import DateTimeRangeFilter, {
+  type DateRangeValue,
+  type TimeRangeValue,
+} from './ui/DateTimeRangeFilter';
 
 const UNCATEGORIZED_FILTER_ID = '__uncategorized__';
 const WITHOUT_LOCATION_FILTER_ID = '__without_location__';
@@ -43,6 +47,8 @@ export default function EventsHeader() {
   const [peopleMatchMode, setPeopleMatchMode] =
     useState<MultiValueMatchMode>('all');
   const [selectedLocationIds, setSelectedLocationIds] = useState<string[]>([]);
+  const [dateRange, setDateRange] = useState<DateRangeValue>({});
+  const [timeRange, setTimeRange] = useState<TimeRangeValue>({});
   const categoryOptions = useMemo<MultiSelectOption[]>(
     () => [
       {
@@ -157,6 +163,16 @@ export default function EventsHeader() {
           onChange={setSelectedLocationIds}
           searchPlaceholder="Search locations..."
           disabled={locationsQuery.isPending || locationsQuery.isError}
+        />
+        <DateTimeRangeFilter
+          mode="date"
+          value={dateRange}
+          onChange={setDateRange}
+        />
+        <DateTimeRangeFilter
+          mode="time"
+          value={timeRange}
+          onChange={setTimeRange}
         />
       </ScrollView>
     </View>
