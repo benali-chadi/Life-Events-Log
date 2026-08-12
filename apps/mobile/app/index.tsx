@@ -2,11 +2,12 @@ import { radius, spacing, typography } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
 import { router } from 'expo-router';
 import { Plus } from 'lucide-react-native';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Animated,
-  type LayoutChangeEvent,
+  LayoutAnimation,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   Pressable,
   SectionList,
   StyleSheet,
@@ -54,16 +55,6 @@ function useDebouncedValue<T>(value: T, delay: number) {
 
   return debouncedValue;
 }
-
-type TimelineSection = {
-  date: LocalDate;
-  title: string;
-  data: EventListItem[];
-};
-
-const AnimatedSectionList = Animated.createAnimatedComponent(
-  SectionList<EventListItem, TimelineSection>
-);
 
 function localDateToday(): LocalDate {
   const now = new Date();
@@ -122,13 +113,7 @@ export default function Index() {
   const { colors } = useTheme();
   const [filters, setFilters] = useState<TimelineFilters>(INITIAL_FILTERS);
   const debouncedSearch = useDebouncedValue(filters.search, SEARCH_DEBOUNCE_MS);
-  const scrollY = useRef(new Animated.Value(0)).current;
-  const [toolbarHeight, setToolbarHeight] = useState(0);
-  const clampedScrollY = useMemo(
-    () => Animated.diffClamp(scrollY, 0, toolbarHeight),
-    [scrollY, toolbarHeight]
-  );
-  const toolbarTranslateY = Animated.multiply(clampedScrollY, -1);
+  const [isToolbarCompact, setIsToolbarCompact] = useState(false);
   const eventListQuery = useMemo<EventListQueryInput>(() => {
     const categoryIds = filters.categoryIds.filter(
       (id) => id !== UNCATEGORIZED_FILTER_ID
@@ -186,10 +171,14 @@ export default function Index() {
     }
   };
 
-  const measureToolbar = (event: LayoutChangeEvent) => {
-    const measuredHeight = event.nativeEvent.layout.height;
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const offset = event.nativeEvent.contentOffset.y;
+    const shouldCompact = isToolbarCompact ? offset > 24 : offset > 72;
 
-    if (measuredHeight !== toolbarHeight) setToolbarHeight(measuredHeight);
+    if (shouldCompact !== isToolbarCompact) {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setIsToolbarCompact(shouldCompact);
+    }
   };
 
   if (eventsQuery.isPending) {
@@ -229,11 +218,17 @@ export default function Index() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
-      <AnimatedSectionList
+      <EventsHeader
+        compact={isToolbarCompact}
+        filters={filters}
+        hasActiveFilters={hasActiveFilters}
+        onChange={setFilters}
+        onClear={() => setFilters(INITIAL_FILTERS)}
+      />
+      <SectionList
         sections={sections}
         contentContainerStyle={[
           styles.listContent,
-          { paddingTop: toolbarHeight },
           sections.length === 0 && styles.emptyListContent,
         ]}
         keyExtractor={(item) => item.event.id}
@@ -242,10 +237,7 @@ export default function Index() {
         onEndReachedThreshold={0.4}
         onRefresh={() => void eventsQuery.refetch()}
         refreshing={eventsQuery.isRefetching && !eventsQuery.isFetchingNextPage}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: true }
-        )}
+        onScroll={handleScroll}
         onScrollBeginDrag={closeOpenSwipe}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
@@ -283,23 +275,6 @@ export default function Index() {
         )}
         stickySectionHeadersEnabled
       />
-      <Animated.View
-        onLayout={measureToolbar}
-        style={[
-          styles.timelineToolbar,
-          {
-            backgroundColor: colors.bg,
-            transform: [{ translateY: toolbarTranslateY }],
-          },
-        ]}
-      >
-        <EventsHeader
-          filters={filters}
-          hasActiveFilters={hasActiveFilters}
-          onChange={setFilters}
-          onClear={() => setFilters(INITIAL_FILTERS)}
-        />
-      </Animated.View>
       <Pressable
         accessibilityLabel="Create event"
         accessibilityRole="button"
@@ -331,13 +306,6 @@ const styles = StyleSheet.create({
   },
   emptyListContent: {
     flexGrow: 1,
-  },
-  timelineToolbar: {
-    position: 'absolute',
-    zIndex: 2,
-    top: 0,
-    left: 20,
-    right: 20,
   },
   sectionHeader: {
     paddingVertical: spacing[1],

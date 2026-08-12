@@ -1,9 +1,15 @@
 import { eventColors, spacing } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
 import { RotateCcw } from 'lucide-react-native';
-import React, { type Dispatch, type SetStateAction, useMemo } from 'react';
+import React, {
+  type Dispatch,
+  type SetStateAction,
+  useMemo,
+  useState,
+} from 'react';
 import {
   Platform,
+  LayoutAnimation,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -46,6 +52,7 @@ export type TimelineFilters = {
 
 type EventsHeaderProps = {
   filters: TimelineFilters;
+  compact?: boolean;
   hasActiveFilters: boolean;
   onChange: Dispatch<SetStateAction<TimelineFilters>>;
   onClear: () => void;
@@ -60,6 +67,7 @@ const significanceLabels: Record<EventSignificance, string> = {
 
 export default function EventsHeader({
   filters,
+  compact = false,
   hasActiveFilters,
   onChange,
   onClear,
@@ -69,6 +77,21 @@ export default function EventsHeader({
   const locationsQuery = useLocationsQuery();
   const tagsQuery = useTagsQuery();
   const peopleQuery = usePeopleQuery();
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const searchExpanded = !compact || isSearchFocused;
+  const compactSearchPreview =
+    compact && !isSearchFocused
+      ? filters.search.trim().split(/\s+/)[0] || undefined
+      : undefined;
+  const setSearchFocused = (focused: boolean) => {
+    if (!compact || focused === isSearchFocused) {
+      setIsSearchFocused(focused);
+      return;
+    }
+
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setIsSearchFocused(focused);
+  };
   const categoryOptions = useMemo<MultiSelectOption[]>(
     () => [
       {
@@ -126,115 +149,205 @@ export default function EventsHeader({
   );
 
   return (
-    <View style={styles.root}>
-      <SearchInput
-        value={filters.search}
-        onChangeText={(search) =>
-          onChange((current) => ({ ...current, search }))
-        }
-        placeholder="Search events..."
-        autoCorrect={false}
-        clearButtonMode="while-editing"
-        showClear={filters.search.length > 0 && Platform.OS !== 'ios'}
-        clear={() => onChange((current) => ({ ...current, search: '' }))}
-      />
-      <ScrollView
-        horizontal
-        contentContainerStyle={styles.filters}
-        showsHorizontalScrollIndicator={false}
+    <View
+      style={[
+        styles.root,
+        compact && styles.rootCompact,
+        { backgroundColor: colors.bg },
+      ]}
+    >
+      <View
+        style={[
+          styles.searchSlot,
+          compact && !isSearchFocused && styles.searchSlotCompact,
+          compactSearchPreview && styles.searchSlotWithPreview,
+          compact && isSearchFocused && styles.searchSlotFocused,
+        ]}
       >
-        <SearchableMultiSelect
-          label="Category"
-          options={categoryOptions}
-          selectedIds={filters.categoryIds}
-          onChange={(categoryIds) =>
-            onChange((current) => ({ ...current, categoryIds }))
+        <SearchInput
+          autoCorrect={false}
+          blurOnKeyboardHide
+          clear={() => onChange((current) => ({ ...current, search: '' }))}
+          clearButtonMode="while-editing"
+          collapsedPreview={compactSearchPreview}
+          containerStyle={[
+            styles.searchInput,
+            compact && styles.searchInputCompact,
+            compact &&
+              filters.search.length > 0 && {
+                borderColor: colors.borderStrong,
+                backgroundColor: colors.interactiveMuted,
+              },
+          ]}
+          onBlur={() => setSearchFocused(false)}
+          onChangeText={(search) =>
+            onChange((current) => ({ ...current, search }))
           }
-          searchPlaceholder="Search categories..."
-          disabled={categoriesQuery.isPending || categoriesQuery.isError}
+          onFocus={() => setSearchFocused(true)}
+          placeholder={searchExpanded ? 'Search events...' : ''}
+          showClear={
+            searchExpanded && filters.search.length > 0 && Platform.OS !== 'ios'
+          }
+          value={filters.search}
         />
-        <SearchableMultiSelect
-          label="Significance"
-          options={significanceOptions}
-          selectedIds={filters.significance}
-          onChange={(significance) =>
-            onChange((current) => ({
-              ...current,
-              significance: significance as EventSignificance[],
-            }))
-          }
-          searchPlaceholder="Search significance..."
+      </View>
+
+      {(!compact || !isSearchFocused) && (
+        <FilterStrip
+          categoryOptions={categoryOptions}
+          categoriesQuery={categoriesQuery}
+          colors={colors}
+          compact={compact}
+          filters={filters}
+          hasActiveFilters={hasActiveFilters}
+          locationOptions={locationOptions}
+          locationsQuery={locationsQuery}
+          onChange={onChange}
+          onClear={onClear}
+          peopleOptions={peopleOptions}
+          peopleQuery={peopleQuery}
+          significanceOptions={significanceOptions}
+          tagOptions={tagOptions}
+          tagsQuery={tagsQuery}
         />
-        <SearchableMultiSelect
-          label="Tags"
-          options={tagOptions}
-          selectedIds={filters.tagIds}
-          onChange={(tagIds) => onChange((current) => ({ ...current, tagIds }))}
-          matchMode={filters.tagMatchMode}
-          onMatchModeChange={(tagMatchMode) =>
-            onChange((current) => ({ ...current, tagMatchMode }))
-          }
-          searchPlaceholder="Search tags..."
-          disabled={tagsQuery.isPending || tagsQuery.isError}
-        />
-        <SearchableMultiSelect
-          label="People"
-          options={peopleOptions}
-          selectedIds={filters.peopleIds}
-          onChange={(peopleIds) =>
-            onChange((current) => ({ ...current, peopleIds }))
-          }
-          matchMode={filters.peopleMatchMode}
-          onMatchModeChange={(peopleMatchMode) =>
-            onChange((current) => ({ ...current, peopleMatchMode }))
-          }
-          searchPlaceholder="Search people..."
-          disabled={peopleQuery.isPending || peopleQuery.isError}
-        />
-        <SearchableMultiSelect
-          label="Location"
-          options={locationOptions}
-          selectedIds={filters.locationIds}
-          onChange={(locationIds) =>
-            onChange((current) => ({ ...current, locationIds }))
-          }
-          searchPlaceholder="Search locations..."
-          disabled={locationsQuery.isPending || locationsQuery.isError}
-        />
-        <DateTimeRangeFilter
-          mode="date"
-          value={filters.dateRange}
-          onChange={(dateRange) =>
-            onChange((current) => ({ ...current, dateRange }))
-          }
-        />
-        <DateTimeRangeFilter
-          mode="time"
-          value={filters.timeRange}
-          onChange={(timeRange) =>
-            onChange((current) => ({ ...current, timeRange }))
-          }
-        />
-        {hasActiveFilters && (
-          <Pressable
-            accessibilityLabel="Clear search and filters"
-            accessibilityRole="button"
-            onPress={onClear}
-            style={({ pressed }) => [
-              styles.clearFilters,
-              pressed && styles.clearFiltersPressed,
-            ]}
-          >
-            <RotateCcw color={colors.textSecondary} size={14} strokeWidth={2} />
-            <Text
-              style={[styles.clearFiltersText, { color: colors.textSecondary }]}
-            >
-              Clear
-            </Text>
-          </Pressable>
-        )}
-      </ScrollView>
+      )}
     </View>
+  );
+}
+
+type FilterStripProps = {
+  categoryOptions: MultiSelectOption[];
+  categoriesQuery: ReturnType<typeof useCategoriesQuery>;
+  colors: ReturnType<typeof useTheme>['colors'];
+  compact?: boolean;
+  filters: TimelineFilters;
+  hasActiveFilters: boolean;
+  locationOptions: MultiSelectOption[];
+  locationsQuery: ReturnType<typeof useLocationsQuery>;
+  onChange: Dispatch<SetStateAction<TimelineFilters>>;
+  onClear: () => void;
+  peopleOptions: MultiSelectOption[];
+  peopleQuery: ReturnType<typeof usePeopleQuery>;
+  significanceOptions: MultiSelectOption[];
+  tagOptions: MultiSelectOption[];
+  tagsQuery: ReturnType<typeof useTagsQuery>;
+};
+
+function FilterStrip({
+  categoryOptions,
+  categoriesQuery,
+  colors,
+  compact = false,
+  filters,
+  hasActiveFilters,
+  locationOptions,
+  locationsQuery,
+  onChange,
+  onClear,
+  peopleOptions,
+  peopleQuery,
+  significanceOptions,
+  tagOptions,
+  tagsQuery,
+}: FilterStripProps) {
+  return (
+    <ScrollView
+      horizontal
+      contentContainerStyle={styles.filters}
+      showsHorizontalScrollIndicator={false}
+      style={compact ? styles.filtersCompact : undefined}
+    >
+      <SearchableMultiSelect
+        label="Category"
+        options={categoryOptions}
+        selectedIds={filters.categoryIds}
+        onChange={(categoryIds) =>
+          onChange((current) => ({ ...current, categoryIds }))
+        }
+        searchPlaceholder="Search categories..."
+        disabled={categoriesQuery.isPending || categoriesQuery.isError}
+      />
+      <SearchableMultiSelect
+        label="Significance"
+        options={significanceOptions}
+        selectedIds={filters.significance}
+        onChange={(significance) =>
+          onChange((current) => ({
+            ...current,
+            significance: significance as EventSignificance[],
+          }))
+        }
+        searchPlaceholder="Search significance..."
+      />
+      <SearchableMultiSelect
+        label="Tags"
+        options={tagOptions}
+        selectedIds={filters.tagIds}
+        onChange={(tagIds) => onChange((current) => ({ ...current, tagIds }))}
+        matchMode={filters.tagMatchMode}
+        onMatchModeChange={(tagMatchMode) =>
+          onChange((current) => ({ ...current, tagMatchMode }))
+        }
+        searchPlaceholder="Search tags..."
+        disabled={tagsQuery.isPending || tagsQuery.isError}
+      />
+      <SearchableMultiSelect
+        label="People"
+        options={peopleOptions}
+        selectedIds={filters.peopleIds}
+        onChange={(peopleIds) =>
+          onChange((current) => ({ ...current, peopleIds }))
+        }
+        matchMode={filters.peopleMatchMode}
+        onMatchModeChange={(peopleMatchMode) =>
+          onChange((current) => ({ ...current, peopleMatchMode }))
+        }
+        searchPlaceholder="Search people..."
+        disabled={peopleQuery.isPending || peopleQuery.isError}
+      />
+      <SearchableMultiSelect
+        label="Location"
+        options={locationOptions}
+        selectedIds={filters.locationIds}
+        onChange={(locationIds) =>
+          onChange((current) => ({ ...current, locationIds }))
+        }
+        searchPlaceholder="Search locations..."
+        disabled={locationsQuery.isPending || locationsQuery.isError}
+      />
+      <DateTimeRangeFilter
+        mode="date"
+        value={filters.dateRange}
+        onChange={(dateRange) =>
+          onChange((current) => ({ ...current, dateRange }))
+        }
+      />
+      <DateTimeRangeFilter
+        mode="time"
+        value={filters.timeRange}
+        onChange={(timeRange) =>
+          onChange((current) => ({ ...current, timeRange }))
+        }
+      />
+      {hasActiveFilters && (
+        <Pressable
+          accessibilityLabel="Clear search and filters"
+          accessibilityRole="button"
+          onPress={onClear}
+          style={({ pressed }) => [
+            styles.clearFilters,
+            pressed && styles.clearFiltersPressed,
+          ]}
+        >
+          <RotateCcw color={colors.textSecondary} size={14} strokeWidth={2} />
+          <Text
+            style={[styles.clearFiltersText, { color: colors.textSecondary }]}
+          >
+            Clear
+          </Text>
+        </Pressable>
+      )}
+    </ScrollView>
   );
 }
 
@@ -244,6 +357,25 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: spacing[3],
   },
+  rootCompact: {
+    minHeight: 52,
+    paddingTop: spacing[2],
+    paddingBottom: spacing[2],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+  },
+  searchSlot: { width: '100%' },
+  searchSlotCompact: { width: 46 },
+  searchSlotWithPreview: { width: 112 },
+  searchSlotFocused: { flex: 1, width: 'auto' },
+  searchInput: {
+    minWidth: 0,
+    marginHorizontal: 0,
+    marginBottom: 0,
+  },
+  searchInputCompact: { paddingHorizontal: spacing[3] },
+  filtersCompact: { flex: 1 },
   filters: {
     gap: spacing[2],
   },
