@@ -1,7 +1,15 @@
 import { eventColors, spacing } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
-import React, { useMemo, useState } from 'react';
-import { Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { RotateCcw } from 'lucide-react-native';
+import React, { type Dispatch, type SetStateAction, useMemo } from 'react';
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import {
   useCategoriesQuery,
   useLocationsQuery,
@@ -20,8 +28,28 @@ import DateTimeRangeFilter, {
   type TimeRangeValue,
 } from './ui/DateTimeRangeFilter';
 
-const UNCATEGORIZED_FILTER_ID = '__uncategorized__';
-const WITHOUT_LOCATION_FILTER_ID = '__without_location__';
+export const UNCATEGORIZED_FILTER_ID = '__uncategorized__';
+export const WITHOUT_LOCATION_FILTER_ID = '__without_location__';
+
+export type TimelineFilters = {
+  search: string;
+  categoryIds: string[];
+  significance: EventSignificance[];
+  tagIds: string[];
+  tagMatchMode: MultiValueMatchMode;
+  peopleIds: string[];
+  peopleMatchMode: MultiValueMatchMode;
+  locationIds: string[];
+  dateRange: DateRangeValue;
+  timeRange: TimeRangeValue;
+};
+
+type EventsHeaderProps = {
+  filters: TimelineFilters;
+  hasActiveFilters: boolean;
+  onChange: Dispatch<SetStateAction<TimelineFilters>>;
+  onClear: () => void;
+};
 
 const significanceLabels: Record<EventSignificance, string> = {
   ordinary: 'Ordinary',
@@ -30,25 +58,17 @@ const significanceLabels: Record<EventSignificance, string> = {
   'turning-point': 'Turning point',
 };
 
-export default function EventsHeader() {
-  const { isDark } = useTheme();
+export default function EventsHeader({
+  filters,
+  hasActiveFilters,
+  onChange,
+  onClear,
+}: EventsHeaderProps) {
+  const { colors, isDark } = useTheme();
   const categoriesQuery = useCategoriesQuery();
   const locationsQuery = useLocationsQuery();
   const tagsQuery = useTagsQuery();
   const peopleQuery = usePeopleQuery();
-  const [query, setQuery] = useState('');
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
-  const [selectedSignificance, setSelectedSignificance] = useState<string[]>(
-    []
-  );
-  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
-  const [tagMatchMode, setTagMatchMode] = useState<MultiValueMatchMode>('all');
-  const [selectedPeopleIds, setSelectedPeopleIds] = useState<string[]>([]);
-  const [peopleMatchMode, setPeopleMatchMode] =
-    useState<MultiValueMatchMode>('all');
-  const [selectedLocationIds, setSelectedLocationIds] = useState<string[]>([]);
-  const [dateRange, setDateRange] = useState<DateRangeValue>({});
-  const [timeRange, setTimeRange] = useState<TimeRangeValue>({});
   const categoryOptions = useMemo<MultiSelectOption[]>(
     () => [
       {
@@ -108,13 +128,15 @@ export default function EventsHeader() {
   return (
     <View style={styles.root}>
       <SearchInput
-        value={query}
-        onChangeText={setQuery}
+        value={filters.search}
+        onChangeText={(search) =>
+          onChange((current) => ({ ...current, search }))
+        }
         placeholder="Search events..."
         autoCorrect={false}
         clearButtonMode="while-editing"
-        showClear={query.length > 0 && Platform.OS !== 'ios'}
-        clear={() => setQuery('')}
+        showClear={filters.search.length > 0 && Platform.OS !== 'ios'}
+        clear={() => onChange((current) => ({ ...current, search: '' }))}
       />
       <ScrollView
         horizontal
@@ -124,56 +146,93 @@ export default function EventsHeader() {
         <SearchableMultiSelect
           label="Category"
           options={categoryOptions}
-          selectedIds={selectedCategoryIds}
-          onChange={setSelectedCategoryIds}
+          selectedIds={filters.categoryIds}
+          onChange={(categoryIds) =>
+            onChange((current) => ({ ...current, categoryIds }))
+          }
           searchPlaceholder="Search categories..."
           disabled={categoriesQuery.isPending || categoriesQuery.isError}
         />
         <SearchableMultiSelect
           label="Significance"
           options={significanceOptions}
-          selectedIds={selectedSignificance}
-          onChange={setSelectedSignificance}
+          selectedIds={filters.significance}
+          onChange={(significance) =>
+            onChange((current) => ({
+              ...current,
+              significance: significance as EventSignificance[],
+            }))
+          }
           searchPlaceholder="Search significance..."
         />
         <SearchableMultiSelect
           label="Tags"
           options={tagOptions}
-          selectedIds={selectedTagIds}
-          onChange={setSelectedTagIds}
-          matchMode={tagMatchMode}
-          onMatchModeChange={setTagMatchMode}
+          selectedIds={filters.tagIds}
+          onChange={(tagIds) => onChange((current) => ({ ...current, tagIds }))}
+          matchMode={filters.tagMatchMode}
+          onMatchModeChange={(tagMatchMode) =>
+            onChange((current) => ({ ...current, tagMatchMode }))
+          }
           searchPlaceholder="Search tags..."
           disabled={tagsQuery.isPending || tagsQuery.isError}
         />
         <SearchableMultiSelect
           label="People"
           options={peopleOptions}
-          selectedIds={selectedPeopleIds}
-          onChange={setSelectedPeopleIds}
-          matchMode={peopleMatchMode}
-          onMatchModeChange={setPeopleMatchMode}
+          selectedIds={filters.peopleIds}
+          onChange={(peopleIds) =>
+            onChange((current) => ({ ...current, peopleIds }))
+          }
+          matchMode={filters.peopleMatchMode}
+          onMatchModeChange={(peopleMatchMode) =>
+            onChange((current) => ({ ...current, peopleMatchMode }))
+          }
           searchPlaceholder="Search people..."
           disabled={peopleQuery.isPending || peopleQuery.isError}
         />
         <SearchableMultiSelect
           label="Location"
           options={locationOptions}
-          selectedIds={selectedLocationIds}
-          onChange={setSelectedLocationIds}
+          selectedIds={filters.locationIds}
+          onChange={(locationIds) =>
+            onChange((current) => ({ ...current, locationIds }))
+          }
           searchPlaceholder="Search locations..."
           disabled={locationsQuery.isPending || locationsQuery.isError}
         />
         <DateTimeRangeFilter
           mode="date"
-          value={dateRange}
-          onChange={setDateRange}
+          value={filters.dateRange}
+          onChange={(dateRange) =>
+            onChange((current) => ({ ...current, dateRange }))
+          }
         />
         <DateTimeRangeFilter
           mode="time"
-          value={timeRange}
-          onChange={setTimeRange}
+          value={filters.timeRange}
+          onChange={(timeRange) =>
+            onChange((current) => ({ ...current, timeRange }))
+          }
         />
+        {hasActiveFilters && (
+          <Pressable
+            accessibilityLabel="Clear search and filters"
+            accessibilityRole="button"
+            onPress={onClear}
+            style={({ pressed }) => [
+              styles.clearFilters,
+              pressed && styles.clearFiltersPressed,
+            ]}
+          >
+            <RotateCcw color={colors.textSecondary} size={14} strokeWidth={2} />
+            <Text
+              style={[styles.clearFiltersText, { color: colors.textSecondary }]}
+            >
+              Clear
+            </Text>
+          </Pressable>
+        )}
       </ScrollView>
     </View>
   );
@@ -188,4 +247,13 @@ const styles = StyleSheet.create({
   filters: {
     gap: spacing[2],
   },
+  clearFilters: {
+    minHeight: 36,
+    paddingHorizontal: spacing[3],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[1],
+  },
+  clearFiltersPressed: { opacity: 0.6 },
+  clearFiltersText: { fontSize: 13, fontWeight: '500' },
 });
