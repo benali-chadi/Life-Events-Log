@@ -7,6 +7,7 @@ module.exports = defineConfig([
   globalIgnores([
     '**/dist/**',
     '**/.expo/**',
+    '**/drizzle/**',
     '**/expo-env.d.ts',
     '**/node_modules/**',
   ]),

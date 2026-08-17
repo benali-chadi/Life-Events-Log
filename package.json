@@ -9,7 +9,8 @@
     "lint": "eslint apps packages",
     "lint:fix": "eslint apps packages --fix",
     "test": "vitest run --passWithNoTests",
-    "test:watch": "vitest --passWithNoTests"
+    "test:watch": "vitest --passWithNoTests",
+    "db:generate": "pnpm --filter @lel/mobile db:generate"
   },
   "devDependencies": {
     "eslint": "^9.25.0",
