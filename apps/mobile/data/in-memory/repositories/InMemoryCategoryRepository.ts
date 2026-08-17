@@ -24,7 +24,7 @@ import {
   normalizeMetadataName,
 } from './namedMetadataUtils';
 import { countActiveEventFieldUsage } from './metadataUsageUtils';
-import { deleteEventFieldMetadata } from './deleteEventFieldMetadata';
+import { softDeleteEventFieldMetadata } from './softDeleteEventFieldMetadata';
 
 export class InMemoryCategoryRepository implements CategoryRepository {
   constructor(
@@ -35,7 +35,9 @@ export class InMemoryCategoryRepository implements CategoryRepository {
   async getById(id: UUID) {
     const category = this.database.categories.get(id);
 
-    return category ? cloneMetadataEntity(category) : null;
+    return category && category.deletedAt === null
+      ? cloneMetadataEntity(category)
+      : null;
   }
 
   async list(query?: MetadataListQuery) {
@@ -44,7 +46,8 @@ export class InMemoryCategoryRepository implements CategoryRepository {
     return [...this.database.categories.values()]
       .filter(
         (category) =>
-          !search || comparableMetadataName(category.name).includes(search)
+          category.deletedAt === null &&
+          (!search || comparableMetadataName(category.name).includes(search))
       )
       .sort(compareMetadataNames)
       .map(cloneMetadataEntity);
@@ -91,6 +94,7 @@ export class InMemoryCategoryRepository implements CategoryRepository {
       color,
       createdAt: timestamp,
       updatedAt: timestamp,
+      deletedAt: null,
     };
 
     this.database.categories.set(id, category);
@@ -123,8 +127,8 @@ export class InMemoryCategoryRepository implements CategoryRepository {
     return cloneMetadataEntity(updated);
   }
 
-  async delete(id: UUID) {
-    return deleteEventFieldMetadata({
+  async softDelete(id: UUID) {
+    return softDeleteEventFieldMetadata({
       database: this.database,
       metadataId: id,
       metadataName: 'Category',
@@ -156,6 +160,7 @@ export class InMemoryCategoryRepository implements CategoryRepository {
     const comparison = comparableMetadataName(name);
     const duplicate = [...this.database.categories.values()].some(
       (category) =>
+        category.deletedAt === null &&
         category.id !== excludedId &&
         comparableMetadataName(category.name) === comparison
     );
@@ -166,7 +171,9 @@ export class InMemoryCategoryRepository implements CategoryRepository {
   private categoryOrThrow(id: UUID) {
     const category = this.database.categories.get(id);
 
-    if (!category) throw new EntityNotFoundError('Category', id);
+    if (!category || category.deletedAt !== null) {
+      throw new EntityNotFoundError('Category', id);
+    }
 
     return category;
   }

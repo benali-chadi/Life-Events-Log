@@ -3,7 +3,7 @@ import type { RepositoryDependencies } from '@/data/repositories';
 import type { InMemoryDatabase } from '../types';
 import { InMemoryNamedMetadataRepository } from './InMemoryNamedMetadataRepository';
 import { countActiveEventFieldUsage } from './metadataUsageUtils';
-import { deleteEventFieldMetadata } from './deleteEventFieldMetadata';
+import { softDeleteEventFieldMetadata } from './softDeleteEventFieldMetadata';
 
 export class InMemoryLocationRepository extends InMemoryNamedMetadataRepository<Location> {
   constructor(
@@ -18,8 +18,8 @@ export class InMemoryLocationRepository extends InMemoryNamedMetadataRepository<
     });
   }
 
-  override async delete(id: UUID) {
-    return deleteEventFieldMetadata({
+  override async softDelete(id: UUID) {
+    return softDeleteEventFieldMetadata({
       database: this.database,
       metadataId: id,
       metadataName: 'Location',

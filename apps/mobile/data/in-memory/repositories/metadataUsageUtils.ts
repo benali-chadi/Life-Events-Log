@@ -26,7 +26,7 @@ export function countActiveTagUsage(database: InMemoryDatabase) {
 
   for (const relationship of database.eventTags.values()) {
     const event = database.events.get(relationship.eventId);
-    if (event && event.deletedAt === null) {
+    if (relationship.deletedAt === null && event && event.deletedAt === null) {
       increment(counts, relationship.tagId);
     }
   }
@@ -39,7 +39,7 @@ export function countActivePersonUsage(database: InMemoryDatabase) {
 
   for (const relationship of database.eventPeople.values()) {
     const event = database.events.get(relationship.eventId);
-    if (event && event.deletedAt === null) {
+    if (relationship.deletedAt === null && event && event.deletedAt === null) {
       increment(counts, relationship.personId);
     }
   }

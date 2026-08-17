@@ -56,6 +56,9 @@ describe('createInMemoryDatabase', () => {
         {
           eventId: event.id,
           tagId: 'missing-tag',
+          createdAt: event.createdAt,
+          updatedAt: event.updatedAt,
+          deletedAt: null,
         },
       ],
     };

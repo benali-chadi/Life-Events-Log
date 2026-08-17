@@ -1,12 +1,14 @@
 import type { Timestamp, UUID } from '@/models';
-import type { DeleteMetadataResult } from '@/data/repositories';
+import type { SoftDeleteMetadataResult } from '@/data/repositories';
 import type { InMemoryDatabase } from '../types';
 
 type MetadataRelationship = {
   eventId: UUID;
+  updatedAt: Timestamp;
+  deletedAt: Timestamp | null;
 };
 
-type DeleteMetadataRelationshipsOptions<
+type SoftDeleteMetadataRelationshipsOptions<
   TRelationship extends MetadataRelationship,
 > = {
   database: InMemoryDatabase;
@@ -16,7 +18,7 @@ type DeleteMetadataRelationshipsOptions<
   timestamp: Timestamp;
 };
 
-export function deleteMetadataRelationships<
+export function softDeleteMetadataRelationships<
   TRelationship extends MetadataRelationship,
 >({
   database,
@@ -24,20 +26,26 @@ export function deleteMetadataRelationships<
   relationships,
   getMetadataId,
   timestamp,
-}: DeleteMetadataRelationshipsOptions<TRelationship>): DeleteMetadataResult {
-  const relationshipKeys: string[] = [];
+}: SoftDeleteMetadataRelationshipsOptions<TRelationship>): SoftDeleteMetadataResult {
   const affectedEventIds = new Set<UUID>();
 
   for (const [key, relationship] of relationships) {
-    if (getMetadataId(relationship) !== metadataId) continue;
+    if (
+      getMetadataId(relationship) !== metadataId ||
+      relationship.deletedAt !== null
+    ) {
+      continue;
+    }
 
-    relationshipKeys.push(key);
+    relationships.set(key, {
+      ...relationship,
+      updatedAt: timestamp,
+      deletedAt: timestamp,
+    });
     if (database.events.has(relationship.eventId)) {
       affectedEventIds.add(relationship.eventId);
     }
   }
-
-  for (const key of relationshipKeys) relationships.delete(key);
 
   for (const eventId of affectedEventIds) {
     const event = database.events.get(eventId);

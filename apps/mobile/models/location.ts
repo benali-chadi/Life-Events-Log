@@ -6,4 +6,5 @@ export type Location = {
 
   createdAt: Timestamp;
   updatedAt: Timestamp;
+  deletedAt: Timestamp | null;
 };
