@@ -1,4 +1,8 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useQuery,
+} from '@tanstack/react-query';
 import type { UUID } from '@/models';
 import { useEventRepository } from '@/data/RepositoryProvider';
 import { eventKeys, type EventListQueryInput } from './queryKeys';
@@ -33,5 +37,6 @@ export function useInfiniteEventListQuery(query: EventListQueryInput) {
       }),
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
+    placeholderData: keepPreviousData,
   });
 }

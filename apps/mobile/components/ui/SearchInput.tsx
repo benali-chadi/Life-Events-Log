@@ -7,38 +7,68 @@ import {
 } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
 import { Search, X } from 'lucide-react-native';
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import {
+  Keyboard,
   Pressable,
   StyleSheet,
+  type StyleProp,
+  Text,
   TextInput,
   TextInputProps,
-  View,
+  type ViewStyle,
 } from 'react-native';
 
 type InputProps = TextInputProps & {
   showClear?: boolean;
   clear?: () => void;
+  blurOnKeyboardHide?: boolean;
+  collapsedPreview?: string;
+  containerStyle?: StyleProp<ViewStyle>;
 };
 
 export default function SearchInput({
   showClear,
   clear,
+  blurOnKeyboardHide = false,
+  collapsedPreview,
+  containerStyle,
   ...props
 }: InputProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const inputRef = useRef<TextInput>(null);
+
+  useEffect(() => {
+    if (!blurOnKeyboardHide) return;
+
+    const subscription = Keyboard.addListener('keyboardDidHide', () => {
+      inputRef.current?.blur();
+    });
+
+    return () => subscription.remove();
+  }, [blurOnKeyboardHide]);
 
   return (
-    <View style={styles.searchContainer}>
+    <Pressable
+      onPress={() => inputRef.current?.focus()}
+      style={[styles.searchContainer, containerStyle]}
+    >
       <Search size={18} strokeWidth={2} color={colors.textMuted} />
 
+      {collapsedPreview && (
+        <Text numberOfLines={1} style={styles.collapsedPreview}>
+          {collapsedPreview}
+        </Text>
+      )}
+
       <TextInput
+        ref={inputRef}
         {...props}
 
         placeholderTextColor={colors.textMuted}
         selectionColor={colors.focus}
-        style={styles.searchInput}
+        style={[styles.searchInput, collapsedPreview && styles.collapsedInput]}
       />
 
       {showClear && (
@@ -55,7 +85,7 @@ export default function SearchInput({
           <X size={16} strokeWidth={2} color={colors.textMuted} />
         </Pressable>
       )}
-    </View>
+    </Pressable>
   );
 }
 
@@ -80,6 +110,17 @@ function createStyles(colors: ColorsTheme) {
       paddingVertical: 0,
       ...typography.small,
       color: colors.text,
+    },
+    collapsedInput: {
+      position: 'absolute',
+      width: 1,
+      height: 1,
+      opacity: 0,
+    },
+    collapsedPreview: {
+      flex: 1,
+      ...typography.caption,
+      color: colors.textSecondary,
     },
 
     inlineIconButton: {

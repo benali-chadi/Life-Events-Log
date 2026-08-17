@@ -3,8 +3,6 @@ import {
   spacing,
   typography,
   controlSize,
-  elevation,
-  overlay,
   type ColorsTheme,
 } from '@lel/design';
 import { StyleSheet } from 'react-native';
@@ -27,6 +25,7 @@ export function createStyles(colors: ColorsTheme) {
       borderColor: colors.borderStrong,
       backgroundColor: colors.interactiveMuted,
     },
+    triggerDisabled: { opacity: 0.55 },
     triggerPressed: { backgroundColor: colors.interactivePressed },
     triggerContent: {
       flexShrink: 1,
@@ -52,31 +51,10 @@ export function createStyles(colors: ColorsTheme) {
     },
     selectionCountText: { ...typography.caption, color: colors.textSecondary },
 
-    modalRoot: { flex: 1, justifyContent: 'flex-end' },
-    backdrop: {
-      ...StyleSheet.absoluteFillObject,
-      backgroundColor: overlay.backdrop,
-      height: '200%',
-    },
     sheet: {
       maxHeight: '82%',
       minHeight: 420,
       paddingTop: spacing[2],
-      borderTopLeftRadius: radius.xl,
-      borderTopRightRadius: radius.xl,
-      borderWidth: 1,
-      borderBottomWidth: 0,
-      borderColor: colors.border,
-      backgroundColor: colors.surfaceElevated,
-      ...elevation.dropdown,
-    },
-    sheetHandle: {
-      alignSelf: 'center',
-      width: spacing[10],
-      height: spacing[1],
-      marginBottom: spacing[2],
-      borderRadius: radius.sm,
-      backgroundColor: colors.borderStrong,
     },
 
     header: {
@@ -85,7 +63,6 @@ export function createStyles(colors: ColorsTheme) {
       paddingBottom: spacing[3],
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
       gap: spacing[3],
     },
     headerText: { flex: 1 },
@@ -106,6 +83,45 @@ export function createStyles(colors: ColorsTheme) {
     },
     iconButtonPressed: { backgroundColor: colors.interactivePressed },
 
+    matchModeRow: {
+      paddingHorizontal: spacing[4],
+      paddingVertical: spacing[3],
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: spacing[3],
+    },
+    matchModeText: { flex: 1 },
+    matchModeLabel: { ...typography.small, color: colors.text },
+    matchModeDescription: {
+      ...typography.caption,
+      color: colors.textMuted,
+      marginTop: spacing[1],
+    },
+    matchModeControl: {
+      flexDirection: 'row',
+      padding: 2,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      backgroundColor: colors.surface,
+    },
+    matchModeOption: {
+      minWidth: 46,
+      height: controlSize.sm,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: radius.sm,
+    },
+    matchModeOptionSelected: { backgroundColor: colors.interactiveMuted },
+    matchModeOptionPressed: { backgroundColor: colors.interactivePressed },
+    matchModeOptionText: {
+      ...typography.caption,
+      color: colors.textSecondary,
+      fontWeight: '500',
+    },
+    matchModeOptionTextSelected: { color: colors.text },
+
     listContent: { paddingHorizontal: spacing[3], paddingBottom: spacing[3] },
     emptyListContent: { flexGrow: 1, justifyContent: 'center' },
 
@@ -121,7 +137,7 @@ export function createStyles(colors: ColorsTheme) {
     },
     optionSelected: { backgroundColor: colors.interactiveMuted },
     optionPressed: { backgroundColor: colors.interactivePressed },
-    optionMain: {
+    optionContent: {
       flex: 1,
       flexDirection: 'row',
       alignItems: 'center',

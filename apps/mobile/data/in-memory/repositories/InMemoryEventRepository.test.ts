@@ -381,10 +381,10 @@ describe('InMemoryEventRepository', () => {
 
     const page = await repository.list({
       limit: 10,
-      titleSearch: '  LIFE   EVENTS ',
+      search: '  LIFE   EVENTS ',
       significance: ['turning-point', 'major'],
-      categoryId: project.categoryId,
-      locationId: project.locationId,
+      categoryIds: project.categoryId ? [project.categoryId] : [],
+      locationIds: project.locationId ? [project.locationId] : [],
       dateFrom: project.date,
       dateTo: project.date,
     });
@@ -406,10 +406,93 @@ describe('InMemoryEventRepository', () => {
     );
 
     await expect(
-      uncategorizedRepository.list({ limit: 10, categoryId: null })
+      uncategorizedRepository.list({
+        limit: 10,
+        includeUncategorized: true,
+      })
     ).resolves.toMatchObject({
       items: [{ event: { id: 'uncategorized' } }],
     });
+  });
+
+  it('combines selected category and location IDs with missing values', async () => {
+    const categoryId = DEVELOPMENT_SEED.categories[0].id;
+    const locationId = DEVELOPMENT_SEED.locations[0].id;
+    const database = createInMemoryDatabase({
+      events: [
+        timelineEvent('selected', '2026-07-30', null, NOW, {
+          categoryId,
+          locationId,
+        }),
+        timelineEvent('missing', '2026-07-30', null, NOW),
+        timelineEvent('other', '2026-07-30', null, NOW, {
+          categoryId: DEVELOPMENT_SEED.categories[1].id,
+          locationId: DEVELOPMENT_SEED.locations[1].id,
+        }),
+      ],
+      categories: DEVELOPMENT_SEED.categories,
+      locations: DEVELOPMENT_SEED.locations,
+    });
+    const repository = new InMemoryEventRepository(
+      database,
+      createDependencies()
+    );
+
+    await expect(
+      repository.list({ limit: 10, includeWithoutLocation: true })
+    ).resolves.toMatchObject({
+      items: [{ event: { id: 'missing' } }],
+    });
+
+    const page = await repository.list({
+      limit: 10,
+      categoryIds: [categoryId],
+      includeUncategorized: true,
+      locationIds: [locationId],
+      includeWithoutLocation: true,
+    });
+
+    expect(page.items.map((item) => item.event.id)).toEqual([
+      'missing',
+      'selected',
+    ]);
+  });
+
+  it('supports one-sided, inclusive, and overnight time ranges', async () => {
+    const database = createInMemoryDatabase({
+      events: [
+        timelineEvent('unknown', '2026-07-30', null, NOW),
+        timelineEvent('late', '2026-07-30', '23:00', NOW),
+        timelineEvent('evening-boundary', '2026-07-30', '22:00', NOW),
+        timelineEvent('afternoon', '2026-07-30', '15:00', NOW),
+        timelineEvent('morning', '2026-07-30', '09:00', NOW),
+        timelineEvent('night-boundary', '2026-07-30', '02:00', NOW),
+      ],
+    });
+    const repository = new InMemoryEventRepository(
+      database,
+      createDependencies()
+    );
+    const idsFor = async (query: Omit<EventListQuery, 'limit'>) =>
+      (await repository.list({ ...query, limit: 20 })).items.map(
+        (item) => item.event.id
+      );
+
+    await expect(idsFor({ timeFrom: '15:00' })).resolves.toEqual([
+      'late',
+      'evening-boundary',
+      'afternoon',
+    ]);
+    await expect(idsFor({ timeTo: '09:00' })).resolves.toEqual([
+      'morning',
+      'night-boundary',
+    ]);
+    await expect(
+      idsFor({ timeFrom: '09:00', timeTo: '15:00' })
+    ).resolves.toEqual(['afternoon', 'morning']);
+    await expect(
+      idsFor({ timeFrom: '22:00', timeTo: '02:00' })
+    ).resolves.toEqual(['late', 'evening-boundary', 'night-boundary']);
   });
 
   it('supports all and any matching independently for tags and people', async () => {
@@ -510,6 +593,18 @@ describe('InMemoryEventRepository', () => {
           match: 'neither',
         },
       } as unknown as EventListQuery)
+    ).rejects.toBeInstanceOf(ModelValidationError);
+    await expect(
+      repository.list({
+        limit: 10,
+        timeFrom: '24:00',
+      } as EventListQuery)
+    ).rejects.toBeInstanceOf(ModelValidationError);
+    await expect(
+      repository.list({
+        limit: 10,
+        timeTo: '12:60',
+      } as EventListQuery)
     ).rejects.toBeInstanceOf(ModelValidationError);
     await expect(
       repository.list({ limit: 10, cursor: 'not-a-cursor' })

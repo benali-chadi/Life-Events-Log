@@ -2,9 +2,12 @@ import { radius, spacing, typography } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
 import { router } from 'expo-router';
 import { Plus } from 'lucide-react-native';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  LayoutAnimation,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   Pressable,
   SectionList,
   StyleSheet,
@@ -12,12 +15,46 @@ import {
   View,
 } from 'react-native';
 import EventCard from '@/components/event-card';
+import EventsHeader, {
+  type TimelineFilters,
+  UNCATEGORIZED_FILTER_ID,
+  WITHOUT_LOCATION_FILTER_ID,
+} from '@/components/EventsHeader';
 import { closeOpenSwipe } from '@/components/ui/SwipeReveal';
-import { useInfiniteEventListQuery } from '@/data/query';
+import {
+  type EventListQueryInput,
+  useInfiniteEventListQuery,
+} from '@/data/query';
 import type { EventListItem } from '@/data/repositories';
 import type { LocalDate } from '@/models';
 
 const PAGE_SIZE = 5;
+const SEARCH_DEBOUNCE_MS = 300;
+
+const INITIAL_FILTERS: TimelineFilters = {
+  search: '',
+  categoryIds: [],
+  significance: [],
+  tagIds: [],
+  tagMatchMode: 'all',
+  peopleIds: [],
+  peopleMatchMode: 'all',
+  locationIds: [],
+  dateRange: {},
+  timeRange: {},
+};
+
+function useDebouncedValue<T>(value: T, delay: number) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => setDebouncedValue(value), delay);
+
+    return () => clearTimeout(timeout);
+  }, [delay, value]);
+
+  return debouncedValue;
+}
 
 function localDateToday(): LocalDate {
   const now = new Date();
@@ -74,7 +111,52 @@ function groupEventsByDate(items: EventListItem[]) {
 
 export default function Index() {
   const { colors } = useTheme();
-  const eventsQuery = useInfiniteEventListQuery({ limit: PAGE_SIZE });
+  const [filters, setFilters] = useState<TimelineFilters>(INITIAL_FILTERS);
+  const debouncedSearch = useDebouncedValue(filters.search, SEARCH_DEBOUNCE_MS);
+  const [isToolbarCompact, setIsToolbarCompact] = useState(false);
+  const eventListQuery = useMemo<EventListQueryInput>(() => {
+    const categoryIds = filters.categoryIds.filter(
+      (id) => id !== UNCATEGORIZED_FILTER_ID
+    );
+    const locationIds = filters.locationIds.filter(
+      (id) => id !== WITHOUT_LOCATION_FILTER_ID
+    );
+    const search = debouncedSearch.trim();
+
+    return {
+      limit: PAGE_SIZE,
+      search: search || undefined,
+      categoryIds: categoryIds.length ? categoryIds : undefined,
+      includeUncategorized:
+        filters.categoryIds.includes(UNCATEGORIZED_FILTER_ID) || undefined,
+      significance: filters.significance.length
+        ? filters.significance
+        : undefined,
+      tagIds: filters.tagIds.length
+        ? { ids: filters.tagIds, match: filters.tagMatchMode }
+        : undefined,
+      peopleIds: filters.peopleIds.length
+        ? { ids: filters.peopleIds, match: filters.peopleMatchMode }
+        : undefined,
+      locationIds: locationIds.length ? locationIds : undefined,
+      includeWithoutLocation:
+        filters.locationIds.includes(WITHOUT_LOCATION_FILTER_ID) || undefined,
+      dateFrom: filters.dateRange.from,
+      dateTo: filters.dateRange.to,
+      timeFrom: filters.timeRange.from,
+      timeTo: filters.timeRange.to,
+    };
+  }, [debouncedSearch, filters]);
+  const hasActiveFilters =
+    filters.search.trim().length > 0 ||
+    filters.categoryIds.length > 0 ||
+    filters.significance.length > 0 ||
+    filters.tagIds.length > 0 ||
+    filters.peopleIds.length > 0 ||
+    filters.locationIds.length > 0 ||
+    Boolean(filters.dateRange.from || filters.dateRange.to) ||
+    Boolean(filters.timeRange.from || filters.timeRange.to);
+  const eventsQuery = useInfiniteEventListQuery(eventListQuery);
   const sections = useMemo(
     () =>
       groupEventsByDate(
@@ -86,6 +168,16 @@ export default function Index() {
   const loadMore = () => {
     if (eventsQuery.hasNextPage && !eventsQuery.isFetchingNextPage) {
       void eventsQuery.fetchNextPage();
+    }
+  };
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const offset = event.nativeEvent.contentOffset.y;
+    const shouldCompact = isToolbarCompact ? offset > 24 : offset > 72;
+
+    if (shouldCompact !== isToolbarCompact) {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setIsToolbarCompact(shouldCompact);
     }
   };
 
@@ -126,6 +218,13 @@ export default function Index() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
+      <EventsHeader
+        compact={isToolbarCompact}
+        filters={filters}
+        hasActiveFilters={hasActiveFilters}
+        onChange={setFilters}
+        onClear={() => setFilters(INITIAL_FILTERS)}
+      />
       <SectionList
         sections={sections}
         contentContainerStyle={[
@@ -138,7 +237,9 @@ export default function Index() {
         onEndReachedThreshold={0.4}
         onRefresh={() => void eventsQuery.refetch()}
         refreshing={eventsQuery.isRefetching && !eventsQuery.isFetchingNextPage}
+        onScroll={handleScroll}
         onScrollBeginDrag={closeOpenSwipe}
+        scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         renderSectionHeader={({ section: { title } }) => (
           <View style={[styles.sectionHeader, { backgroundColor: colors.bg }]}>
@@ -150,10 +251,12 @@ export default function Index() {
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Text style={[styles.stateTitle, { color: colors.text }]}>
-              No events yet
+              {hasActiveFilters ? 'No matching events' : 'No events yet'}
             </Text>
             <Text style={[styles.stateText, { color: colors.textMuted }]}>
-              Create your first event to start your timeline.
+              {hasActiveFilters
+                ? 'Try changing or clearing your search and filters.'
+                : 'Create your first event to start your timeline.'}
             </Text>
           </View>
         }
@@ -194,10 +297,9 @@ const styles = StyleSheet.create({
     height: '100%',
     gap: spacing[2],
     paddingHorizontal: 20,
-    paddingTop: 10,
   },
   list: {
-    maxHeight: '95%',
+    flex: 1,
   },
   listContent: {
     paddingBottom: 96,

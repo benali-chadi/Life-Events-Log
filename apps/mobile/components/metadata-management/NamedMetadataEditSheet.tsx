@@ -1,25 +1,16 @@
-import {
-  controlSize,
-  elevation,
-  overlay,
-  radius,
-  spacing,
-  typography,
-} from '@lel/design';
+import { controlSize, radius, spacing, typography } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
 import { Trash2 } from 'lucide-react-native';
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import BottomSheetModal from '@/components/ui/BottomSheetModal';
 type NamedMetadataEditSheetProps = {
   entityLabel: string;
   initialName: string;
@@ -56,166 +47,114 @@ export default function NamedMetadataEditSheet({
   };
 
   return (
-    <Modal
-      animationType="fade"
+    <BottomSheetModal
+      closeAccessibilityLabel={`Cancel ${entityLabel.toLowerCase()} editing`}
       onRequestClose={cancel}
-      statusBarTranslucent
-      transparent
-      visible
+      sheetStyle={styles.sheet}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.modalRoot}
-      >
-        <Pressable
-          accessibilityLabel={`Cancel ${entityLabel.toLowerCase()} editing`}
-          accessibilityRole="button"
-          onPress={cancel}
-          style={styles.backdrop}
-        />
+      <>
+        <Text style={[styles.title, { color: colors.text }]}>
+          Edit {entityLabel.toLowerCase()}
+        </Text>
 
-        <View
-          accessibilityViewIsModal
+        <Text style={[styles.label, { color: colors.textSecondary }]}>
+          Name
+        </Text>
+        <TextInput
+          accessibilityLabel={`${entityLabel} name`}
+          autoCapitalize="sentences"
+          autoCorrect
+          editable={!isSaving}
+          onChangeText={setName}
+          onSubmitEditing={save}
+          placeholder={`${entityLabel} name`}
+          placeholderTextColor={colors.textMuted}
+          returnKeyType="done"
+          selectionColor={colors.focus}
           style={[
-            styles.sheet,
-            elevation.dropdown,
+            styles.nameInput,
             {
-              backgroundColor: colors.surfaceElevated,
+              backgroundColor: colors.surface,
               borderColor: colors.border,
-              shadowColor: colors.text,
+              color: colors.text,
             },
           ]}
-        >
-          <View
-            style={[styles.handle, { backgroundColor: colors.borderStrong }]}
-          />
-          <Text style={[styles.title, { color: colors.text }]}>
-            Edit {entityLabel.toLowerCase()}
-          </Text>
+          value={name}
+        />
 
-          <Text style={[styles.label, { color: colors.textSecondary }]}>
-            Name
+        {error && (
+          <Text
+            accessibilityRole="alert"
+            style={[styles.error, { color: colors.destructive }]}
+          >
+            {error}
           </Text>
-          <TextInput
-            accessibilityLabel={`${entityLabel} name`}
-            autoCapitalize="sentences"
-            autoCorrect
-            editable={!isSaving}
-            onChangeText={setName}
-            onSubmitEditing={save}
-            placeholder={`${entityLabel} name`}
-            placeholderTextColor={colors.textMuted}
-            returnKeyType="done"
-            selectionColor={colors.focus}
-            style={[
-              styles.nameInput,
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-                color: colors.text,
-              },
+        )}
+
+        <View style={styles.footer}>
+          <Pressable
+            accessibilityRole="button"
+            disabled={isSaving}
+            onPress={onDelete}
+            style={({ pressed }) => [
+              styles.deleteButton,
+              pressed && { backgroundColor: colors.destructiveMuted },
             ]}
-            value={name}
-          />
-
-          {error && (
-            <Text
-              accessibilityRole="alert"
-              style={[styles.error, { color: colors.destructive }]}
-            >
-              {error}
+          >
+            <Trash2 color={colors.destructive} size={17} strokeWidth={2} />
+            <Text style={[styles.deleteText, { color: colors.destructive }]}>
+              Delete
             </Text>
-          )}
+          </Pressable>
 
-          <View style={styles.footer}>
+          <View style={styles.actions}>
             <Pressable
               accessibilityRole="button"
               disabled={isSaving}
-              onPress={onDelete}
+              onPress={cancel}
               style={({ pressed }) => [
-                styles.deleteButton,
-                pressed && { backgroundColor: colors.destructiveMuted },
+                styles.button,
+                { borderColor: colors.border },
+                pressed && { backgroundColor: colors.interactiveMuted },
               ]}
             >
-              <Trash2 color={colors.destructive} size={17} strokeWidth={2} />
-              <Text style={[styles.deleteText, { color: colors.destructive }]}>
-                Delete
+              <Text
+                style={[styles.buttonText, { color: colors.textSecondary }]}
+              >
+                Cancel
               </Text>
             </Pressable>
-
-            <View style={styles.actions}>
-              <Pressable
-                accessibilityRole="button"
-                disabled={isSaving}
-                onPress={cancel}
-                style={({ pressed }) => [
-                  styles.button,
-                  { borderColor: colors.border },
-                  pressed && { backgroundColor: colors.interactiveMuted },
-                ]}
-              >
-                <Text
-                  style={[styles.buttonText, { color: colors.textSecondary }]}
-                >
-                  Cancel
+            <Pressable
+              accessibilityRole="button"
+              disabled={!canSave || isSaving}
+              onPress={save}
+              style={({ pressed }) => [
+                styles.button,
+                styles.saveButton,
+                { backgroundColor: colors.primary },
+                pressed && { backgroundColor: colors.primaryPressed },
+                (!canSave || isSaving) && styles.disabledButton,
+              ]}
+            >
+              {isSaving ? (
+                <ActivityIndicator color={colors.onPrimary} size="small" />
+              ) : (
+                <Text style={[styles.buttonText, { color: colors.onPrimary }]}>
+                  Save
                 </Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                disabled={!canSave || isSaving}
-                onPress={save}
-                style={({ pressed }) => [
-                  styles.button,
-                  styles.saveButton,
-                  { backgroundColor: colors.primary },
-                  pressed && { backgroundColor: colors.primaryPressed },
-                  (!canSave || isSaving) && styles.disabledButton,
-                ]}
-              >
-                {isSaving ? (
-                  <ActivityIndicator color={colors.onPrimary} size="small" />
-                ) : (
-                  <Text
-                    style={[styles.buttonText, { color: colors.onPrimary }]}
-                  >
-                    Save
-                  </Text>
-                )}
-              </Pressable>
-            </View>
+              )}
+            </Pressable>
           </View>
         </View>
-      </KeyboardAvoidingView>
-    </Modal>
+      </>
+    </BottomSheetModal>
   );
 }
 
 const styles = StyleSheet.create({
-  modalRoot: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: overlay.backdrop,
-  },
   sheet: {
-    width: '100%',
-    maxWidth: 560,
     padding: spacing[4],
     paddingBottom: spacing[6],
-    borderWidth: 1,
-    borderBottomWidth: 0,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-  },
-  handle: {
-    alignSelf: 'center',
-    width: spacing[10],
-    height: spacing[1],
-    marginBottom: spacing[3],
-    borderRadius: radius.sm,
   },
   title: { ...typography.h3, marginBottom: spacing[4] },
   label: { ...typography.caption, marginBottom: spacing[2] },

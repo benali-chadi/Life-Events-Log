@@ -2,7 +2,6 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
 import 'react-native-reanimated';
-import EventsHeader from 'components/EventsHeader';
 import { useTheme } from '@lel/design/useTheme';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -38,8 +37,7 @@ export default function RootLayout() {
               <Stack.Screen
                 name="index"
                 options={{
-                  title: 'Events',
-                  headerTitle: () => <EventsHeader />,
+                  title: 'Life Events Log',
                   headerRight: () => <TimelineOverflowMenu />,
                 }}
               />

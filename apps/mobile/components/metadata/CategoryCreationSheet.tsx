@@ -1,8 +1,6 @@
 import {
   controlSize,
-  elevation,
   eventColors,
-  overlay,
   radius,
   spacing,
   typography,
@@ -12,9 +10,6 @@ import { Check, Trash2 } from 'lucide-react-native';
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -22,6 +17,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import BottomSheetModal from '@/components/ui/BottomSheetModal';
 import { CATEGORY_COLOR_VALUES, type CategoryColor } from '@/models';
 
 type CategoryCreationSheetProps = {
@@ -65,263 +61,203 @@ export default function CategoryCreationSheet({
   };
 
   return (
-    <Modal
-      animationType="fade"
+    <BottomSheetModal
+      closeAccessibilityLabel={`Cancel category ${mode === 'create' ? 'creation' : 'editing'}`}
       onRequestClose={cancel}
-      statusBarTranslucent
-      transparent
-      visible
+      sheetStyle={styles.sheet}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.modalRoot}
-      >
-        <Pressable
-          accessibilityLabel={`Cancel category ${mode === 'create' ? 'creation' : 'editing'}`}
-          accessibilityRole="button"
-          onPress={cancel}
-          style={styles.backdrop}
-        />
-
-        <View
-          accessibilityViewIsModal
-          style={[
-            styles.sheet,
-            elevation.dropdown,
-            {
-              backgroundColor: colors.surfaceElevated,
-              borderColor: colors.border,
-              shadowColor: colors.text,
-            },
-          ]}
+      <>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          <View
-            style={[styles.handle, { backgroundColor: colors.borderStrong }]}
-          />
+          <Text style={[styles.title, { color: colors.text }]}>
+            {mode === 'create' ? 'New category' : 'Edit category'}
+          </Text>
 
-          <ScrollView
-            contentContainerStyle={styles.content}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            <Text style={[styles.title, { color: colors.text }]}>
-              {mode === 'create' ? 'New category' : 'Edit category'}
+          <View style={styles.field}>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>
+              Name
             </Text>
+            <TextInput
+              accessibilityLabel="Category name"
+              autoCapitalize="sentences"
+              autoCorrect
+              editable={!isCreating}
+              onChangeText={setName}
+              placeholder="Category name"
+              placeholderTextColor={colors.textMuted}
+              returnKeyType="done"
+              selectionColor={colors.focus}
+              style={[
+                styles.nameInput,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  color: colors.text,
+                },
+              ]}
+              value={name}
+            />
+          </View>
 
-            <View style={styles.field}>
+          <View style={styles.field}>
+            <View style={styles.colorHeading}>
               <Text style={[styles.label, { color: colors.textSecondary }]}>
-                Name
+                Color
               </Text>
-              <TextInput
-                accessibilityLabel="Category name"
-                autoCapitalize="sentences"
-                autoCorrect
-                editable={!isCreating}
-                onChangeText={setName}
-                placeholder="Category name"
-                placeholderTextColor={colors.textMuted}
-                returnKeyType="done"
-                selectionColor={colors.focus}
-                style={[
-                  styles.nameInput,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                    color: colors.text,
-                  },
-                ]}
-                value={name}
-              />
+              <Text style={[styles.selectedColor, { color: colors.textMuted }]}>
+                {colorLabel(color)}
+              </Text>
             </View>
 
-            <View style={styles.field}>
-              <View style={styles.colorHeading}>
-                <Text style={[styles.label, { color: colors.textSecondary }]}>
-                  Color
-                </Text>
-                <Text
-                  style={[styles.selectedColor, { color: colors.textMuted }]}
-                >
-                  {colorLabel(color)}
-                </Text>
-              </View>
+            <View style={styles.colorGrid}>
+              {CATEGORY_COLOR_VALUES.map((option) => {
+                const selected = option === color;
+                const swatchColor =
+                  eventColors[option][isDark ? 'dark' : 'light'];
 
-              <View style={styles.colorGrid}>
-                {CATEGORY_COLOR_VALUES.map((option) => {
-                  const selected = option === color;
-                  const swatchColor =
-                    eventColors[option][isDark ? 'dark' : 'light'];
-
-                  return (
-                    <Pressable
-                      key={option}
-                      accessibilityLabel={colorLabel(option)}
-                      accessibilityRole="radio"
-                      accessibilityState={{ checked: selected }}
-                      disabled={isCreating}
-                      onPress={() => setColor(option)}
-                      style={({ pressed }) => [
-                        styles.swatchButton,
-                        {
-                          borderColor: selected
-                            ? colors.borderStrong
-                            : 'transparent',
-                          opacity: pressed ? 0.72 : 1,
-                        },
-                      ]}
+                return (
+                  <Pressable
+                    key={option}
+                    accessibilityLabel={colorLabel(option)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: selected }}
+                    disabled={isCreating}
+                    onPress={() => setColor(option)}
+                    style={({ pressed }) => [
+                      styles.swatchButton,
+                      {
+                        borderColor: selected
+                          ? colors.borderStrong
+                          : 'transparent',
+                        opacity: pressed ? 0.72 : 1,
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[styles.swatch, { backgroundColor: swatchColor }]}
                     >
-                      <View
-                        style={[
-                          styles.swatch,
-                          { backgroundColor: swatchColor },
-                        ]}
-                      >
-                        {selected && (
-                          <Check
-                            color={colors.surface}
-                            size={18}
-                            strokeWidth={3}
-                          />
-                        )}
-                      </View>
-                    </Pressable>
-                  );
-                })}
-              </View>
+                      {selected && (
+                        <Check
+                          color={colors.surface}
+                          size={18}
+                          strokeWidth={3}
+                        />
+                      )}
+                    </View>
+                  </Pressable>
+                );
+              })}
             </View>
+          </View>
 
-            <View style={styles.field}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>
-                Preview
+          <View style={styles.field}>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>
+              Preview
+            </Text>
+            <View
+              style={[
+                styles.preview,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  borderLeftColor: categoryColor,
+                },
+              ]}
+            >
+              <Text style={[styles.previewTitle, { color: colors.text }]}>
+                Event title
               </Text>
-              <View
-                style={[
-                  styles.preview,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                    borderLeftColor: categoryColor,
-                  },
+              <Text
+                style={[styles.previewMetadata, { color: colors.textMuted }]}
+              >
+                Category · {normalizedName || 'Category name'}
+              </Text>
+            </View>
+          </View>
+
+          {error && (
+            <Text
+              accessibilityRole="alert"
+              style={[styles.error, { color: colors.destructive }]}
+            >
+              {error}
+            </Text>
+          )}
+
+          <View style={styles.footer}>
+            {mode === 'edit' && onDelete && (
+              <Pressable
+                accessibilityRole="button"
+                disabled={isCreating}
+                onPress={onDelete}
+                style={({ pressed }) => [
+                  styles.deleteButton,
+                  pressed && { backgroundColor: colors.destructiveMuted },
                 ]}
               >
-                <Text style={[styles.previewTitle, { color: colors.text }]}>
-                  Event title
-                </Text>
+                <Trash2 color={colors.destructive} size={17} strokeWidth={2} />
                 <Text
-                  style={[styles.previewMetadata, { color: colors.textMuted }]}
+                  style={[styles.deleteText, { color: colors.destructive }]}
                 >
-                  Category · {normalizedName || 'Category name'}
+                  Delete
                 </Text>
-              </View>
-            </View>
-
-            {error && (
-              <Text
-                accessibilityRole="alert"
-                style={[styles.error, { color: colors.destructive }]}
-              >
-                {error}
-              </Text>
+              </Pressable>
             )}
 
-            <View style={styles.footer}>
-              {mode === 'edit' && onDelete && (
-                <Pressable
-                  accessibilityRole="button"
-                  disabled={isCreating}
-                  onPress={onDelete}
-                  style={({ pressed }) => [
-                    styles.deleteButton,
-                    pressed && { backgroundColor: colors.destructiveMuted },
-                  ]}
+            <View style={styles.actions}>
+              <Pressable
+                accessibilityRole="button"
+                disabled={isCreating}
+                onPress={cancel}
+                style={({ pressed }) => [
+                  styles.button,
+                  { borderColor: colors.border },
+                  pressed && { backgroundColor: colors.interactiveMuted },
+                ]}
+              >
+                <Text
+                  style={[styles.buttonText, { color: colors.textSecondary }]}
                 >
-                  <Trash2
-                    color={colors.destructive}
-                    size={17}
-                    strokeWidth={2}
-                  />
+                  Cancel
+                </Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                disabled={!canSubmit || isCreating}
+                onPress={() => onCreate(normalizedName, color)}
+                style={({ pressed }) => [
+                  styles.button,
+                  styles.createButton,
+                  { backgroundColor: colors.primary },
+                  pressed && { backgroundColor: colors.primaryPressed },
+                  (!canSubmit || isCreating) && styles.disabledButton,
+                ]}
+              >
+                {isCreating ? (
+                  <ActivityIndicator color={colors.onPrimary} size="small" />
+                ) : (
                   <Text
-                    style={[styles.deleteText, { color: colors.destructive }]}
+                    style={[styles.buttonText, { color: colors.onPrimary }]}
                   >
-                    Delete
+                    {mode === 'create' ? 'Create' : 'Save'}
                   </Text>
-                </Pressable>
-              )}
-
-              <View style={styles.actions}>
-                <Pressable
-                  accessibilityRole="button"
-                  disabled={isCreating}
-                  onPress={cancel}
-                  style={({ pressed }) => [
-                    styles.button,
-                    { borderColor: colors.border },
-                    pressed && { backgroundColor: colors.interactiveMuted },
-                  ]}
-                >
-                  <Text
-                    style={[styles.buttonText, { color: colors.textSecondary }]}
-                  >
-                    Cancel
-                  </Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  disabled={!canSubmit || isCreating}
-                  onPress={() => onCreate(normalizedName, color)}
-                  style={({ pressed }) => [
-                    styles.button,
-                    styles.createButton,
-                    { backgroundColor: colors.primary },
-                    pressed && { backgroundColor: colors.primaryPressed },
-                    (!canSubmit || isCreating) && styles.disabledButton,
-                  ]}
-                >
-                  {isCreating ? (
-                    <ActivityIndicator color={colors.onPrimary} size="small" />
-                  ) : (
-                    <Text
-                      style={[styles.buttonText, { color: colors.onPrimary }]}
-                    >
-                      {mode === 'create' ? 'Create' : 'Save'}
-                    </Text>
-                  )}
-                </Pressable>
-              </View>
+                )}
+              </Pressable>
             </View>
-          </ScrollView>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+          </View>
+        </ScrollView>
+      </>
+    </BottomSheetModal>
   );
 }
 
 const styles = StyleSheet.create({
-  modalRoot: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: overlay.backdrop,
-  },
   sheet: {
-    width: '100%',
-    maxWidth: 560,
     maxHeight: '92%',
     paddingTop: spacing[2],
-    borderWidth: 1,
-    borderBottomWidth: 0,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-  },
-  handle: {
-    alignSelf: 'center',
-    width: spacing[10],
-    height: spacing[1],
-    marginBottom: spacing[2],
-    borderRadius: radius.sm,
   },
   content: {
     paddingHorizontal: spacing[4],
