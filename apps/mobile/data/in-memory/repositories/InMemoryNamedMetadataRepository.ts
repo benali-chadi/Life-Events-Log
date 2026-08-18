@@ -17,7 +17,7 @@ import {
   comparableMetadataName,
   compareMetadataNames,
   normalizeMetadataName,
-} from './namedMetadataUtils';
+} from '@/data/repositories/metadataName';
 
 type NamedMetadataEntity = {
   id: UUID;

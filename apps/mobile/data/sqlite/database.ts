@@ -10,6 +10,8 @@ export function createDrizzleDatabase(sqlite: SQLiteDatabase) {
   return drizzle(sqlite, { schema });
 }
 
+export type AppDatabase = ReturnType<typeof createDrizzleDatabase>;
+
 export async function initializeDatabase(sqlite: SQLiteDatabase) {
   await sqlite.execAsync('PRAGMA journal_mode = WAL;');
   await sqlite.execAsync('PRAGMA foreign_keys = ON;');

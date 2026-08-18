@@ -28,7 +28,7 @@ import {
   cloneMetadataEntity,
   compareMetadataNames,
   normalizeMetadataName,
-} from './namedMetadataUtils';
+} from '@/data/repositories/metadataName';
 
 type ValidatedEventValues = Omit<CreateEventInput, 'tagIds' | 'peopleIds'> & {
   tagIds: UUID[];

@@ -22,7 +22,7 @@ import {
   comparableMetadataName,
   compareMetadataNames,
   normalizeMetadataName,
-} from './namedMetadataUtils';
+} from '@/data/repositories/metadataName';
 import { countActiveEventFieldUsage } from './metadataUsageUtils';
 import { softDeleteEventFieldMetadata } from './softDeleteEventFieldMetadata';
 
