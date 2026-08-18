@@ -13,10 +13,6 @@ import { appQueryClient } from '@/data/query';
 import { RepositoryProvider } from '@/data/RepositoryProvider';
 import { DATABASE_NAME, initializeDatabase } from '@/data/sqlite/database';
 
-// export const unstable_settings = {
-//   anchor: '(tabs)',
-// };
-
 export default function RootLayout() {
   const { isDark, colors } = useTheme();
 

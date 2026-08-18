@@ -15,6 +15,8 @@ import {
   EVENT_TITLE_MAX_LENGTH,
   type CategoryColor,
   type EventSignificance,
+  type LocalDate,
+  type LocalTime,
 } from '@/models';
 
 const syncTimestamps = {
@@ -91,8 +93,8 @@ export const events = sqliteTable(
   {
     id: text('id').primaryKey(),
     title: text('title').notNull(),
-    date: text('date').notNull(),
-    time: text('time'),
+    date: text('date').$type<LocalDate>().notNull(),
+    time: text('time').$type<LocalTime>(),
     significance: text('significance').$type<EventSignificance>().notNull(),
     categoryId: text('category_id').references(() => categories.id),
     locationId: text('location_id').references(() => locations.id),
