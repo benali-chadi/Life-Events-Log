@@ -1,8 +1,4 @@
-import { readFileSync, readdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { drizzle } from 'drizzle-orm/sql-js';
-import initSqlJs, { type Database } from 'sql.js';
+import type { Database } from 'sql.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   DuplicateNameError,
@@ -13,6 +9,7 @@ import {
 } from '@/data/repositories';
 import type { AppDatabase } from '../database';
 import { events, locations } from '../schema';
+import { createTestDatabase } from '../testing/createTestDatabase';
 import { SQLiteLocationRepository } from './SQLiteLocationRepository';
 
 const NOW = '2026-08-18T10:00:00.000Z';
@@ -23,27 +20,6 @@ const dependencies: RepositoryDependencies = {
   createId: () => GENERATED_ID,
   now: () => NOW,
 };
-
-function applyMigrations(database: Database) {
-  const migrationsDirectory = resolve(
-    dirname(fileURLToPath(import.meta.url)),
-    '../../../drizzle'
-  );
-  const migrations = readdirSync(migrationsDirectory)
-    .filter((filename) => filename.endsWith('.sql'))
-    .sort();
-
-  for (const filename of migrations) {
-    const migration = readFileSync(
-      `${migrationsDirectory}/${filename}`,
-      'utf8'
-    );
-
-    for (const statement of migration.split('--> statement-breakpoint')) {
-      if (statement.trim()) database.run(statement);
-    }
-  }
-}
 
 function insertEvent(
   database: AppDatabase,
@@ -77,13 +53,7 @@ describe('SQLiteLocationRepository', () => {
   let repository: SQLiteLocationRepository;
 
   beforeEach(async () => {
-    const SQL = await initSqlJs();
-    sqlite = new SQL.Database();
-    sqlite.run('PRAGMA foreign_keys = ON');
-    applyMigrations(sqlite);
-    database = drizzle(sqlite, {
-      schema: { events, locations },
-    }) as unknown as AppDatabase;
+    ({ sqlite, database } = await createTestDatabase());
     repository = new SQLiteLocationRepository(database, dependencies);
 
     database
