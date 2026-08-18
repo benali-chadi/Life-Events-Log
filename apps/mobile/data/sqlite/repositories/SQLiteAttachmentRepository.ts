@@ -1,0 +1,298 @@
+import { and, desc, eq, isNull, max } from 'drizzle-orm';
+import {
+  EntityNotFoundError,
+  ModelValidationError,
+  RepositoryError,
+  type AttachmentRepository,
+  type CreateAttachmentInput,
+  type RepositoryDependencies,
+} from '@/data/repositories';
+import type { EventAttachment, UUID } from '@/models';
+import type { AppDatabase } from '../database';
+import { eventAttachments, events } from '../schema';
+
+export class SQLiteAttachmentRepository implements AttachmentRepository {
+  constructor(
+    private readonly database: AppDatabase,
+    private readonly dependencies: RepositoryDependencies
+  ) {}
+
+  async getById(id: UUID): Promise<EventAttachment | null> {
+    return (
+      this.database
+        .select()
+        .from(eventAttachments)
+        .where(
+          and(eq(eventAttachments.id, id), isNull(eventAttachments.deletedAt))
+        )
+        .get() ?? null
+    );
+  }
+
+  async listForEvent(eventId: UUID): Promise<EventAttachment[]> {
+    this.activeEventOrThrow(eventId);
+
+    return this.activeAttachmentsForEvent(eventId);
+  }
+
+  async create(input: CreateAttachmentInput): Promise<EventAttachment> {
+    this.activeEventOrThrow(input.eventId);
+    const values = this.validatedInput(input);
+    const id = this.dependencies.createId();
+
+    const existing = this.database
+      .select({ id: eventAttachments.id })
+      .from(eventAttachments)
+      .where(eq(eventAttachments.id, id))
+      .get();
+
+    if (existing) {
+      throw new RepositoryError(
+        `Generated duplicate attachment ID “${id}”. No attachment was created.`
+      );
+    }
+
+    const highestSortOrder = this.database
+      .select({ value: max(eventAttachments.sortOrder) })
+      .from(eventAttachments)
+      .where(
+        and(
+          eq(eventAttachments.eventId, input.eventId),
+          isNull(eventAttachments.deletedAt)
+        )
+      )
+      .get()?.value;
+    const timestamp = this.dependencies.now();
+    const attachment: EventAttachment = {
+      id,
+      eventId: input.eventId,
+      ...values,
+      sortOrder:
+        highestSortOrder === null || highestSortOrder === undefined
+          ? 0
+          : highestSortOrder + 1,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      deletedAt: null,
+    };
+
+    this.database.insert(eventAttachments).values(attachment).run();
+
+    return attachment;
+  }
+
+  async reorder(
+    eventId: UUID,
+    attachmentIds: readonly UUID[]
+  ): Promise<EventAttachment[]> {
+    const orderedIds = [...attachmentIds];
+
+    return this.database.transaction((transaction) => {
+      this.activeEventOrThrow(eventId, transaction);
+      const activeAttachments = this.activeAttachmentsForEvent(
+        eventId,
+        transaction
+      );
+
+      if (new Set(orderedIds).size !== orderedIds.length) {
+        throw new ModelValidationError(
+          'Attachment reorder contains duplicate IDs.'
+        );
+      }
+
+      if (orderedIds.length !== activeAttachments.length) {
+        throw new ModelValidationError(
+          'Attachment reorder must contain every active event attachment exactly once.'
+        );
+      }
+
+      const attachmentsById = new Map(
+        activeAttachments.map((attachment) => [attachment.id, attachment])
+      );
+
+      for (const id of orderedIds) {
+        const attachment = transaction
+          .select()
+          .from(eventAttachments)
+          .where(eq(eventAttachments.id, id))
+          .get();
+
+        if (!attachment || attachment.deletedAt !== null) {
+          throw new EntityNotFoundError('Attachment', id);
+        }
+        if (attachment.eventId !== eventId) {
+          throw new ModelValidationError(
+            `Attachment “${id}” does not belong to event “${eventId}”.`
+          );
+        }
+        if (!attachmentsById.has(id)) {
+          throw new ModelValidationError(
+            'Attachment reorder must contain every active event attachment exactly once.'
+          );
+        }
+      }
+
+      const timestamp = this.dependencies.now();
+
+      orderedIds.forEach((id, sortOrder) => {
+        if (attachmentsById.get(id)?.sortOrder !== sortOrder) {
+          transaction
+            .update(eventAttachments)
+            .set({ sortOrder, updatedAt: timestamp })
+            .where(eq(eventAttachments.id, id))
+            .run();
+        }
+      });
+
+      return orderedIds.map((id, sortOrder) => {
+        const attachment = attachmentsById.get(id)!;
+        return attachment.sortOrder === sortOrder
+          ? attachment
+          : { ...attachment, sortOrder, updatedAt: timestamp };
+      });
+    });
+  }
+
+  async softDelete(id: UUID): Promise<void> {
+    const attachment = this.attachmentOrThrow(id);
+    this.activeEventOrThrow(attachment.eventId);
+
+    if (attachment.deletedAt !== null) return;
+
+    const timestamp = this.dependencies.now();
+    this.database
+      .update(eventAttachments)
+      .set({ updatedAt: timestamp, deletedAt: timestamp })
+      .where(
+        and(eq(eventAttachments.id, id), isNull(eventAttachments.deletedAt))
+      )
+      .run();
+  }
+
+  async restore(id: UUID): Promise<void> {
+    const attachment = this.attachmentOrThrow(id);
+    this.activeEventOrThrow(attachment.eventId);
+
+    if (attachment.deletedAt === null) return;
+
+    const highestSortOrder = this.database
+      .select({ value: max(eventAttachments.sortOrder) })
+      .from(eventAttachments)
+      .where(
+        and(
+          eq(eventAttachments.eventId, attachment.eventId),
+          isNull(eventAttachments.deletedAt)
+        )
+      )
+      .get()?.value;
+
+    this.database
+      .update(eventAttachments)
+      .set({
+        sortOrder:
+          highestSortOrder === null || highestSortOrder === undefined
+            ? 0
+            : highestSortOrder + 1,
+        updatedAt: this.dependencies.now(),
+        deletedAt: null,
+      })
+      .where(eq(eventAttachments.id, id))
+      .run();
+  }
+
+  private validatedInput(input: CreateAttachmentInput) {
+    const relativePath = input.relativePath.trim();
+    const filename = input.filename.trim();
+    const mimeType = input.mimeType?.trim().toLowerCase() || null;
+
+    if (!relativePath) {
+      throw new ModelValidationError(
+        'Attachment relative path cannot be empty.'
+      );
+    }
+    if (!filename) {
+      throw new ModelValidationError('Attachment filename cannot be empty.');
+    }
+
+    this.assertOptionalPositiveInteger(input.width, 'width');
+    this.assertOptionalPositiveInteger(input.height, 'height');
+    this.assertOptionalNonNegativeInteger(input.fileSize, 'file size');
+
+    return {
+      relativePath,
+      filename,
+      mimeType,
+      width: input.width,
+      height: input.height,
+      fileSize: input.fileSize,
+    };
+  }
+
+  private assertOptionalPositiveInteger(
+    value: number | null,
+    fieldName: string
+  ) {
+    if (value !== null && (!Number.isInteger(value) || value <= 0)) {
+      throw new ModelValidationError(
+        `Attachment ${fieldName} must be a positive integer or null.`
+      );
+    }
+  }
+
+  private assertOptionalNonNegativeInteger(
+    value: number | null,
+    fieldName: string
+  ) {
+    if (value !== null && (!Number.isInteger(value) || value < 0)) {
+      throw new ModelValidationError(
+        `Attachment ${fieldName} must be a non-negative integer or null.`
+      );
+    }
+  }
+
+  private activeAttachmentsForEvent(
+    eventId: UUID,
+    database: Pick<AppDatabase, 'select'> = this.database
+  ) {
+    return database
+      .select()
+      .from(eventAttachments)
+      .where(
+        and(
+          eq(eventAttachments.eventId, eventId),
+          isNull(eventAttachments.deletedAt)
+        )
+      )
+      .orderBy(
+        eventAttachments.sortOrder,
+        desc(eventAttachments.createdAt),
+        eventAttachments.id
+      )
+      .all();
+  }
+
+  private attachmentOrThrow(id: UUID) {
+    const attachment = this.database
+      .select()
+      .from(eventAttachments)
+      .where(eq(eventAttachments.id, id))
+      .get();
+
+    if (!attachment) throw new EntityNotFoundError('Attachment', id);
+
+    return attachment;
+  }
+
+  private activeEventOrThrow(
+    id: UUID,
+    database: Pick<AppDatabase, 'select'> = this.database
+  ) {
+    const event = database
+      .select({ id: events.id })
+      .from(events)
+      .where(and(eq(events.id, id), isNull(events.deletedAt)))
+      .get();
+
+    if (!event) throw new EntityNotFoundError('Event', id);
+  }
+}
