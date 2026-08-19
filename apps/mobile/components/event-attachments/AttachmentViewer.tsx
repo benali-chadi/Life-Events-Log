@@ -1,6 +1,6 @@
 import { overlay, spacing, typography } from '@lel/design';
 import { Image } from 'expo-image';
-import { X } from 'lucide-react-native';
+import { ImageOff, X } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import {
   FlatList,
@@ -73,11 +73,20 @@ export default function AttachmentViewer({
           pagingEnabled
           renderItem={({ item }) => (
             <View style={[styles.slide, { width }]}>
-              <Image
-                contentFit="contain"
-                source={{ uri: item.uri }}
-                style={styles.image}
-              />
+              {item.isAvailable ? (
+                <Image
+                  contentFit="contain"
+                  source={{ uri: item.uri }}
+                  style={styles.image}
+                />
+              ) : (
+                <View style={styles.unavailable}>
+                  <ImageOff color={overlay.onMediaViewer} size={36} />
+                  <Text style={styles.unavailableText}>
+                    This file is not available on this device.
+                  </Text>
+                </View>
+              )}
             </View>
           )}
           showsHorizontalScrollIndicator={false}
@@ -114,6 +123,16 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
+  },
+  unavailable: {
+    alignItems: 'center',
+    gap: spacing[3],
+    padding: spacing[6],
+  },
+  unavailableText: {
+    ...typography.small,
+    color: overlay.onMediaViewer,
+    textAlign: 'center',
   },
   header: {
     position: 'absolute',
