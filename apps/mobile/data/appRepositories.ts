@@ -1,10 +1,10 @@
 import { randomUUID } from 'expo-crypto';
-import { createInMemoryRepositories, DEVELOPMENT_SEED } from './in-memory';
+import type { SQLiteDatabase } from 'expo-sqlite';
+import { createDrizzleDatabase, createSQLiteRepositories } from './sqlite';
 
-export const appRepositories = createInMemoryRepositories({
-  seed: DEVELOPMENT_SEED,
-  dependencies: {
+export function createAppRepositories(sqlite: SQLiteDatabase) {
+  return createSQLiteRepositories(createDrizzleDatabase(sqlite), {
     createId: randomUUID,
     now: () => new Date().toISOString(),
-  },
-});
+  });
+}
