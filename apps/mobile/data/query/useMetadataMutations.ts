@@ -6,7 +6,7 @@ import {
 import type {
   CreateCategoryInput,
   CreateNamedMetadataInput,
-  DeleteMetadataResult,
+  SoftDeleteMetadataResult,
   UpdateCategoryInput,
   UpdateNamedMetadataInput,
 } from '@/data/repositories';
@@ -33,8 +33,8 @@ type MetadataRepository<TEntity, TCreateInput, TUpdateInput> = {
   update(id: UUID, input: TUpdateInput): Promise<TEntity>;
 };
 
-type PermanentDeleteMetadataRepository = {
-  delete(id: UUID): Promise<DeleteMetadataResult>;
+type SoftDeleteMetadataRepository = {
+  softDelete(id: UUID): Promise<SoftDeleteMetadataResult>;
 };
 
 type MetadataKeys = {
@@ -83,14 +83,14 @@ function useUpdateMetadataMutation<
   });
 }
 
-function usePermanentDeleteMetadataMutation(
-  repository: PermanentDeleteMetadataRepository,
+function useSoftDeleteMetadataMutation(
+  repository: SoftDeleteMetadataRepository,
   keys: MetadataKeys
 ) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: UUID) => repository.delete(id),
+    mutationFn: (id: UUID) => repository.softDelete(id),
     onSuccess: async (result, id) => {
       queryClient.setQueryData(keys.detail(id), null);
       await Promise.all([
@@ -118,7 +118,7 @@ export function useUpdateTagMutation() {
 }
 
 export function useDeleteTagMutation() {
-  return usePermanentDeleteMetadataMutation(useTagRepository(), tagKeys);
+  return useSoftDeleteMetadataMutation(useTagRepository(), tagKeys);
 }
 
 export function useCreateCategoryMutation() {
@@ -136,10 +136,7 @@ export function useUpdateCategoryMutation() {
 }
 
 export function useDeleteCategoryMutation() {
-  return usePermanentDeleteMetadataMutation(
-    useCategoryRepository(),
-    categoryKeys
-  );
+  return useSoftDeleteMetadataMutation(useCategoryRepository(), categoryKeys);
 }
 
 export function useCreatePersonMutation() {
@@ -157,7 +154,7 @@ export function useUpdatePersonMutation() {
 }
 
 export function useDeletePersonMutation() {
-  return usePermanentDeleteMetadataMutation(usePersonRepository(), personKeys);
+  return useSoftDeleteMetadataMutation(usePersonRepository(), personKeys);
 }
 
 export function useCreateLocationMutation() {
@@ -175,8 +172,5 @@ export function useUpdateLocationMutation() {
 }
 
 export function useDeleteLocationMutation() {
-  return usePermanentDeleteMetadataMutation(
-    useLocationRepository(),
-    locationKeys
-  );
+  return useSoftDeleteMetadataMutation(useLocationRepository(), locationKeys);
 }

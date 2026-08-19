@@ -64,7 +64,7 @@ describe('InMemoryPersonRepository', () => {
     );
   });
 
-  it('permanently deletes a person and its event relationships', async () => {
+  it('tombstones a person and its event relationships', async () => {
     const database = createInMemoryDatabase(DEVELOPMENT_SEED);
     const repository = new InMemoryPersonRepository(database, dependencies);
     const personId = DEVELOPMENT_SEED.people[1].id;
@@ -73,15 +73,21 @@ describe('InMemoryPersonRepository', () => {
       .map((relationship) => relationship.eventId)
       .sort();
 
-    const result = await repository.delete(personId);
+    const result = await repository.softDelete(personId);
 
     expect(result.affectedEventIds).toEqual(affectedIds);
-    expect(database.people.has(personId)).toBe(false);
+    expect(database.people.get(personId)).toMatchObject({
+      updatedAt: '2026-07-30T10:00:00.000Z',
+      deletedAt: '2026-07-30T10:00:00.000Z',
+    });
     expect(
-      [...database.eventPeople.values()].some(
-        (relationship) => relationship.personId === personId
-      )
-    ).toBe(false);
+      [...database.eventPeople.values()]
+        .filter((relationship) => relationship.personId === personId)
+        .every(
+          (relationship) =>
+            relationship.deletedAt === '2026-07-30T10:00:00.000Z'
+        )
+    ).toBe(true);
     for (const eventId of affectedIds) {
       expect(database.events.get(eventId)?.updatedAt).toBe(
         '2026-07-30T10:00:00.000Z'
@@ -132,7 +138,7 @@ describe('InMemoryLocationRepository', () => {
     );
   });
 
-  it('permanently deletes a location and clears references from every event', async () => {
+  it('tombstones a location while preserving event references', async () => {
     const database = createInMemoryDatabase(DEVELOPMENT_SEED);
     const repository = new InMemoryLocationRepository(database, dependencies);
     const locationId = DEVELOPMENT_SEED.locations[0].id;
@@ -141,15 +147,15 @@ describe('InMemoryLocationRepository', () => {
       .map((event) => event.id)
       .sort();
 
-    const result = await repository.delete(locationId);
+    const result = await repository.softDelete(locationId);
 
     expect(result.affectedEventIds).toEqual(affectedIds);
-    expect(database.locations.has(locationId)).toBe(false);
+    expect(database.locations.get(locationId)).toMatchObject({
+      updatedAt: '2026-07-30T10:00:00.000Z',
+      deletedAt: '2026-07-30T10:00:00.000Z',
+    });
     for (const eventId of affectedIds) {
-      expect(database.events.get(eventId)).toMatchObject({
-        locationId: null,
-        updatedAt: '2026-07-30T10:00:00.000Z',
-      });
+      expect(database.events.get(eventId)?.locationId).toBe(locationId);
     }
   });
 
@@ -158,9 +164,9 @@ describe('InMemoryLocationRepository', () => {
     const repository = new InMemoryLocationRepository(database, dependencies);
     const eventsBefore = [...database.events.entries()];
 
-    await expect(repository.delete('missing-location')).rejects.toBeInstanceOf(
-      EntityNotFoundError
-    );
+    await expect(
+      repository.softDelete('missing-location')
+    ).rejects.toBeInstanceOf(EntityNotFoundError);
     expect([...database.events.entries()]).toEqual(eventsBefore);
   });
 });

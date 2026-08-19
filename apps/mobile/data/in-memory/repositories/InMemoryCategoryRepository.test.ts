@@ -51,6 +51,7 @@ describe('InMemoryCategoryRepository', () => {
       color: 'slate' as const,
       createdAt: '2026-07-01T12:00:00.000Z',
       updatedAt: '2026-07-01T12:00:00.000Z',
+      deletedAt: null,
     };
     database.categories.set(unusedCategory.id, unusedCategory);
 
@@ -88,6 +89,7 @@ describe('InMemoryCategoryRepository', () => {
       color: 'violet',
       createdAt: '2026-07-30T10:00:00.000Z',
       updatedAt: '2026-07-30T10:00:00.000Z',
+      deletedAt: null,
     });
     expect(database.categories.get(created.id)).not.toBe(created);
   });
@@ -151,7 +153,7 @@ describe('InMemoryCategoryRepository', () => {
     ).rejects.toBeInstanceOf(RepositoryError);
   });
 
-  it('permanently deletes a category and clears all event references', async () => {
+  it('tombstones a category while preserving event references', async () => {
     const { database, repository } = createRepository();
     const categoryId = DEVELOPMENT_SEED.categories[0].id;
     const referencedEvents = [...database.events.values()].filter(
@@ -165,39 +167,42 @@ describe('InMemoryCategoryRepository', () => {
       deletedAt: '2026-08-01T10:00:00.000Z',
     });
 
-    const result = await repository.delete(categoryId);
+    const result = await repository.softDelete(categoryId);
 
-    expect(database.categories.has(categoryId)).toBe(false);
+    expect(database.categories.get(categoryId)).toMatchObject({
+      updatedAt: '2026-07-30T10:00:00.000Z',
+      deletedAt: '2026-07-30T10:00:00.000Z',
+    });
+    await expect(repository.getById(categoryId)).resolves.toBeNull();
     expect(result.affectedEventIds).toEqual(
       referencedEvents.map((event) => event.id).sort()
     );
     for (const eventId of result.affectedEventIds) {
-      expect(database.events.get(eventId)).toMatchObject({
-        categoryId: null,
-        updatedAt: '2026-07-30T10:00:00.000Z',
-      });
+      expect(database.events.get(eventId)?.categoryId).toBe(categoryId);
     }
     expect(database.events.get(softDeletedEvent!.id)?.deletedAt).toBe(
       '2026-08-01T10:00:00.000Z'
     );
   });
 
-  it('deletes unused categories and rejects missing IDs without changes', async () => {
+  it('tombstones unused categories and rejects missing IDs without changes', async () => {
     const { database, repository } = createRepository();
     const category = await repository.create({
       name: 'Unused',
       color: 'slate',
     });
 
-    await expect(repository.delete(category.id)).resolves.toEqual({
+    await expect(repository.softDelete(category.id)).resolves.toEqual({
       affectedEventIds: [],
     });
-    expect(database.categories.has(category.id)).toBe(false);
+    expect(database.categories.get(category.id)?.deletedAt).toBe(
+      '2026-07-30T10:00:00.000Z'
+    );
 
     const eventsBefore = [...database.events.entries()];
-    await expect(repository.delete('missing-category')).rejects.toBeInstanceOf(
-      EntityNotFoundError
-    );
+    await expect(
+      repository.softDelete('missing-category')
+    ).rejects.toBeInstanceOf(EntityNotFoundError);
     expect([...database.events.entries()]).toEqual(eventsBefore);
   });
 });

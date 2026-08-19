@@ -69,6 +69,7 @@ describe('InMemoryTagRepository', () => {
       name: 'data ownership',
       createdAt: '2026-07-30T10:00:00.000Z',
       updatedAt: '2026-07-30T10:00:00.000Z',
+      deletedAt: null,
     });
     expect(database.tags.get(created.id)).not.toBe(created);
   });
@@ -114,7 +115,7 @@ describe('InMemoryTagRepository', () => {
     ).rejects.toBeInstanceOf(RepositoryError);
   });
 
-  it('permanently deletes a tag and its relationships', async () => {
+  it('tombstones a tag and its relationships', async () => {
     const { database, repository } = createRepository();
     const tagId = DEVELOPMENT_SEED.tags[0].id;
     const affectedIds = [...database.eventTags.values()]
@@ -130,16 +131,27 @@ describe('InMemoryTagRepository', () => {
       deletedAt: '2026-08-01T10:00:00.000Z',
     });
 
-    const result = await repository.delete(tagId);
+    const result = await repository.softDelete(tagId);
 
     expect(result.affectedEventIds).toEqual(affectedIds);
-    expect(database.tags.has(tagId)).toBe(false);
+    expect(database.tags.get(tagId)).toMatchObject({
+      updatedAt: '2026-07-30T10:00:00.000Z',
+      deletedAt: '2026-07-30T10:00:00.000Z',
+    });
+    await expect(repository.getById(tagId)).resolves.toBeNull();
     expect(
-      [...database.eventTags.values()].some(
-        (relationship) => relationship.tagId === tagId
+      [...database.eventTags.values()]
+        .filter((relationship) => relationship.tagId === tagId)
+        .every(
+          (relationship) =>
+            relationship.deletedAt === '2026-07-30T10:00:00.000Z'
+        )
+    ).toBe(true);
+    expect(
+      [...database.eventTags.values()].filter(
+        (relationship) => relationship.tagId !== tagId
       )
-    ).toBe(false);
-    expect([...database.eventTags.values()]).toEqual(unrelatedRelationships);
+    ).toEqual(unrelatedRelationships);
     for (const eventId of affectedIds) {
       expect(database.events.get(eventId)?.updatedAt).toBe(
         '2026-07-30T10:00:00.000Z'
@@ -154,12 +166,12 @@ describe('InMemoryTagRepository', () => {
     const { database, repository } = createRepository();
     const unused = await repository.create({ name: 'unused' });
 
-    await expect(repository.delete(unused.id)).resolves.toEqual({
+    await expect(repository.softDelete(unused.id)).resolves.toEqual({
       affectedEventIds: [],
     });
 
     const relationshipsBefore = [...database.eventTags.entries()];
-    await expect(repository.delete('missing-tag')).rejects.toBeInstanceOf(
+    await expect(repository.softDelete('missing-tag')).rejects.toBeInstanceOf(
       EntityNotFoundError
     );
     expect([...database.eventTags.entries()]).toEqual(relationshipsBefore);

@@ -28,7 +28,7 @@ import {
   cloneMetadataEntity,
   compareMetadataNames,
   normalizeMetadataName,
-} from './namedMetadataUtils';
+} from '@/data/repositories/metadataName';
 
 type ValidatedEventValues = Omit<CreateEventInput, 'tagIds' | 'peopleIds'> & {
   tagIds: UUID[];
@@ -134,8 +134,8 @@ export class InMemoryEventRepository implements EventRepository {
     };
 
     this.database.events.set(id, event);
-    this.replaceTags(id, values.tagIds);
-    this.replacePeople(id, values.peopleIds);
+    this.replaceTags(id, values.tagIds, timestamp);
+    this.replacePeople(id, values.peopleIds, timestamp);
 
     return this.detailsForEvent(event);
   }
@@ -203,8 +203,10 @@ export class InMemoryEventRepository implements EventRepository {
 
     this.database.events.set(id, updated);
 
-    if (tagsChanged) this.replaceTags(id, values.tagIds);
-    if (peopleChanged) this.replacePeople(id, values.peopleIds);
+    if (tagsChanged) this.replaceTags(id, values.tagIds, updated.updatedAt);
+    if (peopleChanged) {
+      this.replacePeople(id, values.peopleIds, updated.updatedAt);
+    }
 
     return this.detailsForEvent(updated);
   }
@@ -562,19 +564,21 @@ export class InMemoryEventRepository implements EventRepository {
     }
   }
 
-  private assertExistingReference<TEntity>(
+  private assertExistingReference<TEntity extends { deletedAt: string | null }>(
     table: ReadonlyMap<UUID, TEntity>,
     entityName: string,
     id: UUID | null
   ) {
     if (id === null) return;
 
-    if (!table.has(id)) {
+    if (table.get(id)?.deletedAt !== null) {
       throw new EntityNotFoundError(entityName, id);
     }
   }
 
-  private validatedRelationshipIds<TEntity>(
+  private validatedRelationshipIds<
+    TEntity extends { deletedAt: string | null },
+  >(
     ids: readonly UUID[],
     table: ReadonlyMap<UUID, TEntity>,
     entityName: string
@@ -604,12 +608,12 @@ export class InMemoryEventRepository implements EventRepository {
       : null;
     const tags = this.tagIdsForEvent(event.id)
       .map((id) => this.database.tags.get(id))
-      .filter((tag) => tag !== undefined)
+      .filter((tag) => tag?.deletedAt === null)
       .map((tag) => cloneMetadataEntity(tag!))
       .sort(compareMetadataNames);
     const people = this.peopleIdsForEvent(event.id)
       .map((id) => this.database.people.get(id))
-      .filter((person) => person !== undefined)
+      .filter((person) => person?.deletedAt === null)
       .map((person) => cloneMetadataEntity(person!))
       .sort(compareMetadataNames);
     const attachments = [...this.database.attachments.values()]
@@ -626,8 +630,10 @@ export class InMemoryEventRepository implements EventRepository {
 
     return {
       event: cloneEvent(event),
-      category: category ? cloneMetadataEntity(category) : null,
-      location: location ? cloneMetadataEntity(location) : null,
+      category:
+        category?.deletedAt === null ? cloneMetadataEntity(category) : null,
+      location:
+        location?.deletedAt === null ? cloneMetadataEntity(location) : null,
       tags,
       people,
       attachments,
@@ -636,56 +642,109 @@ export class InMemoryEventRepository implements EventRepository {
 
   private tagIdsForEvent(eventId: UUID) {
     return [...this.database.eventTags.values()]
-      .filter((relationship) => relationship.eventId === eventId)
+      .filter(
+        (relationship) =>
+          relationship.eventId === eventId && relationship.deletedAt === null
+      )
       .map((relationship) => relationship.tagId);
   }
 
   private peopleIdsForEvent(eventId: UUID) {
     return [...this.database.eventPeople.values()]
-      .filter((relationship) => relationship.eventId === eventId)
+      .filter(
+        (relationship) =>
+          relationship.eventId === eventId && relationship.deletedAt === null
+      )
       .map((relationship) => relationship.personId);
   }
 
   private activeTagIdsForEvent(eventId: UUID) {
     return new Set(
-      this.tagIdsForEvent(eventId).filter((id) => this.database.tags.has(id))
+      this.tagIdsForEvent(eventId).filter(
+        (id) => this.database.tags.get(id)?.deletedAt === null
+      )
     );
   }
 
   private activePeopleIdsForEvent(eventId: UUID) {
     return new Set(
-      this.peopleIdsForEvent(eventId).filter((id) =>
-        this.database.people.has(id)
+      this.peopleIdsForEvent(eventId).filter(
+        (id) => this.database.people.get(id)?.deletedAt === null
       )
     );
   }
 
-  private replaceTags(eventId: UUID, tagIds: readonly UUID[]) {
+  private replaceTags(
+    eventId: UUID,
+    tagIds: readonly UUID[],
+    timestamp: string
+  ) {
+    const desiredIds = new Set(tagIds);
+
     for (const [key, relationship] of this.database.eventTags) {
-      if (relationship.eventId === eventId) {
-        this.database.eventTags.delete(key);
+      if (
+        relationship.eventId === eventId &&
+        relationship.deletedAt === null &&
+        !desiredIds.has(relationship.tagId)
+      ) {
+        this.database.eventTags.set(key, {
+          ...relationship,
+          updatedAt: timestamp,
+          deletedAt: timestamp,
+        });
       }
     }
 
     for (const tagId of tagIds) {
-      const relationship: EventTag = { eventId, tagId };
-      this.database.eventTags.set(eventTagKey(eventId, tagId), relationship);
+      const key = eventTagKey(eventId, tagId);
+      const existing = this.database.eventTags.get(key);
+      const relationship: EventTag = existing
+        ? { ...existing, updatedAt: timestamp, deletedAt: null }
+        : {
+            eventId,
+            tagId,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+            deletedAt: null,
+          };
+      this.database.eventTags.set(key, relationship);
     }
   }
 
-  private replacePeople(eventId: UUID, peopleIds: readonly UUID[]) {
+  private replacePeople(
+    eventId: UUID,
+    peopleIds: readonly UUID[],
+    timestamp: string
+  ) {
+    const desiredIds = new Set(peopleIds);
+
     for (const [key, relationship] of this.database.eventPeople) {
-      if (relationship.eventId === eventId) {
-        this.database.eventPeople.delete(key);
+      if (
+        relationship.eventId === eventId &&
+        relationship.deletedAt === null &&
+        !desiredIds.has(relationship.personId)
+      ) {
+        this.database.eventPeople.set(key, {
+          ...relationship,
+          updatedAt: timestamp,
+          deletedAt: timestamp,
+        });
       }
     }
 
     for (const personId of peopleIds) {
-      const relationship: EventPerson = { eventId, personId };
-      this.database.eventPeople.set(
-        eventPersonKey(eventId, personId),
-        relationship
-      );
+      const key = eventPersonKey(eventId, personId);
+      const existing = this.database.eventPeople.get(key);
+      const relationship: EventPerson = existing
+        ? { ...existing, updatedAt: timestamp, deletedAt: null }
+        : {
+            eventId,
+            personId,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+            deletedAt: null,
+          };
+      this.database.eventPeople.set(key, relationship);
     }
   }
 

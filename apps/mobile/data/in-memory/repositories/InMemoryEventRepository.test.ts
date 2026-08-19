@@ -202,7 +202,30 @@ describe('InMemoryEventRepository', () => {
       [...database.eventTags.values()].filter(
         (relationship) => relationship.eventId === eventId
       )
-    ).toEqual([]);
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ deletedAt: NOW }),
+        expect.objectContaining({ deletedAt: NOW }),
+      ])
+    );
+  });
+
+  it('restores a tombstoned relationship without replacing its identity', async () => {
+    const { database, repository } = createRepository();
+    const eventId = DEVELOPMENT_SEED.events[0].id;
+    const tagId = DEVELOPMENT_SEED.tags[0].id;
+    const key = eventTagKey(eventId, tagId);
+    const createdAt = database.eventTags.get(key)?.createdAt;
+
+    await repository.update(eventId, { tagIds: [] });
+    expect(database.eventTags.get(key)?.deletedAt).toBe(NOW);
+
+    await repository.update(eventId, { tagIds: [tagId] });
+    expect(database.eventTags.get(key)).toMatchObject({
+      createdAt,
+      updatedAt: NOW,
+      deletedAt: null,
+    });
   });
 
   it('does not partially update an event when relationship validation fails', async () => {

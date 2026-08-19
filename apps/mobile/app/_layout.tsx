@@ -1,25 +1,33 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React from 'react';
+import React, { useMemo } from 'react';
 import 'react-native-reanimated';
 import { useTheme } from '@lel/design/useTheme';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { QueryClientProvider } from '@tanstack/react-query';
+import { SQLiteProvider, useSQLiteContext } from 'expo-sqlite';
 import EventDeletionProvider from '@/components/event-deletion/EventDeletionProvider';
 import TimelineOverflowMenu from '@/components/TimelineOverflowMenu';
-import { appRepositories } from '@/data/appRepositories';
+import { createAppRepositories } from '@/data/appRepositories';
 import { appQueryClient } from '@/data/query';
 import { RepositoryProvider } from '@/data/RepositoryProvider';
-
-// export const unstable_settings = {
-//   anchor: '(tabs)',
-// };
+import { DATABASE_NAME, initializeDatabase } from '@/data/sqlite/database';
 
 export default function RootLayout() {
+  return (
+    <SQLiteProvider databaseName={DATABASE_NAME} onInit={initializeDatabase}>
+      <AppLayout />
+    </SQLiteProvider>
+  );
+}
+
+function AppLayout() {
   const { isDark, colors } = useTheme();
+  const sqlite = useSQLiteContext();
+  const repositories = useMemo(() => createAppRepositories(sqlite), [sqlite]);
 
   return (
-    <RepositoryProvider repositories={appRepositories}>
+    <RepositoryProvider repositories={repositories}>
       <QueryClientProvider client={appQueryClient}>
         <GestureHandlerRootView style={{ flex: 1 }}>
           <EventDeletionProvider>
@@ -51,7 +59,10 @@ export default function RootLayout() {
               <Stack.Screen name="new" options={{ presentation: 'modal' }} />
               <Stack.Screen
                 name="metadata"
-                options={{ title: 'Manage metadata', headerBackTitle: 'Back' }}
+                options={{
+                  title: 'Manage metadata',
+                  headerBackTitle: 'Back',
+                }}
               />
             </Stack>
 

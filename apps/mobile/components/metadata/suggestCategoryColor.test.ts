@@ -9,6 +9,7 @@ function category(id: string, color: CategoryColor): Category {
     color,
     createdAt: '2026-08-10T10:00:00.000Z',
     updatedAt: '2026-08-10T10:00:00.000Z',
+    deletedAt: null,
   };
 }
 

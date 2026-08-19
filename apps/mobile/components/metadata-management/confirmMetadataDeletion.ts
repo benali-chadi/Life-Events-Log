@@ -16,7 +16,7 @@ export function confirmMetadataDeletion(
       : `It will be removed from ${metadata.eventCount} ${
           metadata.eventCount === 1 ? 'event' : 'events'
         }.`;
-  const message = `“${metadata.name}” will be permanently deleted. ${usage}`;
+  const message = `“${metadata.name}” will be deleted from LEL. ${usage}`;
   const action = `Delete ${label}`;
 
   if (Platform.OS === 'ios') {

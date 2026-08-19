@@ -19,7 +19,7 @@ export type UpdateNamedMetadataInput = {
   name: string;
 };
 
-export type DeleteMetadataResult = {
+export type SoftDeleteMetadataResult = {
   affectedEventIds: UUID[];
 };
 
@@ -36,7 +36,7 @@ export interface NamedMetadataRepository<TEntity> {
   ): Promise<MetadataUsageItem<TEntity>[]>;
   create(input: CreateNamedMetadataInput): Promise<TEntity>;
   update(id: UUID, input: UpdateNamedMetadataInput): Promise<TEntity>;
-  delete(id: UUID): Promise<DeleteMetadataResult>;
+  softDelete(id: UUID): Promise<SoftDeleteMetadataResult>;
 }
 
 export type TagRepository = NamedMetadataRepository<Tag>;
@@ -58,5 +58,5 @@ export interface CategoryRepository {
   ): Promise<MetadataUsageItem<Category>[]>;
   create(input: CreateCategoryInput): Promise<Category>;
   update(id: UUID, input: UpdateCategoryInput): Promise<Category>;
-  delete(id: UUID): Promise<DeleteMetadataResult>;
+  softDelete(id: UUID): Promise<SoftDeleteMetadataResult>;
 }

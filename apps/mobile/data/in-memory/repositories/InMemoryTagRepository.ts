@@ -3,7 +3,7 @@ import type { RepositoryDependencies } from '@/data/repositories';
 import type { InMemoryDatabase } from '../types';
 import { InMemoryNamedMetadataRepository } from './InMemoryNamedMetadataRepository';
 import { countActiveTagUsage } from './metadataUsageUtils';
-import { deleteMetadataRelationships } from './deleteMetadataRelationships';
+import { softDeleteMetadataRelationships } from './softDeleteMetadataRelationships';
 
 export class InMemoryTagRepository extends InMemoryNamedMetadataRepository<Tag> {
   constructor(
@@ -14,8 +14,8 @@ export class InMemoryTagRepository extends InMemoryNamedMetadataRepository<Tag> 
       entityName: 'Tag',
       createEntity: (tag) => tag,
       getUsageCounts: () => countActiveTagUsage(database),
-      deleteReferences: (tagId, timestamp) =>
-        deleteMetadataRelationships({
+      softDeleteReferences: (tagId, timestamp) =>
+        softDeleteMetadataRelationships({
           database,
           metadataId: tagId,
           relationships: database.eventTags,

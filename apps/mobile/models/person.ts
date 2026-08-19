@@ -6,4 +6,5 @@ export type Person = {
 
   createdAt: Timestamp;
   updatedAt: Timestamp;
+  deletedAt: Timestamp | null;
 };

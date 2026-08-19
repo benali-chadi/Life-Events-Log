@@ -5,7 +5,7 @@ import {
   ModelValidationError,
   RepositoryError,
   type CreateNamedMetadataInput,
-  type DeleteMetadataResult,
+  type SoftDeleteMetadataResult,
   type MetadataListQuery,
   type MetadataUsageItem,
   type NamedMetadataRepository,
@@ -17,20 +17,24 @@ import {
   comparableMetadataName,
   compareMetadataNames,
   normalizeMetadataName,
-} from './namedMetadataUtils';
+} from '@/data/repositories/metadataName';
 
 type NamedMetadataEntity = {
   id: UUID;
   name: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
+  deletedAt: Timestamp | null;
 };
 
 type NamedMetadataRepositoryOptions<TEntity extends NamedMetadataEntity> = {
   entityName: string;
   createEntity: (entity: NamedMetadataEntity) => TEntity;
   getUsageCounts: () => ReadonlyMap<UUID, number>;
-  deleteReferences?: (id: UUID, timestamp: Timestamp) => DeleteMetadataResult;
+  softDeleteReferences?: (
+    id: UUID,
+    timestamp: Timestamp
+  ) => SoftDeleteMetadataResult;
 };
 
 export class InMemoryNamedMetadataRepository<
@@ -45,7 +49,9 @@ export class InMemoryNamedMetadataRepository<
   async getById(id: UUID) {
     const entity = this.table.get(id);
 
-    return entity ? cloneMetadataEntity(entity) : null;
+    return entity && entity.deletedAt === null
+      ? cloneMetadataEntity(entity)
+      : null;
   }
 
   async list(query?: MetadataListQuery) {
@@ -54,7 +60,8 @@ export class InMemoryNamedMetadataRepository<
     return [...this.table.values()]
       .filter(
         (entity) =>
-          !search || comparableMetadataName(entity.name).includes(search)
+          entity.deletedAt === null &&
+          (!search || comparableMetadataName(entity.name).includes(search))
       )
       .sort(compareMetadataNames)
       .map(cloneMetadataEntity);
@@ -96,6 +103,7 @@ export class InMemoryNamedMetadataRepository<
       name,
       createdAt: timestamp,
       updatedAt: timestamp,
+      deletedAt: null,
     });
 
     this.table.set(id, entity);
@@ -119,17 +127,26 @@ export class InMemoryNamedMetadataRepository<
     return cloneMetadataEntity(updated);
   }
 
-  async delete(id: UUID): Promise<DeleteMetadataResult> {
-    this.entityOrThrow(id);
+  async softDelete(id: UUID): Promise<SoftDeleteMetadataResult> {
+    const entity = this.table.get(id);
 
-    if (!this.options.deleteReferences) {
+    if (!entity) throw new EntityNotFoundError(this.options.entityName, id);
+
+    if (entity.deletedAt !== null) return { affectedEventIds: [] };
+
+    if (!this.options.softDeleteReferences) {
       throw new RepositoryError(
-        `Permanent ${this.options.entityName.toLowerCase()} deletion is not implemented yet.`
+        `${this.options.entityName} soft deletion is not implemented yet.`
       );
     }
 
-    const result = this.options.deleteReferences(id, this.dependencies.now());
-    this.table.delete(id);
+    const timestamp = this.dependencies.now();
+    const result = this.options.softDeleteReferences(id, timestamp);
+    this.table.set(id, {
+      ...entity,
+      updatedAt: timestamp,
+      deletedAt: timestamp,
+    });
 
     return result;
   }
@@ -150,6 +167,7 @@ export class InMemoryNamedMetadataRepository<
     const comparison = comparableMetadataName(name);
     const duplicate = [...this.table.values()].some(
       (entity) =>
+        entity.deletedAt === null &&
         entity.id !== excludedId &&
         comparableMetadataName(entity.name) === comparison
     );
@@ -162,7 +180,9 @@ export class InMemoryNamedMetadataRepository<
   private entityOrThrow(id: UUID) {
     const entity = this.table.get(id);
 
-    if (!entity) throw new EntityNotFoundError(this.options.entityName, id);
+    if (!entity || entity.deletedAt !== null) {
+      throw new EntityNotFoundError(this.options.entityName, id);
+    }
 
     return entity;
   }
