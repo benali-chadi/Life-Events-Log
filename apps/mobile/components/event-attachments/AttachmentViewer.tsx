@@ -1,6 +1,7 @@
 import { overlay, spacing, typography } from '@lel/design';
-import { Image } from 'expo-image';
 import { ImageOff, Share2, X } from 'lucide-react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,7 +13,6 @@ import {
   NativeSyntheticEvent,
   Platform,
   Pressable,
-  SafeAreaView,
   StyleSheet,
   StatusBar,
   Text,
@@ -21,6 +21,7 @@ import {
 } from 'react-native';
 import { shareAttachment } from '@/data/attachments';
 import type { AttachmentPreview } from './types';
+import ZoomableAttachmentImage from './ZoomableAttachmentImage';
 
 type AttachmentViewerProps = {
   attachments: AttachmentPreview[];
@@ -35,11 +36,12 @@ export default function AttachmentViewer({
   visible,
   onClose,
 }: AttachmentViewerProps) {
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const listRef = useRef<FlatList<AttachmentPreview>>(null);
   const [activeIndex, setActiveIndex] = useState(initialIndex);
   const [controlsVisible, setControlsVisible] = useState(true);
-  const [isSavingCopy, setIsSavingCopy] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  const [isZoomed, setIsZoomed] = useState(false);
   const controlsOpacity = useRef(new Animated.Value(1)).current;
   const activeAttachment = attachments[activeIndex];
 
@@ -48,6 +50,7 @@ export default function AttachmentViewer({
 
     setActiveIndex(initialIndex);
     setControlsVisible(true);
+    setIsZoomed(false);
     controlsOpacity.setValue(1);
     requestAnimationFrame(() => {
       listRef.current?.scrollToOffset({
@@ -57,8 +60,7 @@ export default function AttachmentViewer({
     });
   }, [controlsOpacity, initialIndex, visible, width]);
 
-  const toggleControls = () => {
-    const nextVisible = !controlsVisible;
+  const setControlVisibility = (nextVisible: boolean) => {
     setControlsVisible(nextVisible);
     Animated.timing(controlsOpacity, {
       duration: 160,
@@ -67,10 +69,32 @@ export default function AttachmentViewer({
     }).start();
   };
 
-  const saveCopy = async () => {
-    if (!activeAttachment?.isAvailable || isSavingCopy) return;
+  const toggleControls = () => {
+    if (isZoomed) return;
+    setControlVisibility(!controlsVisible);
+  };
 
-    setIsSavingCopy(true);
+  const hideControls = () => {
+    if (controlsVisible) setControlVisibility(false);
+  };
+
+  const startZoom = () => {
+    setIsZoomed(true);
+    hideControls();
+  };
+
+  const positionAtInitialIndex = () => {
+    setActiveIndex(initialIndex);
+    listRef.current?.scrollToOffset({
+      animated: false,
+      offset: initialIndex * width,
+    });
+  };
+
+  const shareActiveAttachment = async () => {
+    if (!activeAttachment?.isAvailable || isSharing) return;
+
+    setIsSharing(true);
     try {
       await shareAttachment(activeAttachment);
     } catch {
@@ -79,24 +103,26 @@ export default function AttachmentViewer({
         'The attachment could not be shared. Please try again.'
       );
     } finally {
-      setIsSavingCopy(false);
+      setIsSharing(false);
     }
   };
 
   const updateActiveIndex = (
     event: NativeSyntheticEvent<NativeScrollEvent>
   ) => {
+    setIsZoomed(false);
     setActiveIndex(Math.round(event.nativeEvent.contentOffset.x / width));
   };
 
   return (
     <Modal
       animationType="fade"
+      onShow={positionAtInitialIndex}
       onRequestClose={onClose}
       statusBarTranslucent
       visible={visible}
     >
-      <View style={styles.root}>
+      <GestureHandlerRootView style={styles.root}>
         <FlatList
           ref={listRef}
           data={attachments}
@@ -110,32 +136,39 @@ export default function AttachmentViewer({
           keyExtractor={(attachment) => attachment.id}
           onMomentumScrollEnd={updateActiveIndex}
           pagingEnabled
-          renderItem={({ item }) => (
-            <Pressable
-              accessibilityLabel={
-                controlsVisible
-                  ? 'Hide viewer controls'
-                  : 'Show viewer controls'
-              }
-              onPress={toggleControls}
-              style={[styles.slide, { width }]}
-            >
+          renderItem={({ item, index }) => (
+            <View style={[styles.slide, { width }]}>
               {item.isAvailable ? (
-                <Image
-                  contentFit="contain"
-                  source={{ uri: item.uri }}
-                  style={styles.image}
+                <ZoomableAttachmentImage
+                  active={visible && index === activeIndex}
+                  imageHeight={item.height}
+                  imageWidth={item.width}
+                  onSingleTap={toggleControls}
+                  onZoomChange={setIsZoomed}
+                  onZoomStart={startZoom}
+                  uri={item.uri}
+                  viewportHeight={height}
+                  viewportWidth={width}
                 />
               ) : (
-                <View style={styles.unavailable}>
+                <Pressable
+                  accessibilityLabel={
+                    controlsVisible
+                      ? 'Hide viewer controls'
+                      : 'Show viewer controls'
+                  }
+                  onPress={toggleControls}
+                  style={styles.unavailable}
+                >
                   <ImageOff color={overlay.onMediaViewer} size={36} />
                   <Text style={styles.unavailableText}>
                     This file is not available on this device.
                   </Text>
-                </View>
+                </Pressable>
               )}
-            </Pressable>
+            </View>
           )}
+          scrollEnabled={!isZoomed}
           showsHorizontalScrollIndicator={false}
         />
 
@@ -173,17 +206,17 @@ export default function AttachmentViewer({
               <Pressable
                 accessibilityLabel="Share attachment"
                 accessibilityRole="button"
-                disabled={!activeAttachment?.isAvailable || isSavingCopy}
+                disabled={!activeAttachment?.isAvailable || isSharing}
                 hitSlop={8}
-                onPress={() => void saveCopy()}
+                onPress={() => void shareActiveAttachment()}
                 style={({ pressed }) => [
                   styles.controlButton,
-                  (!activeAttachment?.isAvailable || isSavingCopy) &&
+                  (!activeAttachment?.isAvailable || isSharing) &&
                     styles.disabledControl,
                   pressed && styles.pressedControl,
                 ]}
               >
-                {isSavingCopy ? (
+                {isSharing ? (
                   <ActivityIndicator
                     color={overlay.onMediaViewer}
                     size="small"
@@ -199,7 +232,7 @@ export default function AttachmentViewer({
             </View>
           </SafeAreaView>
         </Animated.View>
-      </View>
+      </GestureHandlerRootView>
     </Modal>
   );
 }

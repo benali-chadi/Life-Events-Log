@@ -209,6 +209,8 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
         isAvailable: file.isAvailable,
         filename: attachment.filename,
         mimeType: attachment.mimeType,
+        width: attachment.width,
+        height: attachment.height,
       };
     }
   );
