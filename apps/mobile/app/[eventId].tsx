@@ -47,6 +47,7 @@ import {
   useDeleteAttachmentMutation,
   useEventDetailsQuery,
   useImportAttachmentMutation,
+  useReorderAttachmentsMutation,
   useUpdateEventMutation,
 } from '@/data/query';
 import type { UpdateEventInput } from '@/data/repositories';
@@ -163,6 +164,7 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
   const updateEvent = useUpdateEventMutation();
   const importAttachment = useImportAttachmentMutation();
   const deleteAttachment = useDeleteAttachmentMutation();
+  const reorderAttachments = useReorderAttachmentsMutation();
   const immediateSaveVersions = useRef<Record<ImmediateEventField, number>>({
     date: 0,
     category: 0,
@@ -337,6 +339,13 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
     await deleteAttachment.mutateAsync({
       id: attachment.id,
       eventId: event.id,
+    });
+  };
+
+  const reorderEventAttachments = async (attachmentIds: string[]) => {
+    await reorderAttachments.mutateAsync({
+      eventId: event.id,
+      attachmentIds,
     });
   };
 
@@ -548,6 +557,7 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
               attachments={attachments}
               onAdd={addAttachments}
               onRemove={removeAttachment}
+              onReorder={reorderEventAttachments}
             />
           </View>
         </ScrollView>
