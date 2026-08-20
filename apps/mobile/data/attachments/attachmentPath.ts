@@ -15,3 +15,14 @@ export function attachmentExtension(filename: string, mimeType: string | null) {
 
   return normalizedMimeType ? (mimeExtensions[normalizedMimeType] ?? '') : '';
 }
+
+export function safeExportFilename(filename: string) {
+  const sanitized = filename
+    .trim()
+    .replace(/[\\/]/g, '-')
+    .replace(/[\u0000-\u001f\u007f]/g, '')
+    .replace(/^[.\s-]+/, '')
+    .trim();
+
+  return sanitized || 'attachment';
+}

@@ -3,6 +3,7 @@ export type AttachmentPreview = {
   uri: string;
   isAvailable: boolean;
   filename: string;
+  mimeType: string | null;
 };
 
 export type AttachmentDraft = {

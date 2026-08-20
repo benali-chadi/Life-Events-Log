@@ -208,6 +208,7 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
         uri: file.uri,
         isAvailable: file.isAvailable,
         filename: attachment.filename,
+        mimeType: attachment.mimeType,
       };
     }
   );

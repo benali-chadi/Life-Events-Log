@@ -1,6 +1,7 @@
 import { randomUUID } from 'expo-crypto';
 import { Directory, File, Paths } from 'expo-file-system';
-import { attachmentExtension } from './attachmentPath';
+import * as Sharing from 'expo-sharing';
+import { attachmentExtension, safeExportFilename } from './attachmentPath';
 
 const ATTACHMENTS_DIRECTORY = 'attachments';
 
@@ -66,6 +67,48 @@ export function removeImportedAttachment(relativePath: string) {
 
   const file = new File(Paths.document, relativePath);
   if (file.exists) file.delete();
+}
+
+export async function shareAttachment({
+  uri,
+  filename,
+  mimeType,
+}: {
+  uri: string;
+  filename: string;
+  mimeType: string | null;
+}) {
+  if (!(await Sharing.isAvailableAsync())) {
+    throw new Error('Sharing is not available on this device.');
+  }
+
+  const source = new File(uri);
+  if (!source.exists) throw new Error('The attachment file is unavailable.');
+
+  const exportDirectory = new Directory(
+    Paths.cache,
+    'attachment-exports',
+    randomUUID()
+  );
+  exportDirectory.create({ intermediates: true });
+  const exportedFile = new File(exportDirectory, safeExportFilename(filename));
+
+  try {
+    source.copy(exportedFile);
+    await Sharing.shareAsync(exportedFile.uri, {
+      dialogTitle: 'Share attachment',
+      mimeType: mimeType ?? undefined,
+    });
+  } catch (error) {
+    if (exportDirectory.exists) exportDirectory.delete();
+    throw error;
+  }
+
+  // Android receivers can read the shared content URI shortly after the
+  // chooser closes, so keep the cache copy alive briefly.
+  setTimeout(() => {
+    if (exportDirectory.exists) exportDirectory.delete();
+  }, 60_000);
 }
 
 function isManagedAttachmentPath(relativePath: string) {
