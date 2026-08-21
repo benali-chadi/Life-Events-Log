@@ -1,7 +1,11 @@
 export type AttachmentPreview = {
   id: string;
   uri: string;
+  isAvailable: boolean;
   filename: string;
+  mimeType: string | null;
+  width: number | null;
+  height: number | null;
 };
 
 export type AttachmentDraft = {

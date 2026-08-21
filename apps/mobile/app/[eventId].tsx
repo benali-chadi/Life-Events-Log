@@ -44,12 +44,14 @@ import type { SelectOption } from '@/components/ui/select';
 import { useEventDeletion } from '@/components/event-deletion/EventDeletionProvider';
 import { confirmEventDeletion } from '@/components/event-deletion/confirmEventDeletion';
 import {
-  useCreateAttachmentMutation,
   useDeleteAttachmentMutation,
   useEventDetailsQuery,
+  useImportAttachmentMutation,
+  useReorderAttachmentsMutation,
   useUpdateEventMutation,
 } from '@/data/query';
 import type { UpdateEventInput } from '@/data/repositories';
+import { resolveAttachmentFile } from '@/data/attachments';
 import type {
   EventDetails,
   EventSignificance,
@@ -160,8 +162,9 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
   const navigation = useNavigation();
   const { deleteEvent } = useEventDeletion();
   const updateEvent = useUpdateEventMutation();
-  const createAttachment = useCreateAttachmentMutation();
+  const importAttachment = useImportAttachmentMutation();
   const deleteAttachment = useDeleteAttachmentMutation();
+  const reorderAttachments = useReorderAttachmentsMutation();
   const immediateSaveVersions = useRef<Record<ImmediateEventField, number>>({
     date: 0,
     category: 0,
@@ -199,11 +202,19 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
   const [committedNotes, setCommittedNotes] = useState(event.notes);
   const [draftNotes, setDraftNotes] = useState(event.notes);
   const attachments: AttachmentPreview[] = details.attachments.map(
-    (attachment) => ({
-      id: attachment.id,
-      uri: attachment.relativePath,
-      filename: attachment.filename,
-    })
+    (attachment) => {
+      const file = resolveAttachmentFile(attachment.relativePath);
+
+      return {
+        id: attachment.id,
+        uri: file.uri,
+        isAvailable: file.isAvailable,
+        filename: attachment.filename,
+        mimeType: attachment.mimeType,
+        width: attachment.width,
+        height: attachment.height,
+      };
+    }
   );
   const hasUnsavedNotes = draftNotes !== committedNotes;
   const hasUnsavedTitle = isEditingTitle && draftTitle.trim() !== title;
@@ -312,9 +323,9 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
 
   const addAttachments = async (drafts: AttachmentDraft[]) => {
     for (const draft of drafts) {
-      await createAttachment.mutateAsync({
+      await importAttachment.mutateAsync({
         eventId: event.id,
-        relativePath: draft.uri,
+        sourceUri: draft.uri,
         filename: draft.filename,
         mimeType: draft.mimeType,
         width: draft.width,
@@ -328,6 +339,13 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
     await deleteAttachment.mutateAsync({
       id: attachment.id,
       eventId: event.id,
+    });
+  };
+
+  const reorderEventAttachments = async (attachmentIds: string[]) => {
+    await reorderAttachments.mutateAsync({
+      eventId: event.id,
+      attachmentIds,
     });
   };
 
@@ -539,6 +557,7 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
               attachments={attachments}
               onAdd={addAttachments}
               onRemove={removeAttachment}
+              onReorder={reorderEventAttachments}
             />
           </View>
         </ScrollView>

@@ -152,6 +152,10 @@ export const eventCardStyles = StyleSheet.create({
     height: 58,
     borderRadius: radius.sm,
   },
+  unavailableAttachmentThumbnail: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   attachmentSummary: {
     flex: 1,
     gap: 2,

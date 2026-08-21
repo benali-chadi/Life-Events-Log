@@ -1,8 +1,8 @@
 import { radius, spacing } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
 import { Image } from 'expo-image';
-import { X } from 'lucide-react-native';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ImageOff, X } from 'lucide-react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { AttachmentPreview } from './types';
 
 type AttachmentCarouselProps = {
@@ -39,12 +39,23 @@ export default function AttachmentCarousel({
               pressed && styles.pressed,
             ]}
           >
-            <Image
-              contentFit="cover"
-              source={{ uri: attachment.uri }}
-              style={styles.thumbnail}
-              transition={150}
-            />
+            {attachment.isAvailable ? (
+              <Image
+                contentFit="cover"
+                source={{ uri: attachment.uri }}
+                style={styles.thumbnail}
+                transition={150}
+              />
+            ) : (
+              <View style={styles.unavailable}>
+                <ImageOff color={colors.textMuted} size={22} />
+                <Text
+                  style={[styles.unavailableText, { color: colors.textMuted }]}
+                >
+                  Missing file
+                </Text>
+              </View>
+            )}
           </Pressable>
 
           <Pressable
@@ -87,6 +98,15 @@ const styles = StyleSheet.create({
   thumbnail: {
     width: '100%',
     height: '100%',
+  },
+  unavailable: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing[1],
+  },
+  unavailableText: {
+    fontSize: 12,
   },
   removeButton: {
     position: 'absolute',

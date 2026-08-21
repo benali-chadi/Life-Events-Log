@@ -1,10 +1,11 @@
 import { radius, spacing, typography } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
 import * as ImagePicker from 'expo-image-picker';
-import { ImagePlus } from 'lucide-react-native';
+import { Check, ImagePlus, ListRestart, X } from 'lucide-react-native';
 import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import AttachmentCarousel from './AttachmentCarousel';
+import AttachmentReorderCarousel from './AttachmentReorderCarousel';
 import AttachmentViewer from './AttachmentViewer';
 import type { AttachmentDraft, AttachmentPreview } from './types';
 
@@ -12,16 +13,56 @@ type EventAttachmentsProps = {
   attachments: AttachmentPreview[];
   onAdd: (attachments: AttachmentDraft[]) => Promise<void>;
   onRemove: (attachment: AttachmentPreview) => Promise<void>;
+  onReorder: (attachmentIds: string[]) => Promise<void>;
 };
 
 export default function EventAttachments({
   attachments,
   onAdd,
   onRemove,
+  onReorder,
 }: EventAttachmentsProps) {
   const { colors } = useTheme();
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+  const [isReordering, setIsReordering] = useState(false);
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
+  const [draftOrder, setDraftOrder] = useState<AttachmentPreview[]>([]);
+
+  const beginReordering = () => {
+    setDraftOrder([...attachments]);
+    setIsReordering(true);
+  };
+
+  const cancelReordering = () => {
+    setDraftOrder([]);
+    setIsReordering(false);
+  };
+
+  const saveOrder = async () => {
+    const attachmentIds = draftOrder.map((attachment) => attachment.id);
+    const unchanged = attachmentIds.every(
+      (id, index) => id === attachments[index]?.id
+    );
+
+    if (unchanged) {
+      cancelReordering();
+      return;
+    }
+
+    setIsSavingOrder(true);
+    try {
+      await onReorder(attachmentIds);
+      cancelReordering();
+    } catch {
+      Alert.alert(
+        'Couldn’t save attachment order',
+        'Your new order is still here. Please try saving it again.'
+      );
+    } finally {
+      setIsSavingOrder(false);
+    }
+  };
 
   const addAttachments = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -98,25 +139,101 @@ export default function EventAttachments({
           {attachments.length > 0 ? ` (${attachments.length})` : ''}
         </Text>
 
-        <Pressable
-          accessibilityLabel="Add attachments"
-          accessibilityRole="button"
-          disabled={isAdding}
-          onPress={() => void addAttachments()}
-          style={({ pressed }) => [
-            styles.addButton,
-            isAdding && styles.disabled,
-            pressed && { backgroundColor: colors.interactivePressed },
-          ]}
-        >
-          <ImagePlus color={colors.textSecondary} size={17} strokeWidth={2} />
-          <Text style={[styles.addButtonText, { color: colors.textSecondary }]}>
-            {isAdding ? 'Adding…' : 'Add'}
-          </Text>
-        </Pressable>
+        <View style={styles.headerActions}>
+          {isReordering ? (
+            <>
+              <Pressable
+                accessibilityLabel="Cancel attachment reordering"
+                accessibilityRole="button"
+                disabled={isSavingOrder}
+                onPress={cancelReordering}
+                style={({ pressed }) => [
+                  styles.actionButton,
+                  isSavingOrder && styles.disabled,
+                  pressed && { backgroundColor: colors.interactivePressed },
+                ]}
+              >
+                <X color={colors.textSecondary} size={17} strokeWidth={2} />
+                <Text
+                  style={[styles.actionText, { color: colors.textSecondary }]}
+                >
+                  Cancel
+                </Text>
+              </Pressable>
+              <Pressable
+                accessibilityLabel="Save attachment order"
+                accessibilityRole="button"
+                disabled={isSavingOrder}
+                onPress={() => void saveOrder()}
+                style={({ pressed }) => [
+                  styles.actionButton,
+                  isSavingOrder && styles.disabled,
+                  pressed && { backgroundColor: colors.interactivePressed },
+                ]}
+              >
+                <Check color={colors.primary} size={17} strokeWidth={2.25} />
+                <Text style={[styles.actionText, { color: colors.primary }]}>
+                  {isSavingOrder ? 'Saving…' : 'Done'}
+                </Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              {attachments.length > 1 && (
+                <Pressable
+                  accessibilityLabel="Reorder attachments"
+                  accessibilityRole="button"
+                  onPress={beginReordering}
+                  style={({ pressed }) => [
+                    styles.actionButton,
+                    pressed && { backgroundColor: colors.interactivePressed },
+                  ]}
+                >
+                  <ListRestart
+                    color={colors.textSecondary}
+                    size={17}
+                    strokeWidth={2}
+                  />
+                  <Text
+                    style={[styles.actionText, { color: colors.textSecondary }]}
+                  >
+                    Reorder
+                  </Text>
+                </Pressable>
+              )}
+              <Pressable
+                accessibilityLabel="Add attachments"
+                accessibilityRole="button"
+                disabled={isAdding}
+                onPress={() => void addAttachments()}
+                style={({ pressed }) => [
+                  styles.actionButton,
+                  isAdding && styles.disabled,
+                  pressed && { backgroundColor: colors.interactivePressed },
+                ]}
+              >
+                <ImagePlus
+                  color={colors.textSecondary}
+                  size={17}
+                  strokeWidth={2}
+                />
+                <Text
+                  style={[styles.actionText, { color: colors.textSecondary }]}
+                >
+                  {isAdding ? 'Adding…' : 'Add'}
+                </Text>
+              </Pressable>
+            </>
+          )}
+        </View>
       </View>
 
-      {attachments.length > 0 ? (
+      {isReordering ? (
+        <AttachmentReorderCarousel
+          attachments={draftOrder}
+          onOrderChange={setDraftOrder}
+        />
+      ) : attachments.length > 0 ? (
         <AttachmentCarousel
           attachments={attachments}
           onOpen={setViewerIndex}
@@ -165,7 +282,12 @@ const styles = StyleSheet.create({
   heading: {
     ...typography.h3,
   },
-  addButton: {
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[1],
+  },
+  actionButton: {
     minHeight: 36,
     flexDirection: 'row',
     alignItems: 'center',
@@ -173,7 +295,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     paddingHorizontal: spacing[2],
   },
-  addButtonText: {
+  actionText: {
     ...typography.small,
     fontWeight: '600',
   },
