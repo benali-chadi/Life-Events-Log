@@ -1,4 +1,4 @@
-import { and, count, eq, isNull } from 'drizzle-orm';
+import { and, asc, count, desc, eq, isNull, ne, sql } from 'drizzle-orm';
 import {
   DuplicateNameError,
   EntityNotFoundError,
@@ -14,7 +14,6 @@ import {
 } from '@/data/repositories';
 import {
   comparableMetadataName,
-  compareMetadataNames,
   normalizeMetadataName,
 } from '@/data/repositories/metadataName';
 import {
@@ -24,7 +23,7 @@ import {
   type UUID,
 } from '@/models';
 import type { AppDatabase } from '../database';
-import { categories, events } from '../schema';
+import { categories, categoryModelColumns, events } from '../schema';
 
 export class SQLiteCategoryRepository implements CategoryRepository {
   constructor(
@@ -35,7 +34,7 @@ export class SQLiteCategoryRepository implements CategoryRepository {
   async getById(id: UUID): Promise<Category | null> {
     return (
       this.database
-        .select()
+        .select(categoryModelColumns)
         .from(categories)
         .where(and(eq(categories.id, id), isNull(categories.deletedAt)))
         .get() ?? null
@@ -46,15 +45,18 @@ export class SQLiteCategoryRepository implements CategoryRepository {
     const search = query?.search ? comparableMetadataName(query.search) : '';
 
     return this.database
-      .select()
+      .select(categoryModelColumns)
       .from(categories)
-      .where(isNull(categories.deletedAt))
-      .all()
-      .filter(
-        (category) =>
-          !search || comparableMetadataName(category.name).includes(search)
+      .where(
+        and(
+          isNull(categories.deletedAt),
+          search
+            ? sql`instr(${categories.normalizedName}, ${search}) > 0`
+            : undefined
+        )
       )
-      .sort(compareMetadataNames);
+      .orderBy(asc(categories.normalizedName), asc(categories.id))
+      .all();
   }
 
   async listWithUsage(
@@ -64,7 +66,7 @@ export class SQLiteCategoryRepository implements CategoryRepository {
 
     return this.database
       .select({
-        metadata: categories,
+        metadata: categoryModelColumns,
         eventCount: count(events.id),
       })
       .from(categories)
@@ -72,18 +74,21 @@ export class SQLiteCategoryRepository implements CategoryRepository {
         events,
         and(eq(events.categoryId, categories.id), isNull(events.deletedAt))
       )
-      .where(isNull(categories.deletedAt))
-      .groupBy(categories.id)
-      .all()
-      .filter(
-        ({ metadata }) =>
-          !search || comparableMetadataName(metadata.name).includes(search)
+      .where(
+        and(
+          isNull(categories.deletedAt),
+          search
+            ? sql`instr(${categories.normalizedName}, ${search}) > 0`
+            : undefined
+        )
       )
-      .sort(
-        (left, right) =>
-          right.eventCount - left.eventCount ||
-          compareMetadataNames(left.metadata, right.metadata)
-      );
+      .groupBy(categories.id)
+      .orderBy(
+        desc(count(events.id)),
+        asc(categories.normalizedName),
+        asc(categories.id)
+      )
+      .all();
   }
 
   async create(input: CreateCategoryInput): Promise<Category> {
@@ -114,7 +119,13 @@ export class SQLiteCategoryRepository implements CategoryRepository {
       deletedAt: null,
     };
 
-    this.database.insert(categories).values(category).run();
+    this.database
+      .insert(categories)
+      .values({
+        ...category,
+        normalizedName: comparableMetadataName(category.name),
+      })
+      .run();
 
     return category;
   }
@@ -141,6 +152,7 @@ export class SQLiteCategoryRepository implements CategoryRepository {
       .update(categories)
       .set({
         name: updated.name,
+        normalizedName: comparableMetadataName(updated.name),
         color: updated.color,
         updatedAt: updated.updatedAt,
       })
@@ -153,7 +165,7 @@ export class SQLiteCategoryRepository implements CategoryRepository {
   async softDelete(id: UUID): Promise<SoftDeleteMetadataResult> {
     return this.database.transaction((transaction) => {
       const category = transaction
-        .select()
+        .select(categoryModelColumns)
         .from(categories)
         .where(eq(categories.id, id))
         .get();
@@ -197,24 +209,24 @@ export class SQLiteCategoryRepository implements CategoryRepository {
   }
 
   private assertUniqueName(name: string, excludedId?: UUID) {
-    const comparison = comparableMetadataName(name);
     const duplicate = this.database
-      .select({ id: categories.id, name: categories.name })
+      .select({ id: categories.id })
       .from(categories)
-      .where(isNull(categories.deletedAt))
-      .all()
-      .some(
-        (category) =>
-          category.id !== excludedId &&
-          comparableMetadataName(category.name) === comparison
-      );
+      .where(
+        and(
+          isNull(categories.deletedAt),
+          eq(categories.normalizedName, comparableMetadataName(name)),
+          excludedId ? ne(categories.id, excludedId) : undefined
+        )
+      )
+      .get();
 
     if (duplicate) throw new DuplicateNameError('Category', name);
   }
 
   private activeCategoryOrThrow(id: UUID) {
     const category = this.database
-      .select()
+      .select(categoryModelColumns)
       .from(categories)
       .where(and(eq(categories.id, id), isNull(categories.deletedAt)))
       .get();

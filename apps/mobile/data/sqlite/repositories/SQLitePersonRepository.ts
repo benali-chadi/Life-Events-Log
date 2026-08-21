@@ -1,4 +1,14 @@
-import { and, count, eq, inArray, isNull } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  ne,
+  sql,
+} from 'drizzle-orm';
 import {
   DuplicateNameError,
   EntityNotFoundError,
@@ -14,12 +24,11 @@ import {
 } from '@/data/repositories';
 import {
   comparableMetadataName,
-  compareMetadataNames,
   normalizeMetadataName,
 } from '@/data/repositories/metadataName';
 import type { Person, UUID } from '@/models';
 import type { AppDatabase } from '../database';
-import { eventPeople, events, people } from '../schema';
+import { eventPeople, events, people, personModelColumns } from '../schema';
 
 export class SQLitePersonRepository implements PersonRepository {
   constructor(
@@ -30,7 +39,7 @@ export class SQLitePersonRepository implements PersonRepository {
   async getById(id: UUID): Promise<Person | null> {
     return (
       this.database
-        .select()
+        .select(personModelColumns)
         .from(people)
         .where(and(eq(people.id, id), isNull(people.deletedAt)))
         .get() ?? null
@@ -41,15 +50,18 @@ export class SQLitePersonRepository implements PersonRepository {
     const search = query?.search ? comparableMetadataName(query.search) : '';
 
     return this.database
-      .select()
+      .select(personModelColumns)
       .from(people)
-      .where(isNull(people.deletedAt))
-      .all()
-      .filter(
-        (person) =>
-          !search || comparableMetadataName(person.name).includes(search)
+      .where(
+        and(
+          isNull(people.deletedAt),
+          search
+            ? sql`instr(${people.normalizedName}, ${search}) > 0`
+            : undefined
+        )
       )
-      .sort(compareMetadataNames);
+      .orderBy(asc(people.normalizedName), asc(people.id))
+      .all();
   }
 
   async listWithUsage(
@@ -58,7 +70,7 @@ export class SQLitePersonRepository implements PersonRepository {
     const search = query?.search ? comparableMetadataName(query.search) : '';
 
     return this.database
-      .select({ metadata: people, eventCount: count(events.id) })
+      .select({ metadata: personModelColumns, eventCount: count(events.id) })
       .from(people)
       .leftJoin(
         eventPeople,
@@ -68,18 +80,21 @@ export class SQLitePersonRepository implements PersonRepository {
         events,
         and(eq(events.id, eventPeople.eventId), isNull(events.deletedAt))
       )
-      .where(isNull(people.deletedAt))
-      .groupBy(people.id)
-      .all()
-      .filter(
-        ({ metadata }) =>
-          !search || comparableMetadataName(metadata.name).includes(search)
+      .where(
+        and(
+          isNull(people.deletedAt),
+          search
+            ? sql`instr(${people.normalizedName}, ${search}) > 0`
+            : undefined
+        )
       )
-      .sort(
-        (left, right) =>
-          right.eventCount - left.eventCount ||
-          compareMetadataNames(left.metadata, right.metadata)
-      );
+      .groupBy(people.id)
+      .orderBy(
+        desc(count(events.id)),
+        asc(people.normalizedName),
+        asc(people.id)
+      )
+      .all();
   }
 
   async create(input: CreateNamedMetadataInput): Promise<Person> {
@@ -108,7 +123,13 @@ export class SQLitePersonRepository implements PersonRepository {
       deletedAt: null,
     };
 
-    this.database.insert(people).values(person).run();
+    this.database
+      .insert(people)
+      .values({
+        ...person,
+        normalizedName: comparableMetadataName(person.name),
+      })
+      .run();
 
     return person;
   }
@@ -126,7 +147,11 @@ export class SQLitePersonRepository implements PersonRepository {
 
     this.database
       .update(people)
-      .set({ name: updated.name, updatedAt: updated.updatedAt })
+      .set({
+        name: updated.name,
+        normalizedName: comparableMetadataName(updated.name),
+        updatedAt: updated.updatedAt,
+      })
       .where(eq(people.id, id))
       .run();
 
@@ -136,7 +161,7 @@ export class SQLitePersonRepository implements PersonRepository {
   async softDelete(id: UUID): Promise<SoftDeleteMetadataResult> {
     return this.database.transaction((transaction) => {
       const person = transaction
-        .select()
+        .select(personModelColumns)
         .from(people)
         .where(eq(people.id, id))
         .get();
@@ -184,24 +209,24 @@ export class SQLitePersonRepository implements PersonRepository {
   }
 
   private assertUniqueName(name: string, excludedId?: UUID) {
-    const comparison = comparableMetadataName(name);
     const duplicate = this.database
-      .select({ id: people.id, name: people.name })
+      .select({ id: people.id })
       .from(people)
-      .where(isNull(people.deletedAt))
-      .all()
-      .some(
-        (person) =>
-          person.id !== excludedId &&
-          comparableMetadataName(person.name) === comparison
-      );
+      .where(
+        and(
+          isNull(people.deletedAt),
+          eq(people.normalizedName, comparableMetadataName(name)),
+          excludedId ? ne(people.id, excludedId) : undefined
+        )
+      )
+      .get();
 
     if (duplicate) throw new DuplicateNameError('Person', name);
   }
 
   private activePersonOrThrow(id: UUID) {
     const person = this.database
-      .select()
+      .select(personModelColumns)
       .from(people)
       .where(and(eq(people.id, id), isNull(people.deletedAt)))
       .get();

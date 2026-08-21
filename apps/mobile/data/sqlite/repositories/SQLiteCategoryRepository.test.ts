@@ -1,4 +1,5 @@
 import type { Database } from 'sql.js';
+import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   DuplicateNameError,
@@ -35,6 +36,7 @@ function insertEvent(
     .values({
       id,
       title: id,
+      normalizedTitle: id.toLowerCase(),
       date: '2026-08-18',
       time: null,
       significance: 'ordinary',
@@ -62,6 +64,7 @@ describe('SQLiteCategoryRepository', () => {
       .values({
         id: CATEGORY_ID,
         name: 'Personal',
+        normalizedName: 'personal',
         color: 'green',
         createdAt: '2026-08-01T10:00:00.000Z',
         updatedAt: '2026-08-01T10:00:00.000Z',
@@ -98,6 +101,13 @@ describe('SQLiteCategoryRepository', () => {
       updatedAt: NOW,
     });
     await expect(repository.update(GENERATED_ID, {})).resolves.toEqual(updated);
+    expect(
+      database
+        .select({ value: categories.normalizedName })
+        .from(categories)
+        .where(eq(categories.id, GENERATED_ID))
+        .get()?.value
+    ).toBe('work projects');
   });
 
   it('validates names, colors, active uniqueness, missing IDs, and generated IDs', async () => {

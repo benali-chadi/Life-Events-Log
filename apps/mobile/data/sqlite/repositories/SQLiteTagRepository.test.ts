@@ -31,6 +31,7 @@ function insertEvent(
     .values({
       id,
       title: id,
+      normalizedTitle: id.toLowerCase(),
       date: '2026-08-18',
       time: null,
       significance: 'ordinary',
@@ -75,6 +76,7 @@ describe('SQLiteTagRepository', () => {
       .values({
         id: TAG_ID,
         name: 'Family',
+        normalizedName: 'family',
         createdAt: '2026-08-01T10:00:00.000Z',
         updatedAt: '2026-08-01T10:00:00.000Z',
         deletedAt: null,

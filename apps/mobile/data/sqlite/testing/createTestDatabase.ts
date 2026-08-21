@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { drizzle } from 'drizzle-orm/sql-js';
 import initSqlJs, { type Database } from 'sql.js';
 import type { AppDatabase } from '../database';
+import { runDataMigrations } from '../dataMigrations';
 import * as schema from '../schema';
 
 function applyMigrations(database: Database, includeSeedData: boolean) {
@@ -32,14 +33,18 @@ function applyMigrations(database: Database, includeSeedData: boolean) {
 
 export async function createTestDatabase(options?: {
   includeSeedData?: boolean;
+  runDataMigrations?: boolean;
 }) {
   const SQL = await initSqlJs();
   const sqlite = new SQL.Database();
   sqlite.run('PRAGMA foreign_keys = ON');
   applyMigrations(sqlite, options?.includeSeedData ?? false);
 
+  const database = drizzle(sqlite, { schema }) as unknown as AppDatabase;
+  if (options?.runDataMigrations ?? true) runDataMigrations(database);
+
   return {
     sqlite,
-    database: drizzle(sqlite, { schema }) as unknown as AppDatabase,
+    database,
   };
 }
