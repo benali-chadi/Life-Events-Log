@@ -28,7 +28,7 @@ import {
 import type { EventListItem } from '@/data/repositories';
 import type { LocalDate } from '@/models';
 
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 10;
 const SEARCH_DEBOUNCE_MS = 300;
 
 const INITIAL_FILTERS: TimelineFilters = {

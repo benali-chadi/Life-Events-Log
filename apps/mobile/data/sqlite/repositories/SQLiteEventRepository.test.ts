@@ -56,9 +56,15 @@ describe('SQLiteEventRepository', () => {
   let sqlite: Database;
   let database: AppDatabase;
   let repository: SQLiteEventRepository;
+  let queries: string[];
 
   beforeEach(async () => {
-    ({ sqlite, database } = await createTestDatabase());
+    queries = [];
+    ({ sqlite, database } = await createTestDatabase({
+      logger: {
+        logQuery: (query) => queries.push(query),
+      },
+    }));
     repository = new SQLiteEventRepository(database, dependencies);
     database
       .insert(categories)
@@ -227,6 +233,7 @@ describe('SQLiteEventRepository', () => {
       })
       .run();
 
+    queries = [];
     const first = await repository.list({
       search: 'family',
       tagIds: { ids: [TAG_ID] },
@@ -238,6 +245,7 @@ describe('SQLiteEventRepository', () => {
       attachmentPreview: { id: 'attachment-1' },
     });
     expect(first.nextCursor).toBeNull();
+    expect(queries).toHaveLength(1);
 
     const pageOne = await repository.list({ limit: 1 });
     const pageTwo = await repository.list({

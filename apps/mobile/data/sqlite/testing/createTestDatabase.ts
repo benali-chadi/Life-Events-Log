@@ -2,6 +2,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { drizzle } from 'drizzle-orm/sql-js';
+import type { Logger } from 'drizzle-orm';
 import initSqlJs, { type Database } from 'sql.js';
 import type { AppDatabase } from '../database';
 import { runDataMigrations } from '../dataMigrations';
@@ -34,13 +35,17 @@ function applyMigrations(database: Database, includeSeedData: boolean) {
 export async function createTestDatabase(options?: {
   includeSeedData?: boolean;
   runDataMigrations?: boolean;
+  logger?: Logger;
 }) {
   const SQL = await initSqlJs();
   const sqlite = new SQL.Database();
   sqlite.run('PRAGMA foreign_keys = ON');
   applyMigrations(sqlite, options?.includeSeedData ?? false);
 
-  const database = drizzle(sqlite, { schema }) as unknown as AppDatabase;
+  const database = drizzle(sqlite, {
+    schema,
+    logger: options?.logger,
+  }) as unknown as AppDatabase;
   if (options?.runDataMigrations ?? true) runDataMigrations(database);
 
   return {
