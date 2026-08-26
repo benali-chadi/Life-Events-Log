@@ -44,8 +44,8 @@
           "resizeMode": "contain",
           "backgroundColor": "#FBF6EC",
           "dark": {
-            "image": "./assets/images/native-splash-icon.png",
-            "backgroundColor": "#FBF6EC"
+            "image": "./assets/images/native-splash-icon-dark.png",
+            "backgroundColor": "#171717"
           }
         }
       ],
