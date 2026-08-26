@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Life Events Log open-loop mark</title>
+  <desc id="desc">An open path with three event markers that turns back in reflection and continues forward.</desc>
+  <defs>
+    <mask id="event-cutouts" maskUnits="userSpaceOnUse">
+      <rect width="1024" height="1024" fill="white"/>
+      <circle cx="326" cy="489" r="17" fill="black"/>
+      <circle cx="590" cy="224" r="17" fill="black"/>
+      <circle cx="666" cy="661" r="17" fill="black"/>
+    </mask>
+  </defs>
+  <g fill="none" stroke="#182126" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 214 770 C 154 738, 150 650, 202 584 C 247 527, 286 510, 326 489 C 393 369, 468 244, 590 224 C 681 209, 738 267, 747 347 C 757 432, 716 495, 680 543 C 635 603, 621 644, 666 661 C 721 704, 793 730, 862 669" mask="url(#event-cutouts)"/>
+    <circle cx="326" cy="489" r="27"/>
+    <circle cx="590" cy="224" r="27"/>
+    <circle cx="666" cy="661" r="27"/>
+    <path d="M 828 674 L 862 669 L 856 703"/>
+  </g>
+</svg>

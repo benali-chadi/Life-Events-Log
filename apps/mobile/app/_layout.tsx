@@ -13,6 +13,10 @@ import { appQueryClient } from '@/data/query';
 import { RepositoryProvider } from '@/data/RepositoryProvider';
 import { DATABASE_NAME, initializeDatabase } from '@/data/sqlite/database';
 
+export const unstable_settings = {
+  anchor: 'index',
+};
+
 export default function RootLayout() {
   return (
     <SQLiteProvider databaseName={DATABASE_NAME} onInit={initializeDatabase}>
@@ -56,7 +60,13 @@ function AppLayout() {
                   headerBackTitle: 'Back',
                 }}
               />
-              <Stack.Screen name="new" options={{ presentation: 'modal' }} />
+              <Stack.Screen
+                name="new"
+                options={{
+                  presentation: 'modal',
+                  headerShown: false,
+                }}
+              />
               <Stack.Screen
                 name="metadata"
                 options={{

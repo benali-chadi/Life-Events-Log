@@ -153,6 +153,9 @@ importers:
       babel-plugin-inline-import:
         specifier: ^3.0.0
         version: 3.0.0
+      babel-preset-expo:
+        specifier: 54.0.11
+        version: 54.0.11(@babel/core@7.29.7)(@babel/runtime@7.29.7)(expo@54.0.35)(react-refresh@0.14.2)
       drizzle-kit:
         specifier: ^0.31.10
         version: 0.31.10

@@ -19,7 +19,7 @@ import {
 import { radius, spacing, typography } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
 import { useNavigation, usePreventRemove } from '@react-navigation/native';
-import { router, Stack } from 'expo-router';
+import { router } from 'expo-router';
 import {
   BadgeAlert,
   Calendar,
@@ -40,6 +40,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const DEFAULT_SIGNIFICANCE: SelectOption = {
   id: 'ordinary',
@@ -108,9 +109,7 @@ export default function NewEventScreen() {
         peopleIds: people.map((person) => person.id),
       });
 
-      router.replace({
-        pathname: '/',
-      });
+      router.back();
     } catch (error) {
       setIsCreating(false);
       Alert.alert(
@@ -121,50 +120,62 @@ export default function NewEventScreen() {
   };
 
   return (
-    <>
-      <Stack.Screen
-        options={{
-          title: 'Create event',
-          headerLeft: () => (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ disabled: isCreating }}
-              disabled={isCreating}
-              onPress={() => router.back()}
-              style={styles.headerButton}
+    <View style={[styles.root, { backgroundColor: colors.bg }]}>
+      <SafeAreaView
+        edges={['top']}
+        style={[
+          styles.toolbarSafeArea,
+          {
+            backgroundColor: colors.surface,
+            borderBottomColor: colors.border,
+          },
+        ]}
+      >
+        <View style={styles.toolbar}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ disabled: isCreating }}
+            disabled={isCreating}
+            onPress={() => router.back()}
+            style={[styles.toolbarButton, styles.toolbarButtonLeft]}
+          >
+            <Text style={[styles.toolbarButtonText, { color: colors.text }]}>
+              Cancel
+            </Text>
+          </Pressable>
+
+          <Text
+            numberOfLines={1}
+            style={[styles.toolbarTitle, { color: colors.text }]}
+          >
+            Create event
+          </Text>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !canCreate }}
+            disabled={!canCreate}
+            onPress={() => void createEvent()}
+            style={[styles.toolbarButton, styles.toolbarButtonRight]}
+          >
+            <Text
+              style={[
+                styles.toolbarButtonText,
+                {
+                  color: canCreate ? colors.primary : colors.textMuted,
+                  fontWeight: '700',
+                },
+              ]}
             >
-              <Text style={[styles.headerButtonText, { color: colors.text }]}>
-                Cancel
-              </Text>
-            </Pressable>
-          ),
-          headerRight: () => (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ disabled: !canCreate }}
-              disabled={!canCreate}
-              onPress={() => void createEvent()}
-              style={styles.headerButton}
-            >
-              <Text
-                style={[
-                  styles.headerButtonText,
-                  {
-                    color: canCreate ? colors.primary : colors.textMuted,
-                    fontWeight: '700',
-                  },
-                ]}
-              >
-                {isCreating ? 'Creating…' : 'Create'}
-              </Text>
-            </Pressable>
-          ),
-        }}
-      />
+              {isCreating ? 'Creating…' : 'Create'}
+            </Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={[styles.root, { backgroundColor: colors.bg }]}
+        style={styles.contentArea}
       >
         <ScrollView
           contentContainerStyle={styles.content}
@@ -243,13 +254,45 @@ export default function NewEventScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+  },
+  contentArea: {
+    flex: 1,
+  },
+  toolbarSafeArea: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  toolbar: {
+    minHeight: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  toolbarButton: {
+    width: 96,
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: spacing[4],
+  },
+  toolbarButtonLeft: {
+    alignItems: 'flex-start',
+  },
+  toolbarButtonRight: {
+    alignItems: 'flex-end',
+  },
+  toolbarTitle: {
+    ...typography.h3,
+    flex: 1,
+    textAlign: 'center',
+  },
+  toolbarButtonText: {
+    ...typography.small,
+    fontWeight: '600',
   },
   content: {
     padding: spacing[4],
@@ -273,15 +316,5 @@ const styles = StyleSheet.create({
   },
   metadata: {
     marginTop: spacing[5],
-  },
-  headerButton: {
-    minHeight: 36,
-    justifyContent: 'center',
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing[1],
-  },
-  headerButtonText: {
-    ...typography.small,
-    fontWeight: '600',
   },
 });
