@@ -11,6 +11,7 @@ import type { AttachmentDraft, AttachmentPreview } from './types';
 
 type EventAttachmentsProps = {
   attachments: AttachmentPreview[];
+  draftMode?: boolean;
   onAdd: (attachments: AttachmentDraft[]) => Promise<void>;
   onRemove: (attachment: AttachmentPreview) => Promise<void>;
   onReorder: (attachmentIds: string[]) => Promise<void>;
@@ -18,6 +19,7 @@ type EventAttachmentsProps = {
 
 export default function EventAttachments({
   attachments,
+  draftMode = false,
   onAdd,
   onRemove,
   onReorder,
@@ -109,7 +111,9 @@ export default function EventAttachments({
   const confirmRemove = (attachment: AttachmentPreview) => {
     Alert.alert(
       'Remove attachment?',
-      `${attachment.filename} will be removed from this event.`,
+      draftMode
+        ? `${attachment.filename} will be removed from this draft.`
+        : `${attachment.filename} will be removed from this event.`,
       [
         {
           text: 'Cancel',

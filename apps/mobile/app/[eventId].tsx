@@ -444,19 +444,6 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
               />
             </MetadataRow>
             <MetadataRow
-              label="Tags"
-              icon={<Tags size={14} strokeWidth={2} color={colors.textMuted} />}
-            >
-              <TagsMetadata
-                value={tags}
-                onChange={(nextTags) =>
-                  void saveImmediate('tags', nextTags, tags, setTags, {
-                    tagIds: nextTags.map((tag) => tag.id),
-                  })
-                }
-              />
-            </MetadataRow>
-            <MetadataRow
               label="Category"
               icon={
                 <Shapes size={14} strokeWidth={2} color={colors.textMuted} />
@@ -472,25 +459,6 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
                     setCategory,
                     { categoryId: nextCategory?.id ?? null }
                   )
-                }
-              />
-            </MetadataRow>
-            <MetadataRow
-              label="People"
-              icon={
-                <UsersRound
-                  size={14}
-                  strokeWidth={2}
-                  color={colors.textMuted}
-                />
-              }
-            >
-              <PeopleMetadata
-                value={people}
-                onChange={(nextPeople) =>
-                  void saveImmediate('people', nextPeople, people, setPeople, {
-                    peopleIds: nextPeople.map((person) => person.id),
-                  })
                 }
               />
             </MetadataRow>
@@ -519,6 +487,38 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
                     }
                   );
                 }}
+              />
+            </MetadataRow>
+            <MetadataRow
+              label="Tags"
+              icon={<Tags size={14} strokeWidth={2} color={colors.textMuted} />}
+            >
+              <TagsMetadata
+                value={tags}
+                onChange={(nextTags) =>
+                  void saveImmediate('tags', nextTags, tags, setTags, {
+                    tagIds: nextTags.map((tag) => tag.id),
+                  })
+                }
+              />
+            </MetadataRow>
+            <MetadataRow
+              label="People"
+              icon={
+                <UsersRound
+                  size={14}
+                  strokeWidth={2}
+                  color={colors.textMuted}
+                />
+              }
+            >
+              <PeopleMetadata
+                value={people}
+                onChange={(nextPeople) =>
+                  void saveImmediate('people', nextPeople, people, setPeople, {
+                    peopleIds: nextPeople.map((person) => person.id),
+                  })
+                }
               />
             </MetadataRow>
             <MetadataRow

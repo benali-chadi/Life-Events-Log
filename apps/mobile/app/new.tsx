@@ -8,8 +8,16 @@ import LocationMetadata from '@/components/metadata/LocationMetadata';
 import PeopleMetadata from '@/components/metadata/PeopleMetadata';
 import SignificanceMetadata from '@/components/metadata/SignificanceMetadata';
 import TagsMetadata from '@/components/metadata/TagsMetadata';
+import EventAttachments from '@/components/event-attachments/EventAttachments';
+import type {
+  AttachmentDraft,
+  AttachmentPreview,
+} from '@/components/event-attachments/types';
 import type { SelectOption } from '@/components/ui/select';
-import { useCreateEventMutation } from '@/data/query';
+import {
+  useCreateEventMutation,
+  useImportAttachmentMutation,
+} from '@/data/query';
 import {
   EVENT_TITLE_MAX_LENGTH,
   type EventSignificance,
@@ -23,12 +31,14 @@ import { router } from 'expo-router';
 import {
   BadgeAlert,
   Calendar,
+  ChevronDown,
+  ChevronUp,
   MapPin,
   Shapes,
   Tags,
   UsersRound,
 } from 'lucide-react-native';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -47,6 +57,8 @@ const DEFAULT_SIGNIFICANCE: SelectOption = {
   label: 'Ordinary',
 };
 
+type DraftAttachment = AttachmentDraft & { id: string };
+
 export default function NewEventScreen() {
   const { colors } = useTheme();
   const navigation = useNavigation();
@@ -60,8 +72,13 @@ export default function NewEventScreen() {
     DEFAULT_SIGNIFICANCE
   );
   const [location, setLocation] = useState<SelectOption | null>(null);
+  const [notes, setNotes] = useState('');
+  const [attachments, setAttachments] = useState<DraftAttachment[]>([]);
+  const [showMoreDetails, setShowMoreDetails] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const nextAttachmentId = useRef(0);
   const createEventMutation = useCreateEventMutation();
+  const importAttachmentMutation = useImportAttachmentMutation();
 
   const canCreate = title.trim().length > 0 && !isCreating;
   const hasChanges =
@@ -72,7 +89,47 @@ export default function NewEventScreen() {
     people.length > 0 ||
     tags.length > 0 ||
     significance?.id !== DEFAULT_SIGNIFICANCE.id ||
-    location !== null;
+    location !== null ||
+    notes.length > 0 ||
+    attachments.length > 0;
+
+  const attachmentPreviews: AttachmentPreview[] = attachments.map(
+    (attachment) => ({
+      id: attachment.id,
+      uri: attachment.uri,
+      isAvailable: true,
+      filename: attachment.filename,
+      mimeType: attachment.mimeType,
+      width: attachment.width,
+      height: attachment.height,
+    })
+  );
+
+  const addAttachmentDrafts = async (drafts: AttachmentDraft[]) => {
+    setAttachments((current) => [
+      ...current,
+      ...drafts.map((draft) => ({
+        ...draft,
+        id: `draft-${nextAttachmentId.current++}`,
+      })),
+    ]);
+  };
+
+  const removeAttachmentDraft = async (attachment: AttachmentPreview) => {
+    setAttachments((current) =>
+      current.filter((draft) => draft.id !== attachment.id)
+    );
+  };
+
+  const reorderAttachmentDrafts = async (attachmentIds: string[]) => {
+    setAttachments((current) => {
+      const byId = new Map(current.map((draft) => [draft.id, draft]));
+      return attachmentIds.flatMap((id) => {
+        const draft = byId.get(id);
+        return draft ? [draft] : [];
+      });
+    });
+  };
 
   usePreventRemove(hasChanges && !isCreating, ({ data }) => {
     Alert.alert(
@@ -96,7 +153,7 @@ export default function NewEventScreen() {
     setIsCreating(true);
 
     try {
-      await createEventMutation.mutateAsync({
+      const created = await createEventMutation.mutateAsync({
         title: nextTitle,
         date: date.date as LocalDate,
         time: (date.time as LocalTime | undefined) ?? null,
@@ -104,12 +161,44 @@ export default function NewEventScreen() {
           DEFAULT_SIGNIFICANCE.id) as EventSignificance,
         categoryId: category?.id ?? null,
         locationId: location?.id ?? null,
-        notes: '',
+        notes,
         tagIds: tags.map((tag) => tag.id),
         peopleIds: people.map((person) => person.id),
       });
 
-      router.back();
+      const failedAttachments: DraftAttachment[] = [];
+
+      for (const attachment of attachments) {
+        try {
+          await importAttachmentMutation.mutateAsync({
+            eventId: created.event.id,
+            sourceUri: attachment.uri,
+            filename: attachment.filename,
+            mimeType: attachment.mimeType,
+            width: attachment.width,
+            height: attachment.height,
+            fileSize: attachment.fileSize,
+          });
+        } catch {
+          failedAttachments.push(attachment);
+        }
+      }
+
+      if (failedAttachments.length > 0) {
+        Alert.alert(
+          'Event created with missing attachments',
+          `${failedAttachments.length} ${
+            failedAttachments.length === 1
+              ? 'attachment was'
+              : 'attachments were'
+          } not added. You can add ${
+            failedAttachments.length === 1 ? 'it' : 'them'
+          } from the event page.`,
+          [{ text: 'OK', onPress: () => router.back() }]
+        );
+      } else {
+        router.back();
+      }
     } catch (error) {
       setIsCreating(false);
       Alert.alert(
@@ -218,40 +307,100 @@ export default function NewEventScreen() {
             >
               <DateMetadata value={date} onChange={setDate} />
             </MetadataRow>
-            <MetadataRow
-              label="Category"
-              icon={<Shapes color={colors.textMuted} size={16} />}
-            >
-              <CategoryMetadata value={category} onChange={setCategory} />
-            </MetadataRow>
-            <MetadataRow
-              label="People"
-              icon={<UsersRound color={colors.textMuted} size={16} />}
-            >
-              <PeopleMetadata value={people} onChange={setPeople} />
-            </MetadataRow>
-            <MetadataRow
-              label="Tags"
-              icon={<Tags color={colors.textMuted} size={16} />}
-            >
-              <TagsMetadata value={tags} onChange={setTags} />
-            </MetadataRow>
-            <MetadataRow
-              label="Significance"
-              icon={<BadgeAlert color={colors.textMuted} size={16} />}
-            >
-              <SignificanceMetadata
-                value={significance}
-                onChange={setSignificance}
-              />
-            </MetadataRow>
-            <MetadataRow
-              label="Location"
-              icon={<MapPin color={colors.textMuted} size={16} />}
-            >
-              <LocationMetadata value={location} onChange={setLocation} />
-            </MetadataRow>
           </View>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ expanded: showMoreDetails }}
+            onPress={() => setShowMoreDetails((current) => !current)}
+            style={({ pressed }) => [
+              styles.moreDetailsButton,
+              { borderColor: colors.border },
+              pressed && { backgroundColor: colors.interactiveMuted },
+            ]}
+          >
+            <Text style={[styles.moreDetailsText, { color: colors.text }]}>
+              {showMoreDetails ? 'Hide details' : 'More details'}
+            </Text>
+            {showMoreDetails ? (
+              <ChevronUp color={colors.textSecondary} size={20} />
+            ) : (
+              <ChevronDown color={colors.textSecondary} size={20} />
+            )}
+          </Pressable>
+
+          {showMoreDetails && (
+            <View style={styles.moreDetails}>
+              <MetadataRow
+                label="Category"
+                icon={<Shapes color={colors.textMuted} size={16} />}
+              >
+                <CategoryMetadata value={category} onChange={setCategory} />
+              </MetadataRow>
+              <MetadataRow
+                label="Significance"
+                icon={<BadgeAlert color={colors.textMuted} size={16} />}
+              >
+                <SignificanceMetadata
+                  value={significance}
+                  onChange={setSignificance}
+                />
+              </MetadataRow>
+              <MetadataRow
+                label="Tags"
+                icon={<Tags color={colors.textMuted} size={16} />}
+              >
+                <TagsMetadata value={tags} onChange={setTags} />
+              </MetadataRow>
+              <MetadataRow
+                label="People"
+                icon={<UsersRound color={colors.textMuted} size={16} />}
+              >
+                <PeopleMetadata value={people} onChange={setPeople} />
+              </MetadataRow>
+              <MetadataRow
+                label="Location"
+                icon={<MapPin color={colors.textMuted} size={16} />}
+              >
+                <LocationMetadata value={location} onChange={setLocation} />
+              </MetadataRow>
+
+              <View style={styles.contentSection}>
+                <Text style={[styles.sectionHeading, { color: colors.text }]}>
+                  Notes
+                </Text>
+                <TextInput
+                  accessibilityLabel="Event notes"
+                  editable={!isCreating}
+                  multiline
+                  onChangeText={setNotes}
+                  placeholder="Add notes…"
+                  placeholderTextColor={colors.textMuted}
+                  selectionColor={colors.focus}
+                  style={[
+                    styles.notesInput,
+                    {
+                      color: colors.text,
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                  textAlignVertical="top"
+                  value={notes}
+                />
+              </View>
+
+              <View style={styles.contentSection}>
+                <EventAttachments
+                  attachments={attachmentPreviews}
+                  draftMode
+                  onAdd={addAttachmentDrafts}
+                  onRemove={removeAttachmentDraft}
+                  onReorder={reorderAttachmentDrafts}
+                />
+              </View>
+            </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -316,5 +465,37 @@ const styles = StyleSheet.create({
   },
   metadata: {
     marginTop: spacing[5],
+  },
+  moreDetailsButton: {
+    minHeight: 48,
+    marginTop: spacing[2],
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: spacing[2],
+  },
+  moreDetailsText: {
+    ...typography.body,
+    fontWeight: '600',
+  },
+  moreDetails: {
+    paddingTop: spacing[2],
+  },
+  contentSection: {
+    marginTop: spacing[6],
+  },
+  sectionHeading: {
+    ...typography.h3,
+    marginBottom: spacing[2],
+  },
+  notesInput: {
+    minHeight: 128,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[3],
+    ...typography.body,
   },
 });
