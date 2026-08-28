@@ -108,6 +108,15 @@ export class InMemoryEventRepository implements EventRepository {
     };
   }
 
+  async count(query: EventListQuery) {
+    const filters = this.validatedListQuery(query);
+
+    return [...this.database.events.values()].filter(
+      (event) =>
+        event.deletedAt === null && this.matchesListQuery(event, filters)
+    ).length;
+  }
+
   async create(input: CreateEventInput) {
     const values = this.validatedValues(input);
     const id = this.dependencies.createId();

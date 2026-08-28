@@ -1,38 +1,34 @@
-import { eventColors, spacing } from '@lel/design';
+import { eventColors, radius, spacing, typography } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
-import { RotateCcw } from 'lucide-react-native';
+import { SlidersHorizontal, X } from 'lucide-react-native';
 import React, {
   type Dispatch,
   type SetStateAction,
   useMemo,
   useState,
 } from 'react';
-import {
-  Platform,
-  LayoutAnimation,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import TimelineFiltersSheet, {
+  countActiveFilterGroups,
+  type TimelineFilterSectionId,
+} from './TimelineFiltersSheet';
+import SearchInput from './ui/SearchInput';
+import type {
+  MultiSelectOption,
+  MultiValueMatchMode,
+} from './ui/searchable-multi-select/SearchableMultiSelect';
 import {
   useCategoriesQuery,
   useLocationsQuery,
   usePeopleQuery,
   useTagsQuery,
 } from '@/data/query';
-import { EVENT_SIGNIFICANCE_VALUES, type EventSignificance } from '@/models';
-
-import SearchableMultiSelect, {
-  type MultiValueMatchMode,
-  type MultiSelectOption,
-} from './ui/searchable-multi-select/SearchableMultiSelect';
-import SearchInput from './ui/SearchInput';
-import DateTimeRangeFilter, {
-  type DateRangeValue,
-  type TimeRangeValue,
-} from './ui/DateTimeRangeFilter';
+import {
+  EVENT_SIGNIFICANCE_VALUES,
+  type EventSignificance,
+  type LocalDate,
+  type LocalTime,
+} from '@/models';
 
 export const UNCATEGORIZED_FILTER_ID = '__uncategorized__';
 export const WITHOUT_LOCATION_FILTER_ID = '__without_location__';
@@ -46,14 +42,14 @@ export type TimelineFilters = {
   peopleIds: string[];
   peopleMatchMode: MultiValueMatchMode;
   locationIds: string[];
-  dateRange: DateRangeValue;
-  timeRange: TimeRangeValue;
+  dateRange: { from?: LocalDate; to?: LocalDate };
+  timeRange: { from?: LocalTime; to?: LocalTime };
 };
 
 type EventsHeaderProps = {
+  eventCount?: number;
   filters: TimelineFilters;
-  compact?: boolean;
-  hasActiveFilters: boolean;
+  isEventCountFetching: boolean;
   onChange: Dispatch<SetStateAction<TimelineFilters>>;
   onClear: () => void;
 };
@@ -66,9 +62,9 @@ const significanceLabels: Record<EventSignificance, string> = {
 };
 
 export default function EventsHeader({
+  eventCount,
   filters,
-  compact = false,
-  hasActiveFilters,
+  isEventCountFetching,
   onChange,
   onClear,
 }: EventsHeaderProps) {
@@ -77,21 +73,9 @@ export default function EventsHeader({
   const locationsQuery = useLocationsQuery();
   const tagsQuery = useTagsQuery();
   const peopleQuery = usePeopleQuery();
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const searchExpanded = !compact || isSearchFocused;
-  const compactSearchPreview =
-    compact && !isSearchFocused
-      ? filters.search.trim().split(/\s+/)[0] || undefined
-      : undefined;
-  const setSearchFocused = (focused: boolean) => {
-    if (!compact || focused === isSearchFocused) {
-      setIsSearchFocused(focused);
-      return;
-    }
+  const [sheetSection, setSheetSection] = useState<TimelineFilterSectionId>();
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
 
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setIsSearchFocused(focused);
-  };
   const categoryOptions = useMemo<MultiSelectOption[]>(
     () => [
       {
@@ -131,15 +115,12 @@ export default function EventsHeader({
     ],
     [locationsQuery.data]
   );
-  const tagOptions = useMemo<MultiSelectOption[]>(
+  const tagOptions = useMemo(
     () =>
-      (tagsQuery.data ?? []).map((tag) => ({
-        id: tag.id,
-        label: tag.name,
-      })),
+      (tagsQuery.data ?? []).map((tag) => ({ id: tag.id, label: tag.name })),
     [tagsQuery.data]
   );
-  const peopleOptions = useMemo<MultiSelectOption[]>(
+  const peopleOptions = useMemo(
     () =>
       (peopleQuery.data ?? []).map((person) => ({
         id: person.id,
@@ -147,245 +128,273 @@ export default function EventsHeader({
       })),
     [peopleQuery.data]
   );
+  const activeFilterCount = countActiveFilterGroups(filters);
+  const chips = buildActiveChips({
+    categoryOptions,
+    filters,
+    locationOptions,
+    peopleOptions,
+    significanceOptions,
+    tagOptions,
+  });
+
+  const openSheet = (section?: TimelineFilterSectionId) => {
+    setSheetSection(section);
+    setIsSheetOpen(true);
+  };
 
   return (
-    <View
-      style={[
-        styles.root,
-        compact && styles.rootCompact,
-        { backgroundColor: colors.bg },
-      ]}
-    >
-      <View
-        style={[
-          styles.searchSlot,
-          compact && !isSearchFocused && styles.searchSlotCompact,
-          compactSearchPreview && styles.searchSlotWithPreview,
-          compact && isSearchFocused && styles.searchSlotFocused,
-        ]}
-      >
+    <View style={[styles.root, { backgroundColor: colors.bg }]}>
+      <View style={styles.toolbar}>
         <SearchInput
           autoCorrect={false}
           blurOnKeyboardHide
           clear={() => onChange((current) => ({ ...current, search: '' }))}
           clearButtonMode="while-editing"
-          collapsedPreview={compactSearchPreview}
-          containerStyle={[
-            styles.searchInput,
-            compact && styles.searchInputCompact,
-            compact &&
-              filters.search.length > 0 && {
-                borderColor: colors.borderStrong,
-                backgroundColor: colors.interactiveMuted,
-              },
-          ]}
-          onBlur={() => setSearchFocused(false)}
+          containerStyle={styles.searchInput}
           onChangeText={(search) =>
             onChange((current) => ({ ...current, search }))
           }
-          onFocus={() => setSearchFocused(true)}
-          placeholder={searchExpanded ? 'Search events...' : ''}
-          showClear={
-            searchExpanded && filters.search.length > 0 && Platform.OS !== 'ios'
-          }
+          placeholder="Search events…"
           value={filters.search}
         />
+        <Pressable
+          accessibilityLabel={`Filters, ${activeFilterCount} active`}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: isSheetOpen }}
+          onPress={() => openSheet()}
+          style={({ pressed }) => [
+            styles.filterButton,
+            {
+              backgroundColor: activeFilterCount
+                ? colors.interactiveMuted
+                : colors.surface,
+              borderColor: activeFilterCount
+                ? colors.borderStrong
+                : colors.border,
+            },
+            pressed && { backgroundColor: colors.interactivePressed },
+          ]}
+        >
+          <SlidersHorizontal color={colors.textSecondary} size={17} />
+          <Text style={[styles.filterButtonText, { color: colors.text }]}>
+            Filters
+          </Text>
+          {activeFilterCount > 0 && (
+            <View
+              style={[styles.filterCount, { backgroundColor: colors.primary }]}
+            >
+              <Text
+                style={[styles.filterCountText, { color: colors.onPrimary }]}
+              >
+                {activeFilterCount}
+              </Text>
+            </View>
+          )}
+        </Pressable>
       </View>
 
-      {(!compact || !isSearchFocused) && (
-        <FilterStrip
-          categoryOptions={categoryOptions}
-          categoriesQuery={categoriesQuery}
-          colors={colors}
-          compact={compact}
-          filters={filters}
-          hasActiveFilters={hasActiveFilters}
-          locationOptions={locationOptions}
-          locationsQuery={locationsQuery}
-          onChange={onChange}
-          onClear={onClear}
-          peopleOptions={peopleOptions}
-          peopleQuery={peopleQuery}
-          significanceOptions={significanceOptions}
-          tagOptions={tagOptions}
-          tagsQuery={tagsQuery}
-        />
+      {chips.length > 0 && (
+        <View style={styles.activeFiltersRow}>
+          <ScrollView
+            horizontal
+            contentContainerStyle={styles.chips}
+            showsHorizontalScrollIndicator={false}
+          >
+            {chips.map((chip) => (
+              <Pressable
+                key={chip.section}
+                accessibilityRole="button"
+                onPress={() => openSheet(chip.section)}
+                style={({ pressed }) => [
+                  styles.chip,
+                  {
+                    backgroundColor: colors.interactiveMuted,
+                    borderColor: colors.borderStrong,
+                  },
+                  pressed && { backgroundColor: colors.interactivePressed },
+                ]}
+              >
+                <Text
+                  numberOfLines={1}
+                  style={[styles.chipText, { color: colors.textSecondary }]}
+                >
+                  {chip.label}
+                </Text>
+                <Pressable
+                  accessibilityLabel={`Clear ${chip.section} filter`}
+                  accessibilityRole="button"
+                  hitSlop={spacing[2]}
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    onChange((current) =>
+                      clearFilterSection(current, chip.section)
+                    );
+                  }}
+                >
+                  <X color={colors.textMuted} size={14} strokeWidth={2.25} />
+                </Pressable>
+              </Pressable>
+            ))}
+          </ScrollView>
+          <Pressable
+            accessibilityRole="button"
+            onPress={onClear}
+            style={({ pressed }) => [
+              styles.clearAll,
+              pressed && { backgroundColor: colors.interactivePressed },
+            ]}
+          >
+            <Text
+              style={[styles.clearAllText, { color: colors.textSecondary }]}
+            >
+              Clear all
+            </Text>
+          </Pressable>
+        </View>
       )}
+
+      <TimelineFiltersSheet
+        categoryOptions={categoryOptions}
+        filters={filters}
+        initialSection={sheetSection}
+        isResultCountFetching={isEventCountFetching}
+        locationOptions={locationOptions}
+        onChange={(nextFilters) => onChange(nextFilters)}
+        onClear={onClear}
+        onRequestClose={() => setIsSheetOpen(false)}
+        peopleOptions={peopleOptions}
+        resultCount={eventCount}
+        significanceOptions={significanceOptions}
+        tagOptions={tagOptions}
+        visible={isSheetOpen}
+      />
     </View>
   );
 }
 
-type FilterStripProps = {
-  categoryOptions: MultiSelectOption[];
-  categoriesQuery: ReturnType<typeof useCategoriesQuery>;
-  colors: ReturnType<typeof useTheme>['colors'];
-  compact?: boolean;
-  filters: TimelineFilters;
-  hasActiveFilters: boolean;
-  locationOptions: MultiSelectOption[];
-  locationsQuery: ReturnType<typeof useLocationsQuery>;
-  onChange: Dispatch<SetStateAction<TimelineFilters>>;
-  onClear: () => void;
-  peopleOptions: MultiSelectOption[];
-  peopleQuery: ReturnType<typeof usePeopleQuery>;
-  significanceOptions: MultiSelectOption[];
-  tagOptions: MultiSelectOption[];
-  tagsQuery: ReturnType<typeof useTagsQuery>;
-};
+type ActiveChip = { label: string; section: TimelineFilterSectionId };
 
-function FilterStrip({
+function buildActiveChips({
   categoryOptions,
-  categoriesQuery,
-  colors,
-  compact = false,
   filters,
-  hasActiveFilters,
   locationOptions,
-  locationsQuery,
-  onChange,
-  onClear,
   peopleOptions,
-  peopleQuery,
   significanceOptions,
   tagOptions,
-  tagsQuery,
-}: FilterStripProps) {
-  return (
-    <ScrollView
-      horizontal
-      contentContainerStyle={styles.filters}
-      showsHorizontalScrollIndicator={false}
-      style={compact ? styles.filtersCompact : undefined}
-    >
-      <SearchableMultiSelect
-        label="Category"
-        options={categoryOptions}
-        selectedIds={filters.categoryIds}
-        onChange={(categoryIds) =>
-          onChange((current) => ({ ...current, categoryIds }))
-        }
-        searchPlaceholder="Search categories..."
-        disabled={categoriesQuery.isPending || categoriesQuery.isError}
-      />
-      <SearchableMultiSelect
-        label="Significance"
-        options={significanceOptions}
-        selectedIds={filters.significance}
-        onChange={(significance) =>
-          onChange((current) => ({
-            ...current,
-            significance: significance as EventSignificance[],
-          }))
-        }
-        searchPlaceholder="Search significance..."
-      />
-      <SearchableMultiSelect
-        label="Tags"
-        options={tagOptions}
-        selectedIds={filters.tagIds}
-        onChange={(tagIds) => onChange((current) => ({ ...current, tagIds }))}
-        matchMode={filters.tagMatchMode}
-        onMatchModeChange={(tagMatchMode) =>
-          onChange((current) => ({ ...current, tagMatchMode }))
-        }
-        searchPlaceholder="Search tags..."
-        disabled={tagsQuery.isPending || tagsQuery.isError}
-      />
-      <SearchableMultiSelect
-        label="People"
-        options={peopleOptions}
-        selectedIds={filters.peopleIds}
-        onChange={(peopleIds) =>
-          onChange((current) => ({ ...current, peopleIds }))
-        }
-        matchMode={filters.peopleMatchMode}
-        onMatchModeChange={(peopleMatchMode) =>
-          onChange((current) => ({ ...current, peopleMatchMode }))
-        }
-        searchPlaceholder="Search people..."
-        disabled={peopleQuery.isPending || peopleQuery.isError}
-      />
-      <SearchableMultiSelect
-        label="Location"
-        options={locationOptions}
-        selectedIds={filters.locationIds}
-        onChange={(locationIds) =>
-          onChange((current) => ({ ...current, locationIds }))
-        }
-        searchPlaceholder="Search locations..."
-        disabled={locationsQuery.isPending || locationsQuery.isError}
-      />
-      <DateTimeRangeFilter
-        mode="date"
-        value={filters.dateRange}
-        onChange={(dateRange) =>
-          onChange((current) => ({ ...current, dateRange }))
-        }
-      />
-      <DateTimeRangeFilter
-        mode="time"
-        value={filters.timeRange}
-        onChange={(timeRange) =>
-          onChange((current) => ({ ...current, timeRange }))
-        }
-      />
-      {hasActiveFilters && (
-        <Pressable
-          accessibilityLabel="Clear search and filters"
-          accessibilityRole="button"
-          onPress={onClear}
-          style={({ pressed }) => [
-            styles.clearFilters,
-            pressed && styles.clearFiltersPressed,
-          ]}
-        >
-          <RotateCcw color={colors.textSecondary} size={14} strokeWidth={2} />
-          <Text
-            style={[styles.clearFiltersText, { color: colors.textSecondary }]}
-          >
-            Clear
-          </Text>
-        </Pressable>
-      )}
-    </ScrollView>
+}: {
+  categoryOptions: MultiSelectOption[];
+  filters: TimelineFilters;
+  locationOptions: MultiSelectOption[];
+  peopleOptions: MultiSelectOption[];
+  significanceOptions: MultiSelectOption[];
+  tagOptions: MultiSelectOption[];
+}) {
+  const chips: ActiveChip[] = [];
+  const addSelection = (
+    section: TimelineFilterSectionId,
+    label: string,
+    ids: string[],
+    options: MultiSelectOption[]
+  ) => {
+    if (!ids.length) return;
+    const first =
+      options.find((option) => option.id === ids[0])?.label ?? 'Selected';
+    chips.push({
+      section,
+      label: `${label}: ${first}${ids.length > 1 ? ` +${ids.length - 1}` : ''}`,
+    });
+  };
+  addSelection('category', 'Category', filters.categoryIds, categoryOptions);
+  addSelection(
+    'significance',
+    'Significance',
+    filters.significance,
+    significanceOptions
   );
+  addSelection('tags', 'Tags', filters.tagIds, tagOptions);
+  addSelection('people', 'People', filters.peopleIds, peopleOptions);
+  addSelection('location', 'Location', filters.locationIds, locationOptions);
+  if (filters.dateRange.from || filters.dateRange.to) {
+    chips.push({
+      section: 'date',
+      label: `Date: ${formatRangeSummary(filters.dateRange.from, filters.dateRange.to)}`,
+    });
+  }
+  if (filters.timeRange.from || filters.timeRange.to) {
+    chips.push({
+      section: 'time',
+      label: `Time: ${formatRangeSummary(filters.timeRange.from, filters.timeRange.to)}`,
+    });
+  }
+  return chips;
+}
+
+function formatRangeSummary(from?: string, to?: string) {
+  if (from && to) return `${from} – ${to}`;
+  if (from) return `From ${from}`;
+  return `Until ${to}`;
+}
+
+function clearFilterSection(
+  filters: TimelineFilters,
+  section: TimelineFilterSectionId
+): TimelineFilters {
+  if (section === 'category') return { ...filters, categoryIds: [] };
+  if (section === 'significance') return { ...filters, significance: [] };
+  if (section === 'tags') return { ...filters, tagIds: [] };
+  if (section === 'people') return { ...filters, peopleIds: [] };
+  if (section === 'location') return { ...filters, locationIds: [] };
+  if (section === 'date') return { ...filters, dateRange: {} };
+  return { ...filters, timeRange: {} };
 }
 
 const styles = StyleSheet.create({
-  root: {
-    gap: 12,
-    paddingTop: 12,
-    paddingBottom: spacing[3],
-  },
-  rootCompact: {
-    minHeight: 52,
-    paddingTop: spacing[2],
-    paddingBottom: spacing[2],
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[2],
-  },
-  searchSlot: { width: '100%' },
-  searchSlotCompact: { width: 46 },
-  searchSlotWithPreview: { width: 112 },
-  searchSlotFocused: { flex: 1, width: 'auto' },
-  searchInput: {
-    minWidth: 0,
-    marginHorizontal: 0,
-    marginBottom: 0,
-  },
-  searchInputCompact: { paddingHorizontal: spacing[3] },
-  filtersCompact: { flex: 1 },
-  filters: {
-    gap: spacing[2],
-  },
-  clearFilters: {
-    minHeight: 36,
-    paddingHorizontal: spacing[3],
+  root: { gap: spacing[2], paddingTop: spacing[3], paddingBottom: spacing[2] },
+  toolbar: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
+  searchInput: { flex: 1, minWidth: 0, marginHorizontal: 0, marginBottom: 0 },
+  filterButton: {
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing[1],
+    paddingHorizontal: spacing[3],
+    borderWidth: 1,
+    borderRadius: radius.md,
   },
-  clearFiltersPressed: { opacity: 0.6 },
-  clearFiltersText: { fontSize: 13, fontWeight: '500' },
+  filterButtonText: { ...typography.small, fontWeight: '600' },
+  filterCount: {
+    minWidth: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing[1],
+    borderRadius: radius.md,
+  },
+  filterCountText: { ...typography.caption, fontWeight: '700' },
+  activeFiltersRow: {
+    minHeight: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+  },
+  chips: { gap: spacing[2] },
+  chip: {
+    maxWidth: 220,
+    minHeight: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    paddingHorizontal: spacing[3],
+    borderWidth: 1,
+    borderRadius: radius.lg,
+  },
+  chipText: { ...typography.caption, flexShrink: 1 },
+  clearAll: {
+    minHeight: 34,
+    justifyContent: 'center',
+    paddingHorizontal: spacing[2],
+    borderRadius: radius.sm,
+  },
+  clearAllText: { ...typography.caption, fontWeight: '600' },
 });

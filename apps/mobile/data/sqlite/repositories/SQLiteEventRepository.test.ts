@@ -152,6 +152,21 @@ describe('SQLiteEventRepository', () => {
     expect(database.select().from(eventPeople).all()).toHaveLength(1);
   });
 
+  it('counts events using the same filters as the timeline list', async () => {
+    await repository.create(validInput());
+
+    await expect(repository.count({ limit: 10 })).resolves.toBe(1);
+    await expect(
+      repository.count({ limit: 10, search: 'family' })
+    ).resolves.toBe(1);
+    await expect(
+      repository.count({ limit: 10, search: 'missing' })
+    ).resolves.toBe(0);
+
+    await repository.softDelete(EVENT_ID);
+    await expect(repository.count({ limit: 10 })).resolves.toBe(0);
+  });
+
   it('updates fields and tombstones/restores relationship rows', async () => {
     await repository.create(validInput());
     await repository.update(EVENT_ID, {

@@ -20,6 +20,8 @@ export const eventKeys = {
   all: ['events'] as const,
   lists: () => ['events', 'list'] as const,
   list: (query: EventListQueryInput) => ['events', 'list', query] as const,
+  count: (query: EventListQueryInput) =>
+    ['events', 'list', 'count', query] as const,
   records: () => ['events', 'record'] as const,
   record: (id: UUID) => ['events', 'record', id] as const,
   details: () => ['events', 'detail'] as const,

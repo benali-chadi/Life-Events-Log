@@ -5,9 +5,6 @@ import { Plus } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  LayoutAnimation,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
   Pressable,
   SectionList,
   StyleSheet,
@@ -23,6 +20,7 @@ import EventsHeader, {
 import { closeOpenSwipe } from '@/components/ui/SwipeReveal';
 import {
   type EventListQueryInput,
+  useEventCountQuery,
   useInfiniteEventListQuery,
 } from '@/data/query';
 import type { EventListItem } from '@/data/repositories';
@@ -113,7 +111,6 @@ export default function Index() {
   const { colors } = useTheme();
   const [filters, setFilters] = useState<TimelineFilters>(INITIAL_FILTERS);
   const debouncedSearch = useDebouncedValue(filters.search, SEARCH_DEBOUNCE_MS);
-  const [isToolbarCompact, setIsToolbarCompact] = useState(false);
   const eventListQuery = useMemo<EventListQueryInput>(() => {
     const categoryIds = filters.categoryIds.filter(
       (id) => id !== UNCATEGORIZED_FILTER_ID
@@ -157,6 +154,7 @@ export default function Index() {
     Boolean(filters.dateRange.from || filters.dateRange.to) ||
     Boolean(filters.timeRange.from || filters.timeRange.to);
   const eventsQuery = useInfiniteEventListQuery(eventListQuery);
+  const eventCountQuery = useEventCountQuery(eventListQuery);
   const sections = useMemo(
     () =>
       groupEventsByDate(
@@ -168,16 +166,6 @@ export default function Index() {
   const loadMore = () => {
     if (eventsQuery.hasNextPage && !eventsQuery.isFetchingNextPage) {
       void eventsQuery.fetchNextPage();
-    }
-  };
-
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const offset = event.nativeEvent.contentOffset.y;
-    const shouldCompact = isToolbarCompact ? offset > 24 : offset > 72;
-
-    if (shouldCompact !== isToolbarCompact) {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      setIsToolbarCompact(shouldCompact);
     }
   };
 
@@ -219,11 +207,16 @@ export default function Index() {
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
       <EventsHeader
-        compact={isToolbarCompact}
+        eventCount={eventCountQuery.data}
         filters={filters}
-        hasActiveFilters={hasActiveFilters}
+        isEventCountFetching={eventCountQuery.isFetching}
         onChange={setFilters}
-        onClear={() => setFilters(INITIAL_FILTERS)}
+        onClear={() =>
+          setFilters((current) => ({
+            ...INITIAL_FILTERS,
+            search: current.search,
+          }))
+        }
       />
       <SectionList
         sections={sections}
@@ -237,9 +230,7 @@ export default function Index() {
         onEndReachedThreshold={0.4}
         onRefresh={() => void eventsQuery.refetch()}
         refreshing={eventsQuery.isRefetching && !eventsQuery.isFetchingNextPage}
-        onScroll={handleScroll}
         onScrollBeginDrag={closeOpenSwipe}
-        scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         renderSectionHeader={({ section: { title } }) => (
           <View style={[styles.sectionHeader, { backgroundColor: colors.bg }]}>

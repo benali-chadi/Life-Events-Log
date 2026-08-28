@@ -1,6 +1,7 @@
 import {
   and,
   asc,
+  count,
   desc,
   eq,
   gt,
@@ -198,6 +199,17 @@ export class SQLiteEventRepository implements EventRepository {
           ? this.encodeCursor(last.event)
           : null,
     };
+  }
+
+  async count(query: EventListQuery) {
+    const filters = this.validateListQuery(query);
+    const result = this.database
+      .select({ value: count(events.id) })
+      .from(events)
+      .where(and(...this.listConditions(filters, null)))
+      .get();
+
+    return result?.value ?? 0;
   }
 
   async create(input: CreateEventInput): Promise<EventDetails> {
