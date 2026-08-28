@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
   <title id="title">Life Events Log native splash mark, dark</title>
-  <desc id="desc">A compact light open-loop mark for the Android dark system splash screen.</desc>
-  <path transform="translate(194 194) scale(.62)" fill="none" stroke="#F4F4F2" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" d="M 214 770 C 154 738, 150 650, 202 584 C 247 527, 286 510, 326 489 C 393 369, 468 244, 590 224 C 681 209, 738 267, 747 347 C 757 432, 716 495, 680 543 C 635 603, 621 644, 666 661 C 721 704, 793 730, 862 669"/>
-  <g transform="translate(194 194) scale(.62)" fill="#171717" stroke="#F4F4F2" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">
+  <desc id="desc">A compact light green open-loop mark for the Android dark system splash screen.</desc>
+  <path transform="translate(194 194) scale(.62)" fill="none" stroke="#ACD2B7" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" d="M 214 770 C 154 738, 150 650, 202 584 C 247 527, 286 510, 326 489 C 393 369, 468 244, 590 224 C 681 209, 738 267, 747 347 C 757 432, 716 495, 680 543 C 635 603, 621 644, 666 661 C 721 704, 793 730, 862 669"/>
+  <g transform="translate(194 194) scale(.62)" fill="#171717" stroke="#ACD2B7" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="326" cy="489" r="27"/>
     <circle cx="590" cy="224" r="27"/>
     <circle cx="666" cy="661" r="27"/>

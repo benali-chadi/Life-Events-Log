@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useMemo } from 'react';
+import { Image, StyleSheet } from 'react-native';
 import 'react-native-reanimated';
 import { useTheme } from '@lel/design/useTheme';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -49,7 +50,20 @@ function AppLayout() {
               <Stack.Screen
                 name="index"
                 options={{
-                  title: 'Life Events Log',
+                  headerTitle: () => (
+                    <Image
+                      accessibilityLabel="Life Events Log"
+                      accessible
+                      resizeMode="contain"
+                      source={
+                        // require('@/assets/images/adaptive-icon-foreground.png')
+                        isDark
+                          ? require('@/assets/images/logo-lockup-dark.png')
+                          : require('@/assets/images/logo-lockup.png')
+                      }
+                      style={styles.timelineLockup}
+                    />
+                  ),
                   headerRight: () => <TimelineOverflowMenu />,
                 }}
               />
@@ -83,3 +97,10 @@ function AppLayout() {
     </RepositoryProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  timelineLockup: {
+    width: 150,
+    height: 50,
+  },
+});

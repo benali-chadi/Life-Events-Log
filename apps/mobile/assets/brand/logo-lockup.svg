@@ -1,12 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 520" role="img" aria-labelledby="title desc">
   <title id="title">Life Events Log</title>
   <desc id="desc">The Life Events Log open-loop mark beside the full product name.</desc>
-  <path transform="translate(54 46) scale(.43)" fill="none" stroke="#182126" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" d="M 214 770 C 154 738, 150 650, 202 584 C 247 527, 286 510, 326 489 C 393 369, 468 244, 590 224 C 681 209, 738 267, 747 347 C 757 432, 716 495, 680 543 C 635 603, 621 644, 666 661 C 721 704, 793 730, 862 669"/>
-  <g transform="translate(54 46) scale(.43)" fill="none" stroke="#182126" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">
+  <path transform="translate(54 46) scale(.43)" fill="none" stroke="#91BFA3" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" d="M 214 770 C 154 738, 150 650, 202 584 C 247 527, 286 510, 326 489 C 393 369, 468 244, 590 224 C 681 209, 738 267, 747 347 C 757 432, 716 495, 680 543 C 635 603, 621 644, 666 661 C 721 704, 793 730, 862 669"/>
+  <g transform="translate(54 46) scale(.43)" fill="none" stroke="#91BFA3" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="326" cy="489" r="27" fill="#FBF6EC"/>
     <circle cx="590" cy="224" r="27" fill="#FBF6EC"/>
     <circle cx="666" cy="661" r="27" fill="#FBF6EC"/>
     <path d="M 828 674 L 862 669 L 856 703"/>
   </g>
-  <text x="485" y="308" fill="#182126" font-family="'Instrument Sans', sans-serif" font-size="116" font-weight="500">Life Events Log</text>
+  <text x="485" y="308" fill="#182126" font-family="'Instrument Sans', sans-serif" font-size="116" font-weight="700">Life Events Log</text>
 </svg>

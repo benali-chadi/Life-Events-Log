@@ -7,8 +7,9 @@ The open-loop path represents a life moving through meaningful events, returning
 ## Source files
 
 - `logo-mark.svg`: primary transparent mark for light backgrounds.
-- `logo-mark-reversed.svg`: white mark for dark backgrounds.
+- `logo-mark-reversed.svg`: light green mark for dark backgrounds.
 - `logo-lockup.svg`: primary mark plus the full `Life Events Log` name.
+- `logo-lockup-dark.svg`: full lockup for dark backgrounds.
 - `logo-lockup-compact.svg`: compact mark plus the short `LEL` name.
 - `app-icon.svg`: full-bleed ivory app-icon master. Do not add rounded corners; platforms apply their own masks.
 - `adaptive-icon-foreground.svg`: safe-area Android foreground master.
@@ -23,13 +24,14 @@ The exact Instrument Sans variable font and its OFL license are stored in `../fo
 
 - Ink: `#182126`
 - Warm ivory: `#FBF6EC`
-- Reversed mark: `#FFFFFF`
+- Brand green: `#91BFA3`
+- Dark-background brand green: `#ACD2B7`
 
 ## Typography
 
 - Typeface: Instrument Sans.
-- `Life Events Log`: Medium (500), title case.
-- `LEL`: Medium (500), tracking tightened by approximately `-0.025em`.
+- `Life Events Log`: Bold (700), title case.
+- `LEL`: Bold (700), tracking tightened by approximately `-0.025em`.
 - Splash screens use the mark above the full name only.
 - Website headers use the mark beside the full name.
 - Tight navigation areas use the mark beside `LEL`.
