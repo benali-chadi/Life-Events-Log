@@ -258,7 +258,7 @@ export default function EventAttachments({
         >
           <ImagePlus color={colors.textMuted} size={22} strokeWidth={1.75} />
           <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-            Add photos to this event
+            Add photos to this event {' '}
           </Text>
         </Pressable>
       )}

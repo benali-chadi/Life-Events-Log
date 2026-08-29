@@ -4,6 +4,9 @@ import { SlidersHorizontal, X } from 'lucide-react-native';
 import React, {
   type Dispatch,
   type SetStateAction,
+  forwardRef,
+  useCallback,
+  useImperativeHandle,
   useMemo,
   useState,
 } from 'react';
@@ -54,6 +57,10 @@ type EventsHeaderProps = {
   onClear: () => void;
 };
 
+export type EventsHeaderHandle = {
+  openFilters: (section?: TimelineFilterSectionId) => void;
+};
+
 const significanceLabels: Record<EventSignificance, string> = {
   ordinary: 'Ordinary',
   notable: 'Notable',
@@ -61,217 +68,223 @@ const significanceLabels: Record<EventSignificance, string> = {
   'turning-point': 'Turning point',
 };
 
-export default function EventsHeader({
-  eventCount,
-  filters,
-  isEventCountFetching,
-  onChange,
-  onClear,
-}: EventsHeaderProps) {
-  const { colors, isDark } = useTheme();
-  const categoriesQuery = useCategoriesQuery();
-  const locationsQuery = useLocationsQuery();
-  const tagsQuery = useTagsQuery();
-  const peopleQuery = usePeopleQuery();
-  const [sheetSection, setSheetSection] = useState<TimelineFilterSectionId>();
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
+const EventsHeader = forwardRef<EventsHeaderHandle, EventsHeaderProps>(
+  function EventsHeader(
+    { eventCount, filters, isEventCountFetching, onChange, onClear },
+    ref
+  ) {
+    const { colors, isDark } = useTheme();
+    const categoriesQuery = useCategoriesQuery();
+    const locationsQuery = useLocationsQuery();
+    const tagsQuery = useTagsQuery();
+    const peopleQuery = usePeopleQuery();
+    const [sheetSection, setSheetSection] = useState<TimelineFilterSectionId>();
+    const [isSheetOpen, setIsSheetOpen] = useState(false);
 
-  const categoryOptions = useMemo<MultiSelectOption[]>(
-    () => [
-      {
-        id: UNCATEGORIZED_FILTER_ID,
-        label: 'Uncategorized',
-        description: 'Events without a category',
-        pinned: true,
-      },
-      ...(categoriesQuery.data ?? []).map((category) => ({
-        id: category.id,
-        label: category.name,
-        color: eventColors[category.color][isDark ? 'dark' : 'light'],
-      })),
-    ],
-    [categoriesQuery.data, isDark]
-  );
-  const significanceOptions = useMemo<MultiSelectOption[]>(
-    () =>
-      EVENT_SIGNIFICANCE_VALUES.map((significance) => ({
-        id: significance,
-        label: significanceLabels[significance],
-      })),
-    []
-  );
-  const locationOptions = useMemo<MultiSelectOption[]>(
-    () => [
-      {
-        id: WITHOUT_LOCATION_FILTER_ID,
-        label: 'No location',
-        description: 'Events without a location',
-        pinned: true,
-      },
-      ...(locationsQuery.data ?? []).map((location) => ({
-        id: location.id,
-        label: location.name,
-      })),
-    ],
-    [locationsQuery.data]
-  );
-  const tagOptions = useMemo(
-    () =>
-      (tagsQuery.data ?? []).map((tag) => ({ id: tag.id, label: tag.name })),
-    [tagsQuery.data]
-  );
-  const peopleOptions = useMemo(
-    () =>
-      (peopleQuery.data ?? []).map((person) => ({
-        id: person.id,
-        label: person.name,
-      })),
-    [peopleQuery.data]
-  );
-  const activeFilterCount = countActiveFilterGroups(filters);
-  const chips = buildActiveChips({
-    categoryOptions,
-    filters,
-    locationOptions,
-    peopleOptions,
-    significanceOptions,
-    tagOptions,
-  });
+    const categoryOptions = useMemo<MultiSelectOption[]>(
+      () => [
+        {
+          id: UNCATEGORIZED_FILTER_ID,
+          label: 'Uncategorized',
+          description: 'Events without a category',
+          pinned: true,
+        },
+        ...(categoriesQuery.data ?? []).map((category) => ({
+          id: category.id,
+          label: category.name,
+          color: eventColors[category.color][isDark ? 'dark' : 'light'],
+        })),
+      ],
+      [categoriesQuery.data, isDark]
+    );
+    const significanceOptions = useMemo<MultiSelectOption[]>(
+      () =>
+        EVENT_SIGNIFICANCE_VALUES.map((significance) => ({
+          id: significance,
+          label: significanceLabels[significance],
+        })),
+      []
+    );
+    const locationOptions = useMemo<MultiSelectOption[]>(
+      () => [
+        {
+          id: WITHOUT_LOCATION_FILTER_ID,
+          label: 'No location',
+          description: 'Events without a location',
+          pinned: true,
+        },
+        ...(locationsQuery.data ?? []).map((location) => ({
+          id: location.id,
+          label: location.name,
+        })),
+      ],
+      [locationsQuery.data]
+    );
+    const tagOptions = useMemo(
+      () =>
+        (tagsQuery.data ?? []).map((tag) => ({ id: tag.id, label: tag.name })),
+      [tagsQuery.data]
+    );
+    const peopleOptions = useMemo(
+      () =>
+        (peopleQuery.data ?? []).map((person) => ({
+          id: person.id,
+          label: person.name,
+        })),
+      [peopleQuery.data]
+    );
+    const activeFilterCount = countActiveFilterGroups(filters);
+    const chips = buildActiveChips({
+      categoryOptions,
+      filters,
+      locationOptions,
+      peopleOptions,
+      significanceOptions,
+      tagOptions,
+    });
 
-  const openSheet = (section?: TimelineFilterSectionId) => {
-    setSheetSection(section);
-    setIsSheetOpen(true);
-  };
+    const openSheet = useCallback((section?: TimelineFilterSectionId) => {
+      setSheetSection(section);
+      setIsSheetOpen(true);
+    }, []);
 
-  return (
-    <View style={[styles.root, { backgroundColor: colors.bg }]}>
-      <View style={styles.toolbar}>
-        <SearchInput
-          autoCorrect={false}
-          blurOnKeyboardHide
-          clear={() => onChange((current) => ({ ...current, search: '' }))}
-          clearButtonMode="while-editing"
-          containerStyle={styles.searchInput}
-          onChangeText={(search) =>
-            onChange((current) => ({ ...current, search }))
-          }
-          placeholder="Search events…"
-          value={filters.search}
-        />
-        <Pressable
-          accessibilityLabel={`Filters, ${activeFilterCount} active`}
-          accessibilityRole="button"
-          accessibilityState={{ expanded: isSheetOpen }}
-          onPress={() => openSheet()}
-          style={({ pressed }) => [
-            styles.filterButton,
-            {
-              backgroundColor: activeFilterCount
-                ? colors.interactiveMuted
-                : colors.surface,
-              borderColor: activeFilterCount
-                ? colors.borderStrong
-                : colors.border,
-            },
-            pressed && { backgroundColor: colors.interactivePressed },
-          ]}
-        >
-          <SlidersHorizontal color={colors.textSecondary} size={17} />
-          <Text style={[styles.filterButtonText, { color: colors.text }]}>
-            Filters
-          </Text>
-          {activeFilterCount > 0 && (
-            <View
-              style={[styles.filterCount, { backgroundColor: colors.primary }]}
-            >
-              <Text
-                style={[styles.filterCountText, { color: colors.onPrimary }]}
-              >
-                {activeFilterCount}
-              </Text>
-            </View>
-          )}
-        </Pressable>
-      </View>
+    useImperativeHandle(ref, () => ({ openFilters: openSheet }), [openSheet]);
 
-      {chips.length > 0 && (
-        <View style={styles.activeFiltersRow}>
-          <ScrollView
-            horizontal
-            contentContainerStyle={styles.chips}
-            showsHorizontalScrollIndicator={false}
-          >
-            {chips.map((chip) => (
-              <Pressable
-                key={chip.section}
-                accessibilityRole="button"
-                onPress={() => openSheet(chip.section)}
-                style={({ pressed }) => [
-                  styles.chip,
-                  {
-                    backgroundColor: colors.interactiveMuted,
-                    borderColor: colors.borderStrong,
-                  },
-                  pressed && { backgroundColor: colors.interactivePressed },
-                ]}
-              >
-                <Text
-                  numberOfLines={1}
-                  style={[styles.chipText, { color: colors.textSecondary }]}
-                >
-                  {chip.label}
-                </Text>
-                <Pressable
-                  accessibilityLabel={`Clear ${chip.section} filter`}
-                  accessibilityRole="button"
-                  hitSlop={spacing[2]}
-                  onPress={(event) => {
-                    event.stopPropagation();
-                    onChange((current) =>
-                      clearFilterSection(current, chip.section)
-                    );
-                  }}
-                >
-                  <X color={colors.textMuted} size={14} strokeWidth={2.25} />
-                </Pressable>
-              </Pressable>
-            ))}
-          </ScrollView>
+    return (
+      <View style={[styles.root, { backgroundColor: colors.bg }]}>
+        <View style={styles.toolbar}>
+          <SearchInput
+            autoCorrect={false}
+            blurOnKeyboardHide
+            clear={() => onChange((current) => ({ ...current, search: '' }))}
+            clearButtonMode="while-editing"
+            containerStyle={styles.searchInput}
+            onChangeText={(search) =>
+              onChange((current) => ({ ...current, search }))
+            }
+            placeholder="Search events…"
+            value={filters.search}
+          />
           <Pressable
+            accessibilityLabel={`Filters, ${activeFilterCount} active`}
             accessibilityRole="button"
-            onPress={onClear}
+            accessibilityState={{ expanded: isSheetOpen }}
+            onPress={() => openSheet()}
             style={({ pressed }) => [
-              styles.clearAll,
+              styles.filterButton,
+              {
+                backgroundColor: activeFilterCount
+                  ? colors.interactiveMuted
+                  : colors.surface,
+                borderColor: activeFilterCount
+                  ? colors.borderStrong
+                  : colors.border,
+              },
               pressed && { backgroundColor: colors.interactivePressed },
             ]}
           >
-            <Text
-              style={[styles.clearAllText, { color: colors.textSecondary }]}
-            >
-              Clear all
+            <SlidersHorizontal color={colors.textSecondary} size={17} />
+            <Text style={[styles.filterButtonText, { color: colors.text }]}>
+              Filters
             </Text>
+            {activeFilterCount > 0 && (
+              <View
+                style={[
+                  styles.filterCount,
+                  { backgroundColor: colors.primary },
+                ]}
+              >
+                <Text
+                  style={[styles.filterCountText, { color: colors.onPrimary }]}
+                >
+                  {activeFilterCount}
+                </Text>
+              </View>
+            )}
           </Pressable>
         </View>
-      )}
 
-      <TimelineFiltersSheet
-        categoryOptions={categoryOptions}
-        filters={filters}
-        initialSection={sheetSection}
-        isResultCountFetching={isEventCountFetching}
-        locationOptions={locationOptions}
-        onChange={(nextFilters) => onChange(nextFilters)}
-        onClear={onClear}
-        onRequestClose={() => setIsSheetOpen(false)}
-        peopleOptions={peopleOptions}
-        resultCount={eventCount}
-        significanceOptions={significanceOptions}
-        tagOptions={tagOptions}
-        visible={isSheetOpen}
-      />
-    </View>
-  );
-}
+        {chips.length > 0 && (
+          <View style={styles.activeFiltersRow}>
+            <ScrollView
+              horizontal
+              contentContainerStyle={styles.chips}
+              showsHorizontalScrollIndicator={false}
+            >
+              {chips.map((chip) => (
+                <Pressable
+                  key={chip.section}
+                  accessibilityRole="button"
+                  onPress={() => openSheet(chip.section)}
+                  style={({ pressed }) => [
+                    styles.chip,
+                    {
+                      backgroundColor: colors.interactiveMuted,
+                      borderColor: colors.borderStrong,
+                    },
+                    pressed && { backgroundColor: colors.interactivePressed },
+                  ]}
+                >
+                  <Text
+                    numberOfLines={1}
+                    style={[styles.chipText, { color: colors.textSecondary }]}
+                  >
+                    {chip.label}
+                  </Text>
+                  <Pressable
+                    accessibilityLabel={`Clear ${chip.section} filter`}
+                    accessibilityRole="button"
+                    hitSlop={spacing[2]}
+                    onPress={(event) => {
+                      event.stopPropagation();
+                      onChange((current) =>
+                        clearFilterSection(current, chip.section)
+                      );
+                    }}
+                  >
+                    <X color={colors.textMuted} size={14} strokeWidth={2.25} />
+                  </Pressable>
+                </Pressable>
+              ))}
+            </ScrollView>
+            <Pressable
+              accessibilityRole="button"
+              onPress={onClear}
+              style={({ pressed }) => [
+                styles.clearAll,
+                pressed && { backgroundColor: colors.interactivePressed },
+              ]}
+            >
+              <Text
+                style={[styles.clearAllText, { color: colors.textSecondary }]}
+              >
+                Clear all
+              </Text>
+            </Pressable>
+          </View>
+        )}
+
+        <TimelineFiltersSheet
+          categoryOptions={categoryOptions}
+          filters={filters}
+          initialSection={sheetSection}
+          isResultCountFetching={isEventCountFetching}
+          locationOptions={locationOptions}
+          onChange={(nextFilters) => onChange(nextFilters)}
+          onClear={onClear}
+          onRequestClose={() => setIsSheetOpen(false)}
+          peopleOptions={peopleOptions}
+          resultCount={eventCount}
+          significanceOptions={significanceOptions}
+          tagOptions={tagOptions}
+          visible={isSheetOpen}
+        />
+      </View>
+    );
+  }
+);
+
+export default EventsHeader;
 
 type ActiveChip = { label: string; section: TimelineFilterSectionId };
 

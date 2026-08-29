@@ -2,7 +2,7 @@ import { radius, spacing, typography } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
 import { router } from 'expo-router';
 import { Plus } from 'lucide-react-native';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import EventCard from '@/components/event-card';
 import EventsHeader, {
+  type EventsHeaderHandle,
   type TimelineFilters,
   UNCATEGORIZED_FILTER_ID,
   WITHOUT_LOCATION_FILTER_ID,
@@ -109,6 +110,7 @@ function groupEventsByDate(items: EventListItem[]) {
 
 export default function Index() {
   const { colors } = useTheme();
+  const eventsHeaderRef = useRef<EventsHeaderHandle>(null);
   const [filters, setFilters] = useState<TimelineFilters>(INITIAL_FILTERS);
   const debouncedSearch = useDebouncedValue(filters.search, SEARCH_DEBOUNCE_MS);
   const eventListQuery = useMemo<EventListQueryInput>(() => {
@@ -144,8 +146,8 @@ export default function Index() {
       timeTo: filters.timeRange.to,
     };
   }, [debouncedSearch, filters]);
-  const hasActiveFilters =
-    filters.search.trim().length > 0 ||
+  const hasSearch = debouncedSearch.trim().length > 0;
+  const hasTimelineFilters =
     filters.categoryIds.length > 0 ||
     filters.significance.length > 0 ||
     filters.tagIds.length > 0 ||
@@ -207,6 +209,7 @@ export default function Index() {
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
       <EventsHeader
+        ref={eventsHeaderRef}
         eventCount={eventCountQuery.data}
         filters={filters}
         isEventCountFetching={eventCountQuery.isFetching}
@@ -240,16 +243,23 @@ export default function Index() {
           </View>
         )}
         ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Text style={[styles.stateTitle, { color: colors.text }]}>
-              {hasActiveFilters ? 'No matching events' : 'No events yet'}
-            </Text>
-            <Text style={[styles.stateText, { color: colors.textMuted }]}>
-              {hasActiveFilters
-                ? 'Try changing or clearing your search and filters.'
-                : 'Create your first event to start your timeline.'}
-            </Text>
-          </View>
+          <TimelineEmptyState
+            hasSearch={hasSearch}
+            hasTimelineFilters={hasTimelineFilters}
+            onClearAll={() => setFilters(INITIAL_FILTERS)}
+            onClearFilters={() =>
+              setFilters((current) => ({
+                ...INITIAL_FILTERS,
+                search: current.search,
+              }))
+            }
+            onClearSearch={() =>
+              setFilters((current) => ({ ...current, search: '' }))
+            }
+            onCreate={() => router.push('/new')}
+            onEditFilters={() => eventsHeaderRef.current?.openFilters()}
+            search={filters.search}
+          />
         }
         ListFooterComponent={
           eventsQuery.isFetchingNextPage ? (
@@ -280,6 +290,158 @@ export default function Index() {
         <Plus color={colors.onPrimary} size={26} strokeWidth={2.25} />
       </Pressable>
     </View>
+  );
+}
+
+type TimelineEmptyStateProps = {
+  hasSearch: boolean;
+  hasTimelineFilters: boolean;
+  onClearAll: () => void;
+  onClearFilters: () => void;
+  onClearSearch: () => void;
+  onCreate: () => void;
+  onEditFilters: () => void;
+  search: string;
+};
+
+function TimelineEmptyState({
+  hasSearch,
+  hasTimelineFilters,
+  onClearAll,
+  onClearFilters,
+  onClearSearch,
+  onCreate,
+  onEditFilters,
+  search,
+}: TimelineEmptyStateProps) {
+  const { colors } = useTheme();
+
+  if (!hasSearch && !hasTimelineFilters) {
+    return (
+      <View style={styles.emptyState}>
+        <Text style={[styles.stateTitle, { color: colors.text }]}>
+          Your timeline starts here
+        </Text>
+        <Text style={[styles.stateText, { color: colors.textMuted }]}>
+          Capture meaningful moments and everyday events as they happen.
+        </Text>
+        <PrimaryStateAction label="Create event" onPress={onCreate} />
+      </View>
+    );
+  }
+
+  if (hasSearch && !hasTimelineFilters) {
+    const normalizedSearch = search.trim();
+    const displayedSearch =
+      normalizedSearch.length > 42
+        ? `${normalizedSearch.slice(0, 39)}…`
+        : normalizedSearch;
+
+    return (
+      <View style={styles.emptyState}>
+        <Text style={[styles.stateTitle, { color: colors.text }]}>
+          No events found
+        </Text>
+        <Text style={[styles.stateText, { color: colors.textMuted }]}>
+          Nothing matches “{displayedSearch}”.
+        </Text>
+        <PrimaryStateAction label="Clear search" onPress={onClearSearch} />
+      </View>
+    );
+  }
+
+  if (!hasSearch && hasTimelineFilters) {
+    return (
+      <View style={styles.emptyState}>
+        <Text style={[styles.stateTitle, { color: colors.text }]}>
+          No events match these filters
+        </Text>
+        <Text style={[styles.stateText, { color: colors.textMuted }]}>
+          Try changing your selections or clearing the filters.
+        </Text>
+        <PrimaryStateAction label="Edit filters" onPress={onEditFilters} />
+        <SecondaryStateAction
+          label="Clear all filters"
+          onPress={onClearFilters}
+        />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.emptyState}>
+      <Text style={[styles.stateTitle, { color: colors.text }]}>
+        No matching events
+      </Text>
+      <Text style={[styles.stateText, { color: colors.textMuted }]}>
+        Try a different search or adjust your filters.
+      </Text>
+      <View style={styles.emptyActionsRow}>
+        <SecondaryStateAction label="Clear search" onPress={onClearSearch} />
+        <PrimaryStateAction label="Edit filters" onPress={onEditFilters} />
+      </View>
+      <SecondaryStateAction label="Clear everything" onPress={onClearAll} />
+    </View>
+  );
+}
+
+function PrimaryStateAction({
+  label,
+  onPress,
+}: {
+  label: string;
+  onPress: () => void;
+}) {
+  const { colors } = useTheme();
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.primaryStateAction,
+        {
+          backgroundColor: pressed ? colors.primaryPressed : colors.primary,
+        },
+      ]}
+    >
+      <Text
+        style={[styles.primaryStateActionText, { color: colors.onPrimary }]}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+function SecondaryStateAction({
+  label,
+  onPress,
+}: {
+  label: string;
+  onPress: () => void;
+}) {
+  const { colors } = useTheme();
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.secondaryStateAction,
+        { borderColor: colors.borderStrong },
+        pressed && { backgroundColor: colors.interactivePressed },
+      ]}
+    >
+      <Text
+        style={[
+          styles.secondaryStateActionText,
+          { color: colors.textSecondary },
+        ]}
+      >
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -321,8 +483,14 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing[2],
+    gap: spacing[3],
     paddingHorizontal: spacing[6],
+  },
+  emptyActionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: spacing[2],
   },
   stateTitle: {
     ...typography.h3,
@@ -330,7 +498,29 @@ const styles = StyleSheet.create({
   },
   stateText: {
     ...typography.small,
+    maxWidth: 340,
     textAlign: 'center',
+  },
+  primaryStateAction: {
+    minHeight: 44,
+    justifyContent: 'center',
+    borderRadius: radius.md,
+    paddingHorizontal: spacing[5],
+  },
+  primaryStateActionText: {
+    ...typography.small,
+    fontWeight: '700',
+  },
+  secondaryStateAction: {
+    minHeight: 44,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing[4],
+  },
+  secondaryStateActionText: {
+    ...typography.small,
+    fontWeight: '600',
   },
   retryButton: {
     minHeight: 44,
