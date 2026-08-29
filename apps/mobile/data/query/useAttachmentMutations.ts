@@ -134,6 +134,27 @@ export function useDeleteAttachmentMutation() {
   });
 }
 
+export function useDeleteManyAttachmentsMutation() {
+  const repository = useAttachmentRepository();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ ids }: { ids: readonly UUID[]; eventId: UUID }) =>
+      repository.softDeleteMany(ids),
+    onSuccess: async (_, { ids, eventId }) => {
+      ids.forEach((id) =>
+        queryClient.setQueryData(attachmentKeys.detail(id), null)
+      );
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: attachmentKeys.forEvent(eventId),
+        }),
+        invalidateAttachmentEvent(queryClient, eventId),
+      ]);
+    },
+  });
+}
+
 export function useRestoreAttachmentMutation() {
   const repository = useAttachmentRepository();
   const queryClient = useQueryClient();

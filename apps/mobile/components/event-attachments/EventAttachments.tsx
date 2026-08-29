@@ -1,9 +1,16 @@
 import { radius, spacing, typography } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
 import * as ImagePicker from 'expo-image-picker';
-import { Check, ImagePlus, ListRestart, X } from 'lucide-react-native';
+import { Check, ImagePlus, ListRestart, Trash2, X } from 'lucide-react-native';
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import AttachmentCarousel from './AttachmentCarousel';
 import AttachmentReorderCarousel from './AttachmentReorderCarousel';
 import AttachmentViewer from './AttachmentViewer';
@@ -14,6 +21,7 @@ type EventAttachmentsProps = {
   draftMode?: boolean;
   onAdd: (attachments: AttachmentDraft[]) => Promise<void>;
   onRemove: (attachment: AttachmentPreview) => Promise<void>;
+  onRemoveMany?: (attachments: AttachmentPreview[]) => Promise<void>;
   onReorder: (attachmentIds: string[]) => Promise<void>;
 };
 
@@ -22,6 +30,7 @@ export default function EventAttachments({
   draftMode = false,
   onAdd,
   onRemove,
+  onRemoveMany,
   onReorder,
 }: EventAttachmentsProps) {
   const { colors } = useTheme();
@@ -30,6 +39,9 @@ export default function EventAttachments({
   const [isReordering, setIsReordering] = useState(false);
   const [isSavingOrder, setIsSavingOrder] = useState(false);
   const [draftOrder, setDraftOrder] = useState<AttachmentPreview[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [isDeletingSelected, setIsDeletingSelected] = useState(false);
+  const selectionMode = selectedIds.size > 0;
 
   const beginReordering = () => {
     setDraftOrder([...attachments]);
@@ -135,16 +147,94 @@ export default function EventAttachments({
     );
   };
 
+  const toggleSelection = (attachment: AttachmentPreview) => {
+    if (draftMode || !onRemoveMany) return;
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(attachment.id)) next.delete(attachment.id);
+      else next.add(attachment.id);
+      return next;
+    });
+  };
+
+  const confirmRemoveSelected = () => {
+    const selected = attachments.filter((attachment) =>
+      selectedIds.has(attachment.id)
+    );
+    Alert.alert(
+      `Delete ${selected.length} attachments?`,
+      'The selected attachments will be removed from this event.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete attachments',
+          style: 'destructive',
+          onPress: () => {
+            setIsDeletingSelected(true);
+            void onRemoveMany?.(selected)
+              .then(() => setSelectedIds(new Set()))
+              .catch(() =>
+                Alert.alert(
+                  'Couldn’t remove attachments',
+                  'The selected attachments were not removed. Please try again.'
+                )
+              )
+              .finally(() => setIsDeletingSelected(false));
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <View style={styles.root}>
       <View style={styles.header}>
-        <Text style={[styles.heading, { color: colors.text }]}>
-          Attachments
-          {attachments.length > 0 ? ` (${attachments.length})` : ''}
-        </Text>
+        {selectionMode ? (
+          <>
+            <Pressable
+              accessibilityLabel="Exit attachment selection"
+              accessibilityRole="button"
+              onPress={() => setSelectedIds(new Set())}
+              style={styles.actionButton}
+            >
+              <X color={colors.text} size={18} />
+            </Pressable>
+            <Text
+              style={[
+                styles.heading,
+                styles.selectionHeading,
+                { color: colors.text },
+              ]}
+            >
+              {selectedIds.size} selected
+            </Text>
+          </>
+        ) : (
+          <Text style={[styles.heading, { color: colors.text }]}>
+            Attachments
+            {attachments.length > 0 ? ` (${attachments.length})` : ''}
+          </Text>
+        )}
 
         <View style={styles.headerActions}>
-          {isReordering ? (
+          {selectionMode ? (
+            <Pressable
+              accessibilityLabel={`Delete ${selectedIds.size} selected attachments`}
+              accessibilityRole="button"
+              disabled={isDeletingSelected}
+              onPress={confirmRemoveSelected}
+              style={styles.actionButton}
+            >
+              {isDeletingSelected ? (
+                <ActivityIndicator color={colors.destructive} size="small" />
+              ) : (
+                <Trash2 color={colors.destructive} size={17} />
+              )}
+              <Text style={[styles.actionText, { color: colors.destructive }]}>
+                Delete
+              </Text>
+            </Pressable>
+          ) : isReordering ? (
             <>
               <Pressable
                 accessibilityLabel="Cancel attachment reordering"
@@ -241,7 +331,11 @@ export default function EventAttachments({
         <AttachmentCarousel
           attachments={attachments}
           onOpen={setViewerIndex}
+          onLongPress={toggleSelection}
           onRemove={confirmRemove}
+          onToggleSelection={toggleSelection}
+          selectedIds={selectedIds}
+          selectionMode={selectionMode}
         />
       ) : (
         <Pressable
@@ -258,7 +352,7 @@ export default function EventAttachments({
         >
           <ImagePlus color={colors.textMuted} size={22} strokeWidth={1.75} />
           <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-            Add photos to this event {' '}
+            Add photos to this event{' '}
           </Text>
         </Pressable>
       )}
@@ -286,6 +380,7 @@ const styles = StyleSheet.create({
   heading: {
     ...typography.h3,
   },
+  selectionHeading: { flex: 1 },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',

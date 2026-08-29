@@ -48,6 +48,7 @@ import { useEventDeletion } from '@/components/event-deletion/EventDeletionProvi
 import { confirmEventDeletion } from '@/components/event-deletion/confirmEventDeletion';
 import {
   useDeleteAttachmentMutation,
+  useDeleteManyAttachmentsMutation,
   useEventDetailsQuery,
   useImportAttachmentMutation,
   useReorderAttachmentsMutation,
@@ -167,6 +168,7 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
   const updateEvent = useUpdateEventMutation();
   const importAttachment = useImportAttachmentMutation();
   const deleteAttachment = useDeleteAttachmentMutation();
+  const deleteManyAttachments = useDeleteManyAttachmentsMutation();
   const reorderAttachments = useReorderAttachmentsMutation();
   const immediateSaveVersions = useRef<Record<ImmediateEventField, number>>({
     date: 0,
@@ -341,6 +343,13 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
   const removeAttachment = async (attachment: AttachmentPreview) => {
     await deleteAttachment.mutateAsync({
       id: attachment.id,
+      eventId: event.id,
+    });
+  };
+
+  const removeAttachments = async (attachments: AttachmentPreview[]) => {
+    await deleteManyAttachments.mutateAsync({
+      ids: attachments.map(({ id }) => id),
       eventId: event.id,
     });
   };
@@ -543,6 +552,7 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
               attachments={attachments}
               onAdd={addAttachments}
               onRemove={removeAttachment}
+              onRemoveMany={removeAttachments}
               onReorder={reorderEventAttachments}
             />
           </View>
