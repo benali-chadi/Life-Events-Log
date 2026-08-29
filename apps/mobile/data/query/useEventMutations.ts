@@ -59,6 +59,25 @@ export function useDeleteEventMutation() {
   });
 }
 
+export function useDeleteManyEventsMutation() {
+  const repository = useEventRepository();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (ids: readonly UUID[]) => repository.softDeleteMany(ids),
+    onSuccess: async (_, ids) => {
+      ids.forEach((id) => {
+        queryClient.setQueryData(eventKeys.record(id), null);
+        queryClient.setQueryData(eventKeys.detail(id), null);
+      });
+      await Promise.all([
+        invalidateEventLists(queryClient),
+        invalidateMetadataUsageLists(queryClient),
+      ]);
+    },
+  });
+}
+
 export function useRestoreEventMutation() {
   const repository = useEventRepository();
   const queryClient = useQueryClient();
@@ -69,6 +88,26 @@ export function useRestoreEventMutation() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: eventKeys.record(id) }),
         queryClient.invalidateQueries({ queryKey: eventKeys.detail(id) }),
+        invalidateEventLists(queryClient),
+        invalidateMetadataUsageLists(queryClient),
+      ]);
+    },
+  });
+}
+
+export function useRestoreManyEventsMutation() {
+  const repository = useEventRepository();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (ids: readonly UUID[]) =>
+      Promise.all(ids.map((id) => repository.restore(id))),
+    onSuccess: async (_, ids) => {
+      await Promise.all([
+        ...ids.flatMap((id) => [
+          queryClient.invalidateQueries({ queryKey: eventKeys.record(id) }),
+          queryClient.invalidateQueries({ queryKey: eventKeys.detail(id) }),
+        ]),
         invalidateEventLists(queryClient),
         invalidateMetadataUsageLists(queryClient),
       ]);

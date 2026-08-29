@@ -21,6 +21,7 @@ type EventCardContentProps = {
   hasExpandableContent: boolean;
   isExpanded: boolean;
   onOpen: () => void;
+  onLongPress?: () => void;
   onToggleExpanded: () => void;
   onTitleOverflowChange: (hasOverflow: boolean) => void;
 };
@@ -33,6 +34,7 @@ export default function EventCardContent({
   hasExpandableContent,
   isExpanded,
   onOpen,
+  onLongPress,
   onToggleExpanded,
   onTitleOverflowChange,
 }: EventCardContentProps) {
@@ -48,6 +50,7 @@ export default function EventCardContent({
       accessibilityRole="button"
       accessibilityLabel={`Open ${event.event.title}, ${significanceLabels[significance]} significance`}
       onPress={onOpen}
+      onLongPress={onLongPress}
       style={({ pressed }) => [
         styles.card,
         significanceStyle.card,

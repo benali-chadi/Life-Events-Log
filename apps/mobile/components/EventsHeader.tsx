@@ -157,6 +157,7 @@ const EventsHeader = forwardRef<EventsHeaderHandle, EventsHeaderProps>(
             autoCorrect={false}
             blurOnKeyboardHide
             clear={() => onChange((current) => ({ ...current, search: '' }))}
+            showClear={!!filters.search.length}
             clearButtonMode="while-editing"
             containerStyle={styles.searchInput}
             onChangeText={(search) =>

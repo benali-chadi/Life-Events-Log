@@ -1,10 +1,12 @@
 import { radius, spacing, typography } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
 import { router } from 'expo-router';
-import { Plus } from 'lucide-react-native';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Plus, Trash2, X } from 'lucide-react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  BackHandler,
   Pressable,
   SectionList,
   StyleSheet,
@@ -12,6 +14,8 @@ import {
   View,
 } from 'react-native';
 import EventCard from '@/components/event-card';
+import { useEventDeletion } from '@/components/event-deletion/EventDeletionProvider';
+import { confirmManyEventsDeletion } from '@/components/event-deletion/confirmEventDeletion';
 import EventsHeader, {
   type EventsHeaderHandle,
   type TimelineFilters,
@@ -25,7 +29,7 @@ import {
   useInfiniteEventListQuery,
 } from '@/data/query';
 import type { EventListItem } from '@/data/repositories';
-import type { LocalDate } from '@/models';
+import type { LocalDate, UUID } from '@/models';
 
 const PAGE_SIZE = 10;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -112,6 +116,11 @@ export default function Index() {
   const { colors } = useTheme();
   const eventsHeaderRef = useRef<EventsHeaderHandle>(null);
   const [filters, setFilters] = useState<TimelineFilters>(INITIAL_FILTERS);
+  const [selectedEventIds, setSelectedEventIds] = useState<Set<UUID>>(
+    () => new Set()
+  );
+  const { deleteEvents, isDeletingEvents } = useEventDeletion();
+  const selectionMode = selectedEventIds.size > 0;
   const debouncedSearch = useDebouncedValue(filters.search, SEARCH_DEBOUNCE_MS);
   const eventListQuery = useMemo<EventListQueryInput>(() => {
     const categoryIds = filters.categoryIds.filter(
@@ -165,6 +174,54 @@ export default function Index() {
     [eventsQuery.data]
   );
 
+  const exitSelectionMode = useCallback(() => {
+    setSelectedEventIds(new Set());
+  }, []);
+
+  const toggleEventSelection = useCallback((id: UUID) => {
+    closeOpenSwipe();
+    setSelectedEventIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const deleteSelectedEvents = useCallback(() => {
+    const ids = [...selectedEventIds];
+    if (ids.length === 0) return;
+    const selectedEvents =
+      eventsQuery.data?.pages
+        .flatMap((page) => page.items)
+        .filter((item) => selectedEventIds.has(item.event.id))
+        .map((item) => ({ id: item.event.id, title: item.event.title })) ?? [];
+
+    confirmManyEventsDeletion(ids.length, () => {
+      void deleteEvents(selectedEvents)
+        .then(exitSelectionMode)
+        .catch(() => {
+          Alert.alert(
+            'Could not delete events',
+            'The selected events were not deleted. Please try again.'
+          );
+        });
+    });
+  }, [deleteEvents, eventsQuery.data, exitSelectionMode, selectedEventIds]);
+
+  useEffect(() => {
+    if (!selectionMode) return;
+
+    const subscription = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        exitSelectionMode();
+        return true;
+      }
+    );
+    return () => subscription.remove();
+  }, [exitSelectionMode, selectionMode]);
+
   const loadMore = () => {
     if (eventsQuery.hasNextPage && !eventsQuery.isFetchingNextPage) {
       void eventsQuery.fetchNextPage();
@@ -208,19 +265,70 @@ export default function Index() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
-      <EventsHeader
-        ref={eventsHeaderRef}
-        eventCount={eventCountQuery.data}
-        filters={filters}
-        isEventCountFetching={eventCountQuery.isFetching}
-        onChange={setFilters}
-        onClear={() =>
-          setFilters((current) => ({
-            ...INITIAL_FILTERS,
-            search: current.search,
-          }))
-        }
-      />
+      {selectionMode ? (
+        <View
+          accessibilityLiveRegion="polite"
+          style={[
+            styles.selectionToolbar,
+            {
+              backgroundColor: colors.surfaceElevated,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          <Pressable
+            accessibilityLabel="Exit selection mode"
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={exitSelectionMode}
+            style={({ pressed }) => [
+              styles.selectionToolbarButton,
+              pressed && { backgroundColor: colors.interactivePressed },
+            ]}
+          >
+            <X color={colors.text} size={22} />
+          </Pressable>
+          <Text style={[styles.selectionCount, { color: colors.text }]}>
+            {selectedEventIds.size} selected
+          </Text>
+          <Pressable
+            accessibilityLabel={`Delete ${selectedEventIds.size} selected ${selectedEventIds.size === 1 ? 'event' : 'events'}`}
+            accessibilityRole="button"
+            disabled={isDeletingEvents}
+            onPress={deleteSelectedEvents}
+            style={({ pressed }) => [
+              styles.deleteSelectedButton,
+              pressed && { backgroundColor: colors.destructiveMuted },
+              isDeletingEvents && styles.disabledAction,
+            ]}
+          >
+            {isDeletingEvents ? (
+              <ActivityIndicator color={colors.destructive} size="small" />
+            ) : (
+              <Trash2 color={colors.destructive} size={19} strokeWidth={2} />
+            )}
+            <Text
+              style={[styles.deleteSelectedText, { color: colors.destructive }]}
+            >
+              Delete
+            </Text>
+          </Pressable>
+        </View>
+      ) : (
+        <EventsHeader
+          ref={eventsHeaderRef}
+          eventCount={eventCountQuery.data}
+          filters={filters}
+          isEventCountFetching={eventCountQuery.isFetching}
+          onChange={setFilters}
+          onClear={() =>
+            setFilters((current) => ({
+              ...INITIAL_FILTERS,
+              search: current.search,
+            }))
+          }
+        />
+      )}
       <SectionList
         sections={sections}
         contentContainerStyle={[
@@ -228,7 +336,14 @@ export default function Index() {
           sections.length === 0 && styles.emptyListContent,
         ]}
         keyExtractor={(item) => item.event.id}
-        renderItem={({ item }) => <EventCard event={item} />}
+        renderItem={({ item }) => (
+          <EventCard
+            event={item}
+            isSelected={selectedEventIds.has(item.event.id)}
+            selectionMode={selectionMode}
+            onSelect={() => toggleEventSelection(item.event.id)}
+          />
+        )}
         onEndReached={loadMore}
         onEndReachedThreshold={0.4}
         onRefresh={() => void eventsQuery.refetch()}
@@ -276,19 +391,21 @@ export default function Index() {
         )}
         stickySectionHeadersEnabled
       />
-      <Pressable
-        accessibilityLabel="Create event"
-        accessibilityRole="button"
-        onPress={() => router.push('/new')}
-        style={({ pressed }) => [
-          styles.createButton,
-          {
-            backgroundColor: pressed ? colors.primaryPressed : colors.primary,
-          },
-        ]}
-      >
-        <Plus color={colors.onPrimary} size={26} strokeWidth={2.25} />
-      </Pressable>
+      {!selectionMode && (
+        <Pressable
+          accessibilityLabel="Create event"
+          accessibilityRole="button"
+          onPress={() => router.push('/new')}
+          style={({ pressed }) => [
+            styles.createButton,
+            {
+              backgroundColor: pressed ? colors.primaryPressed : colors.primary,
+            },
+          ]}
+        >
+          <Plus color={colors.onPrimary} size={26} strokeWidth={2.25} />
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -450,6 +567,41 @@ const styles = StyleSheet.create({
     height: '100%',
     gap: spacing[2],
     paddingHorizontal: 20,
+  },
+  selectionToolbar: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing[2],
+  },
+  selectionToolbarButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.sm,
+  },
+  selectionCount: {
+    ...typography.body,
+    flex: 1,
+    fontWeight: '700',
+  },
+  deleteSelectedButton: {
+    minHeight: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing[3],
+  },
+  deleteSelectedText: {
+    ...typography.small,
+    fontWeight: '700',
+  },
+  disabledAction: {
+    opacity: 0.55,
   },
   list: {
     flex: 1,
