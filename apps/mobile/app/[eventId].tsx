@@ -5,11 +5,13 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import {
@@ -19,6 +21,7 @@ import {
   MoreVertical,
   Shapes,
   Tags,
+  Trash2,
   UsersRound,
 } from 'lucide-react-native';
 import TagsMetadata from '@/components/metadata/TagsMetadata';
@@ -27,7 +30,7 @@ import PeopleMetadata from '@/components/metadata/PeopleMetadata';
 import CategoryMetadata from '@/components/metadata/CategoryMetadata';
 import SignificanceMetadata from '@/components/metadata/SignificanceMetadata';
 import LocationMetadata from '@/components/metadata/LocationMetadata';
-import { radius, spacing, typography } from '@lel/design';
+import { elevation, radius, spacing, typography } from '@lel/design';
 import DateMetadata, {
   type DateValue,
 } from '@/components/metadata/DateMetadata';
@@ -375,24 +378,7 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
           headerTitle: () => <EventTitleHeader title={title} />,
           headerBackTitle: 'Back',
           headerRight: () => (
-            <Pressable
-              accessibilityLabel="Event actions"
-              accessibilityRole="button"
-              hitSlop={8}
-              onPress={confirmDelete}
-              style={({ pressed }) => [
-                styles.headerMenuButton,
-                pressed && {
-                  backgroundColor: colors.interactivePressed,
-                },
-              ]}
-            >
-              <MoreVertical
-                color={colors.textSecondary}
-                size={21}
-                strokeWidth={2}
-              />
-            </Pressable>
+            <EventActionsMenu disabled={isDeleting} onDelete={confirmDelete} />
           ),
         }}
       />
@@ -566,6 +552,114 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
   );
 }
 
+const EVENT_MENU_WIDTH = 216;
+
+function EventActionsMenu({
+  disabled,
+  onDelete,
+}: {
+  disabled: boolean;
+  onDelete: () => void;
+}) {
+  const { colors } = useTheme();
+  const { width: windowWidth } = useWindowDimensions();
+  const triggerRef = useRef<View>(null);
+  const [menuPosition, setMenuPosition] = useState<{
+    top: number;
+    right: number;
+  } | null>(null);
+
+  const openMenu = () => {
+    if (disabled) return;
+
+    triggerRef.current?.measureInWindow((x, y, width, height) => {
+      setMenuPosition({
+        top: y + height + spacing[1],
+        right: Math.max(spacing[2], windowWidth - x - width),
+      });
+    });
+  };
+
+  const closeMenu = () => setMenuPosition(null);
+  const deleteEvent = () => {
+    closeMenu();
+    requestAnimationFrame(onDelete);
+  };
+
+  return (
+    <>
+      <Pressable
+        ref={triggerRef}
+        accessibilityLabel="Event actions"
+        accessibilityRole="button"
+        accessibilityState={{ disabled, expanded: menuPosition !== null }}
+        disabled={disabled}
+        hitSlop={8}
+        onPress={openMenu}
+        style={({ pressed }) => [
+          styles.headerMenuButton,
+          disabled && styles.disabledMenuButton,
+          pressed && { backgroundColor: colors.interactivePressed },
+        ]}
+      >
+        <MoreVertical color={colors.textSecondary} size={21} strokeWidth={2} />
+      </Pressable>
+
+      <Modal
+        animationType="fade"
+        onRequestClose={closeMenu}
+        statusBarTranslucent
+        transparent
+        visible={menuPosition !== null}
+      >
+        <View style={styles.menuModalRoot}>
+          <Pressable
+            accessibilityLabel="Close event actions"
+            accessibilityRole="button"
+            onPress={closeMenu}
+            style={StyleSheet.absoluteFill}
+          />
+
+          {menuPosition && (
+            <View
+              accessibilityViewIsModal
+              style={[
+                styles.eventMenu,
+                elevation.dropdown,
+                menuPosition,
+                {
+                  backgroundColor: colors.surfaceElevated,
+                  borderColor: colors.border,
+                  shadowColor: colors.text,
+                },
+              ]}
+            >
+              <Pressable
+                accessibilityRole="button"
+                onPress={deleteEvent}
+                style={({ pressed }) => [
+                  styles.eventMenuItem,
+                  pressed && { backgroundColor: colors.destructiveMuted },
+                ]}
+              >
+                <Trash2 color={colors.destructive} size={18} strokeWidth={2} />
+                <Text
+                  style={[
+                    styles.eventMenuItemText,
+                    { color: colors.destructive },
+                  ]}
+                >
+                  Delete event
+                </Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
+      </Modal>
+    </>
+  );
+}
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
@@ -614,5 +708,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.sm,
+  },
+  disabledMenuButton: {
+    opacity: 0.5,
+  },
+  menuModalRoot: {
+    flex: 1,
+  },
+  eventMenu: {
+    position: 'absolute',
+    width: EVENT_MENU_WIDTH,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderRadius: radius.md,
+  },
+  eventMenuItem: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[3],
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[2],
+  },
+  eventMenuItemText: {
+    ...typography.small,
+    fontWeight: '600',
   },
 });
