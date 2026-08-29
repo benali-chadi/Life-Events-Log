@@ -128,14 +128,31 @@ export class InMemoryCategoryRepository implements CategoryRepository {
   }
 
   async softDelete(id: UUID) {
-    return softDeleteEventFieldMetadata({
-      database: this.database,
-      metadataId: id,
-      metadataName: 'Category',
-      metadataTable: this.database.categories,
-      eventField: 'categoryId',
-      timestamp: this.dependencies.now(),
+    return this.softDeleteMany([id]);
+  }
+
+  async softDeleteMany(ids: readonly UUID[]) {
+    const uniqueIds = [...new Set(ids)];
+    if (uniqueIds.length === 0) return { affectedEventIds: [] };
+
+    uniqueIds.forEach((id) => {
+      if (!this.database.categories.has(id)) {
+        throw new EntityNotFoundError('Category', id);
+      }
     });
+    const timestamp = this.dependencies.now();
+    const affectedEventIds = new Set<UUID>();
+    uniqueIds.forEach((id) => {
+      softDeleteEventFieldMetadata({
+        database: this.database,
+        metadataId: id,
+        metadataName: 'Category',
+        metadataTable: this.database.categories,
+        eventField: 'categoryId',
+        timestamp,
+      }).affectedEventIds.forEach((eventId) => affectedEventIds.add(eventId));
+    });
+    return { affectedEventIds: [...affectedEventIds].sort() };
   }
 
   private validName(value: string) {

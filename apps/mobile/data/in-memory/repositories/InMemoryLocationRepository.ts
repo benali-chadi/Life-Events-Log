@@ -1,5 +1,8 @@
 import type { Location, UUID } from '@/models';
-import type { RepositoryDependencies } from '@/data/repositories';
+import {
+  EntityNotFoundError,
+  type RepositoryDependencies,
+} from '@/data/repositories';
 import type { InMemoryDatabase } from '../types';
 import { InMemoryNamedMetadataRepository } from './InMemoryNamedMetadataRepository';
 import { countActiveEventFieldUsage } from './metadataUsageUtils';
@@ -19,13 +22,30 @@ export class InMemoryLocationRepository extends InMemoryNamedMetadataRepository<
   }
 
   override async softDelete(id: UUID) {
-    return softDeleteEventFieldMetadata({
-      database: this.database,
-      metadataId: id,
-      metadataName: 'Location',
-      metadataTable: this.database.locations,
-      eventField: 'locationId',
-      timestamp: this.repositoryDependencies.now(),
+    return this.softDeleteMany([id]);
+  }
+
+  override async softDeleteMany(ids: readonly UUID[]) {
+    const uniqueIds = [...new Set(ids)];
+    if (uniqueIds.length === 0) return { affectedEventIds: [] };
+
+    uniqueIds.forEach((id) => {
+      if (!this.database.locations.has(id)) {
+        throw new EntityNotFoundError('Location', id);
+      }
     });
+    const timestamp = this.repositoryDependencies.now();
+    const affectedEventIds = new Set<UUID>();
+    uniqueIds.forEach((id) => {
+      softDeleteEventFieldMetadata({
+        database: this.database,
+        metadataId: id,
+        metadataName: 'Location',
+        metadataTable: this.database.locations,
+        eventField: 'locationId',
+        timestamp,
+      }).affectedEventIds.forEach((eventId) => affectedEventIds.add(eventId));
+    });
+    return { affectedEventIds: [...affectedEventIds].sort() };
   }
 }

@@ -200,6 +200,34 @@ export class SQLitePersonRepository implements PersonRepository {
     });
   }
 
+  async softDeleteMany(
+    ids: readonly UUID[]
+  ): Promise<SoftDeleteMetadataResult> {
+    const uniqueIds = [...new Set(ids)];
+    const existingIds = new Set(
+      uniqueIds.length === 0
+        ? []
+        : this.database
+            .select({ id: people.id })
+            .from(people)
+            .where(inArray(people.id, uniqueIds))
+            .all()
+            .map((person) => person.id)
+    );
+    uniqueIds.forEach((id) => {
+      if (!existingIds.has(id)) throw new EntityNotFoundError('Person', id);
+    });
+
+    const affectedEventIds = new Set<UUID>();
+    for (const id of uniqueIds) {
+      const result = await this.softDelete(id);
+      result.affectedEventIds.forEach((eventId) =>
+        affectedEventIds.add(eventId)
+      );
+    }
+    return { affectedEventIds: [...affectedEventIds].sort() };
+  }
+
   private validName(value: string) {
     const name = normalizeMetadataName(value);
 

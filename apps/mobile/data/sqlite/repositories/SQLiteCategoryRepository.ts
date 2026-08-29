@@ -1,4 +1,14 @@
-import { and, asc, count, desc, eq, isNull, ne, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  ne,
+  sql,
+} from 'drizzle-orm';
 import {
   DuplicateNameError,
   EntityNotFoundError,
@@ -190,6 +200,34 @@ export class SQLiteCategoryRepository implements CategoryRepository {
 
       return { affectedEventIds };
     });
+  }
+
+  async softDeleteMany(
+    ids: readonly UUID[]
+  ): Promise<SoftDeleteMetadataResult> {
+    const uniqueIds = [...new Set(ids)];
+    const existingIds = new Set(
+      uniqueIds.length === 0
+        ? []
+        : this.database
+            .select({ id: categories.id })
+            .from(categories)
+            .where(inArray(categories.id, uniqueIds))
+            .all()
+            .map((category) => category.id)
+    );
+    uniqueIds.forEach((id) => {
+      if (!existingIds.has(id)) throw new EntityNotFoundError('Category', id);
+    });
+
+    const affectedEventIds = new Set<UUID>();
+    for (const id of uniqueIds) {
+      const result = await this.softDelete(id);
+      result.affectedEventIds.forEach((eventId) =>
+        affectedEventIds.add(eventId)
+      );
+    }
+    return { affectedEventIds: [...affectedEventIds].sort() };
   }
 
   private validName(value: string) {

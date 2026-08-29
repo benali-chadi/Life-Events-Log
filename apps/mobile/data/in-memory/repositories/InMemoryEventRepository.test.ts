@@ -303,6 +303,28 @@ describe('InMemoryEventRepository', () => {
     expect(database.eventTags.size).toBe(relationshipCount);
   });
 
+  it('soft deletes many events after validating the full selection', async () => {
+    const { database, repository } = createRepository();
+    const eventIds = DEVELOPMENT_SEED.events
+      .slice(0, 2)
+      .map((event) => event.id);
+
+    await repository.softDeleteMany([...eventIds, eventIds[0]!]);
+
+    eventIds.forEach((id) => {
+      expect(database.events.get(id)).toMatchObject({
+        deletedAt: NOW,
+        updatedAt: NOW,
+      });
+    });
+
+    const activeEventId = DEVELOPMENT_SEED.events[2]!.id;
+    await expect(
+      repository.softDeleteMany([activeEventId, 'missing-event'])
+    ).rejects.toBeInstanceOf(EntityNotFoundError);
+    expect(database.events.get(activeEventId)?.deletedAt).toBeNull();
+  });
+
   it('rejects missing event IDs and generated ID collisions', async () => {
     const existingId = DEVELOPMENT_SEED.events[0].id;
     const { repository } = createRepository(createDependencies(existingId));

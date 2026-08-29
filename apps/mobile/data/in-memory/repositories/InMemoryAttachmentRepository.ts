@@ -137,17 +137,31 @@ export class InMemoryAttachmentRepository implements AttachmentRepository {
   }
 
   async softDelete(id: UUID) {
-    const attachment = this.attachmentOrThrow(id);
-    this.activeEventOrThrow(attachment.eventId);
+    await this.softDeleteMany([id]);
+  }
 
-    if (attachment.deletedAt !== null) return;
+  async softDeleteMany(ids: readonly UUID[]) {
+    const uniqueIds = [...new Set(ids)];
+    const selectedAttachments = uniqueIds.map((id) =>
+      this.attachmentOrThrow(id)
+    );
+
+    selectedAttachments.forEach((attachment) => {
+      this.activeEventOrThrow(attachment.eventId);
+    });
+
+    const activeAttachments = selectedAttachments.filter(
+      (attachment) => attachment.deletedAt === null
+    );
+    if (activeAttachments.length === 0) return;
 
     const timestamp = this.dependencies.now();
-
-    this.database.attachments.set(id, {
-      ...attachment,
-      updatedAt: timestamp,
-      deletedAt: timestamp,
+    activeAttachments.forEach((attachment) => {
+      this.database.attachments.set(attachment.id, {
+        ...attachment,
+        updatedAt: timestamp,
+        deletedAt: timestamp,
+      });
     });
   }
 

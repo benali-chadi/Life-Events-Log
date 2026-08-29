@@ -189,6 +189,34 @@ export class SQLiteTagRepository implements TagRepository {
     });
   }
 
+  async softDeleteMany(
+    ids: readonly UUID[]
+  ): Promise<SoftDeleteMetadataResult> {
+    const uniqueIds = [...new Set(ids)];
+    const existingIds = new Set(
+      uniqueIds.length === 0
+        ? []
+        : this.database
+            .select({ id: tags.id })
+            .from(tags)
+            .where(inArray(tags.id, uniqueIds))
+            .all()
+            .map((tag) => tag.id)
+    );
+    uniqueIds.forEach((id) => {
+      if (!existingIds.has(id)) throw new EntityNotFoundError('Tag', id);
+    });
+
+    const affectedEventIds = new Set<UUID>();
+    for (const id of uniqueIds) {
+      const result = await this.softDelete(id);
+      result.affectedEventIds.forEach((eventId) =>
+        affectedEventIds.add(eventId)
+      );
+    }
+    return { affectedEventIds: [...affectedEventIds].sort() };
+  }
+
   private validName(value: string) {
     const name = normalizeMetadataName(value);
 

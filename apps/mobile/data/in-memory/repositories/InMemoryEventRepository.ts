@@ -221,16 +221,25 @@ export class InMemoryEventRepository implements EventRepository {
   }
 
   async softDelete(id: UUID) {
-    const event = this.eventOrThrow(id);
+    await this.softDeleteMany([id]);
+  }
 
-    if (event.deletedAt !== null) return;
+  async softDeleteMany(ids: readonly UUID[]) {
+    const uniqueIds = [...new Set(ids)];
+    const selectedEvents = uniqueIds.map((id) => this.eventOrThrow(id));
+    const activeEvents = selectedEvents.filter(
+      (event) => event.deletedAt === null
+    );
+
+    if (activeEvents.length === 0) return;
 
     const timestamp = this.dependencies.now();
-
-    this.database.events.set(id, {
-      ...event,
-      updatedAt: timestamp,
-      deletedAt: timestamp,
+    activeEvents.forEach((event) => {
+      this.database.events.set(event.id, {
+        ...event,
+        updatedAt: timestamp,
+        deletedAt: timestamp,
+      });
     });
   }
 

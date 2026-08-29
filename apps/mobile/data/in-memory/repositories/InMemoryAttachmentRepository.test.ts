@@ -198,6 +198,25 @@ describe('InMemoryAttachmentRepository', () => {
     });
   });
 
+  it('soft deletes many attachments after validating the full selection', async () => {
+    const initial = [
+      attachment('first', 0, '2026-07-30T10:00:00.000Z'),
+      attachment('second', 1, '2026-07-30T11:00:00.000Z'),
+    ];
+    const { database, repository } = createRepository(initial);
+
+    await repository.softDeleteMany(['first', 'second', 'first']);
+
+    expect(database.attachments.get('first')?.deletedAt).toBe(NOW);
+    expect(database.attachments.get('second')?.deletedAt).toBe(NOW);
+
+    database.attachments.set('first', initial[0]!);
+    await expect(
+      repository.softDeleteMany(['first', 'missing'])
+    ).rejects.toBeInstanceOf(EntityNotFoundError);
+    expect(database.attachments.get('first')?.deletedAt).toBeNull();
+  });
+
   it('throws when the parent event is missing or soft deleted', async () => {
     const { database, repository } = createRepository();
 

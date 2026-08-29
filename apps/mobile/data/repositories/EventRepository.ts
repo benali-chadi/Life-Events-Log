@@ -87,5 +87,6 @@ export interface EventRepository {
   create(input: CreateEventInput): Promise<EventDetails>;
   update(id: UUID, input: UpdateEventInput): Promise<EventDetails>;
   softDelete(id: UUID): Promise<void>;
+  softDeleteMany(ids: readonly UUID[]): Promise<void>;
   restore(id: UUID): Promise<void>;
 }

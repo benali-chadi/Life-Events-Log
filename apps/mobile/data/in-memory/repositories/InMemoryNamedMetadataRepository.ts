@@ -128,11 +128,22 @@ export class InMemoryNamedMetadataRepository<
   }
 
   async softDelete(id: UUID): Promise<SoftDeleteMetadataResult> {
-    const entity = this.table.get(id);
+    return this.softDeleteMany([id]);
+  }
 
-    if (!entity) throw new EntityNotFoundError(this.options.entityName, id);
-
-    if (entity.deletedAt !== null) return { affectedEventIds: [] };
+  async softDeleteMany(
+    ids: readonly UUID[]
+  ): Promise<SoftDeleteMetadataResult> {
+    const uniqueIds = [...new Set(ids)];
+    const entities = uniqueIds.map((id) => {
+      const entity = this.table.get(id);
+      if (!entity) throw new EntityNotFoundError(this.options.entityName, id);
+      return entity;
+    });
+    const activeEntities = entities.filter(
+      (entity) => entity.deletedAt === null
+    );
+    if (activeEntities.length === 0) return { affectedEventIds: [] };
 
     if (!this.options.softDeleteReferences) {
       throw new RepositoryError(
@@ -141,14 +152,20 @@ export class InMemoryNamedMetadataRepository<
     }
 
     const timestamp = this.dependencies.now();
-    const result = this.options.softDeleteReferences(id, timestamp);
-    this.table.set(id, {
-      ...entity,
-      updatedAt: timestamp,
-      deletedAt: timestamp,
+    const affectedEventIds = new Set<UUID>();
+    activeEntities.forEach((entity) => {
+      const result = this.options.softDeleteReferences!(entity.id, timestamp);
+      result.affectedEventIds.forEach((eventId) =>
+        affectedEventIds.add(eventId)
+      );
+      this.table.set(entity.id, {
+        ...entity,
+        updatedAt: timestamp,
+        deletedAt: timestamp,
+      });
     });
 
-    return result;
+    return { affectedEventIds: [...affectedEventIds].sort() };
   }
 
   private validName(value: string) {

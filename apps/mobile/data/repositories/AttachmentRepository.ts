@@ -19,5 +19,6 @@ export interface AttachmentRepository {
     attachmentIds: readonly UUID[]
   ): Promise<EventAttachment[]>;
   softDelete(id: UUID): Promise<void>;
+  softDeleteMany(ids: readonly UUID[]): Promise<void>;
   restore(id: UUID): Promise<void>;
 }

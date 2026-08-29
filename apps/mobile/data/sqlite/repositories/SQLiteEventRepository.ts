@@ -331,14 +331,39 @@ export class SQLiteEventRepository implements EventRepository {
   }
 
   async softDelete(id: UUID): Promise<void> {
-    const event = this.eventOrThrow(id);
-    if (event.deletedAt !== null) return;
-    const timestamp = this.dependencies.now();
-    this.database
-      .update(events)
-      .set({ updatedAt: timestamp, deletedAt: timestamp })
-      .where(and(eq(events.id, id), isNull(events.deletedAt)))
-      .run();
+    await this.softDeleteMany([id]);
+  }
+
+  async softDeleteMany(ids: readonly UUID[]): Promise<void> {
+    const uniqueIds = [...new Set(ids)];
+    if (uniqueIds.length === 0) return;
+
+    this.database.transaction((transaction) => {
+      const selectedEvents = transaction
+        .select({ id: events.id, deletedAt: events.deletedAt })
+        .from(events)
+        .where(inArray(events.id, uniqueIds))
+        .all();
+      const eventsById = new Map(
+        selectedEvents.map((event) => [event.id, event])
+      );
+
+      uniqueIds.forEach((id) => {
+        if (!eventsById.has(id)) throw new EntityNotFoundError('Event', id);
+      });
+
+      const activeIds = selectedEvents
+        .filter((event) => event.deletedAt === null)
+        .map((event) => event.id);
+      if (activeIds.length === 0) return;
+
+      const timestamp = this.dependencies.now();
+      transaction
+        .update(events)
+        .set({ updatedAt: timestamp, deletedAt: timestamp })
+        .where(and(inArray(events.id, activeIds), isNull(events.deletedAt)))
+        .run();
+    });
   }
 
   async restore(id: UUID): Promise<void> {
