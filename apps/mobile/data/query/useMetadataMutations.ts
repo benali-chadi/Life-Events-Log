@@ -35,6 +35,7 @@ type MetadataRepository<TEntity, TCreateInput, TUpdateInput> = {
 
 type SoftDeleteMetadataRepository = {
   softDelete(id: UUID): Promise<SoftDeleteMetadataResult>;
+  softDeleteMany(ids: readonly UUID[]): Promise<SoftDeleteMetadataResult>;
 };
 
 type MetadataKeys = {
@@ -57,6 +58,25 @@ function useCreateMetadataMutation<
     onSuccess: async (entity) => {
       queryClient.setQueryData(keys.detail(entity.id), entity);
       await invalidateMetadataLists(queryClient, keys);
+    },
+  });
+}
+
+function useSoftDeleteManyMetadataMutation(
+  repository: SoftDeleteMetadataRepository,
+  keys: MetadataKeys
+) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (ids: readonly UUID[]) => repository.softDeleteMany(ids),
+    onSuccess: async (result, ids) => {
+      ids.forEach((id) => queryClient.setQueryData(keys.detail(id), null));
+      await Promise.all([
+        invalidateMetadataLists(queryClient, keys),
+        invalidateAffectedEvents(queryClient, result.affectedEventIds),
+      ]);
+      return result;
     },
   });
 }
@@ -120,6 +140,9 @@ export function useUpdateTagMutation() {
 export function useDeleteTagMutation() {
   return useSoftDeleteMetadataMutation(useTagRepository(), tagKeys);
 }
+export function useDeleteManyTagsMutation() {
+  return useSoftDeleteManyMetadataMutation(useTagRepository(), tagKeys);
+}
 
 export function useCreateCategoryMutation() {
   return useCreateMetadataMutation<Category, CreateCategoryInput>(
@@ -137,6 +160,12 @@ export function useUpdateCategoryMutation() {
 
 export function useDeleteCategoryMutation() {
   return useSoftDeleteMetadataMutation(useCategoryRepository(), categoryKeys);
+}
+export function useDeleteManyCategoriesMutation() {
+  return useSoftDeleteManyMetadataMutation(
+    useCategoryRepository(),
+    categoryKeys
+  );
 }
 
 export function useCreatePersonMutation() {
@@ -156,6 +185,9 @@ export function useUpdatePersonMutation() {
 export function useDeletePersonMutation() {
   return useSoftDeleteMetadataMutation(usePersonRepository(), personKeys);
 }
+export function useDeleteManyPeopleMutation() {
+  return useSoftDeleteManyMetadataMutation(usePersonRepository(), personKeys);
+}
 
 export function useCreateLocationMutation() {
   return useCreateMetadataMutation<Location, CreateNamedMetadataInput>(
@@ -173,4 +205,10 @@ export function useUpdateLocationMutation() {
 
 export function useDeleteLocationMutation() {
   return useSoftDeleteMetadataMutation(useLocationRepository(), locationKeys);
+}
+export function useDeleteManyLocationsMutation() {
+  return useSoftDeleteManyMetadataMutation(
+    useLocationRepository(),
+    locationKeys
+  );
 }

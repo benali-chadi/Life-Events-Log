@@ -40,3 +40,38 @@ export function confirmMetadataDeletion(
     { text: action, style: 'destructive', onPress: onConfirm },
   ]);
 }
+
+export function confirmManyMetadataDeletion(
+  count: number,
+  label: string,
+  usageCount: number,
+  onConfirm: () => void
+) {
+  const title = `Delete ${count} ${label.toLowerCase()}?`;
+  const usage = usageCount
+    ? 'They will be removed from events where they are used.'
+    : 'They are not used by any events.';
+  const message = `The selected ${label.toLowerCase()} will be deleted from LEL. ${usage}`;
+
+  if (Platform.OS === 'ios') {
+    ActionSheetIOS.showActionSheetWithOptions(
+      {
+        title,
+        message,
+        options: ['Cancel', `Delete ${label.toLowerCase()}`],
+        cancelButtonIndex: 0,
+        destructiveButtonIndex: 1,
+      },
+      (buttonIndex) => buttonIndex === 1 && onConfirm()
+    );
+    return;
+  }
+  Alert.alert(title, message, [
+    { text: 'Cancel', style: 'cancel' },
+    {
+      text: `Delete ${label.toLowerCase()}`,
+      style: 'destructive',
+      onPress: onConfirm,
+    },
+  ]);
+}

@@ -4,13 +4,16 @@ import type { UseQueryResult } from '@tanstack/react-query';
 import {
   ArrowDown,
   ArrowUp,
+  Check,
   ChevronRight,
   Plus,
   Trash2,
+  X,
 } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Platform,
   Pressable,
@@ -25,6 +28,10 @@ import {
   useCreateLocationMutation,
   useCreatePersonMutation,
   useCreateTagMutation,
+  useDeleteManyCategoriesMutation,
+  useDeleteManyLocationsMutation,
+  useDeleteManyPeopleMutation,
+  useDeleteManyTagsMutation,
   useLocationsWithUsageQuery,
   usePeopleWithUsageQuery,
   useTagsWithUsageQuery,
@@ -46,6 +53,7 @@ import {
 } from './MetadataDeletionProvider';
 import type { MetadataSectionId } from './MetadataTabs';
 import NamedMetadataEditSheet from './NamedMetadataEditSheet';
+import { confirmManyMetadataDeletion } from './confirmMetadataDeletion';
 
 export type MetadataUsageOrder = 'most' | 'least';
 
@@ -100,7 +108,14 @@ function MetadataUsageList<TEntity extends UsageEntity>({
   onEdit,
 }: MetadataUsageListProps<TEntity>) {
   const { colors, isDark } = useTheme();
-  const { pending, requestDeletion } = useMetadataDeletion();
+  const { finalizePending, pending, requestDeletion } = useMetadataDeletion();
+  const deleteCategories = useDeleteManyCategoriesMutation();
+  const deleteTags = useDeleteManyTagsMutation();
+  const deletePeople = useDeleteManyPeopleMutation();
+  const deleteLocations = useDeleteManyLocationsMutation();
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const suppressEditRef = useRef<string | null>(null);
+  const selectionMode = selectedIds.size > 0;
   const normalizedSearch = normalizeOptionValue(search);
   const data = useMemo(
     () =>
@@ -129,25 +144,121 @@ function MetadataUsageList<TEntity extends UsageEntity>({
   const create = () => {
     if (canCreate && !isCreating) onCreate(search.trim());
   };
+  const toggleSelection = (id: string) => {
+    closeOpenSwipe();
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const selectedItems = data.filter((item) =>
+    selectedIds.has(item.metadata.id)
+  );
+  const unusedIds = data
+    .filter((item) => item.eventCount === 0)
+    .map((item) => item.metadata.id);
+  const bulkMutation =
+    kind === 'category'
+      ? deleteCategories
+      : kind === 'tag'
+        ? deleteTags
+        : kind === 'person'
+          ? deletePeople
+          : deleteLocations;
+  const deleteSelected = () => {
+    const ids = selectedItems.map((item) => item.metadata.id);
+    const usageCount = selectedItems.reduce(
+      (total, item) => total + item.eventCount,
+      0
+    );
+    confirmManyMetadataDeletion(ids.length, label, usageCount, () => {
+      void finalizePending().then((ready) => {
+        if (!ready) return;
+        bulkMutation
+          .mutateAsync(ids)
+          .then(() => setSelectedIds(new Set()))
+          .catch(() =>
+            Alert.alert(
+              `Could not delete ${label.toLowerCase()}`,
+              'The selected items were not deleted. Please try again.'
+            )
+          );
+      });
+    });
+  };
 
   return (
     <View style={styles.root}>
-      <SearchInput
-        accessibilityLabel={`Search or create ${label.toLowerCase()}`}
-        autoCapitalize="none"
-        autoCorrect={false}
-        clear={() => onSearchChange('')}
-        clearButtonMode="while-editing"
-        onChangeText={onSearchChange}
-        onFocus={closeOpenSwipe}
-        onSubmitEditing={create}
-        placeholder={`Search or create ${label.toLowerCase()}...`}
-        returnKeyType={canCreate ? 'done' : 'search'}
-        showClear={search.length > 0 && Platform.OS !== 'ios'}
-        value={search}
-      />
+      {selectionMode ? (
+        <View style={[styles.selectionToolbar, { borderColor: colors.border }]}>
+          <Pressable
+            accessibilityLabel="Exit selection mode"
+            accessibilityRole="button"
+            onPress={() => setSelectedIds(new Set())}
+            style={styles.selectionButton}
+          >
+            <X color={colors.text} size={21} />
+          </Pressable>
+          <Text style={[styles.selectionCount, { color: colors.text }]}>
+            {selectedIds.size} selected
+          </Text>
+          <Pressable
+            accessibilityLabel={`Select all ${unusedIds.length} unused ${label.toLowerCase()}`}
+            accessibilityRole="button"
+            disabled={unusedIds.length === 0}
+            onPress={() => setSelectedIds(new Set(unusedIds))}
+            style={[
+              styles.selectUnusedButton,
+              unusedIds.length === 0 && styles.disabledAction,
+            ]}
+          >
+            <Text
+              style={[styles.selectUnusedText, { color: colors.textSecondary }]}
+            >
+              Select unused
+            </Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            disabled={bulkMutation.isPending}
+            onPress={deleteSelected}
+            style={styles.selectionDeleteButton}
+          >
+            {bulkMutation.isPending ? (
+              <ActivityIndicator color={colors.destructive} size="small" />
+            ) : (
+              <Trash2 color={colors.destructive} size={18} />
+            )}
+            <Text
+              style={[
+                styles.selectionDeleteText,
+                { color: colors.destructive },
+              ]}
+            >
+              Delete
+            </Text>
+          </Pressable>
+        </View>
+      ) : (
+        <SearchInput
+          accessibilityLabel={`Search or create ${label.toLowerCase()}`}
+          autoCapitalize="none"
+          autoCorrect={false}
+          clear={() => onSearchChange('')}
+          clearButtonMode="while-editing"
+          onChangeText={onSearchChange}
+          onFocus={closeOpenSwipe}
+          onSubmitEditing={create}
+          placeholder={`Search or create ${label.toLowerCase()}...`}
+          returnKeyType={canCreate ? 'done' : 'search'}
+          showClear={search.length > 0 && Platform.OS !== 'ios'}
+          value={search}
+        />
+      )}
 
-      {canCreate && (
+      {!selectionMode && canCreate && (
         <Pressable
           accessibilityRole="button"
           disabled={isCreating}
@@ -186,11 +297,31 @@ function MetadataUsageList<TEntity extends UsageEntity>({
         </Text>
       )}
 
-      {!query.isPending && !query.isError && (
+      {!selectionMode && !query.isPending && !query.isError && (
         <View style={styles.toolbar}>
           <Text style={[styles.resultCount, { color: colors.textMuted }]}>
             {resultCount}
           </Text>
+          {unusedIds.length > 0 && (
+            <Pressable
+              accessibilityLabel={`Select all ${unusedIds.length} unused ${label.toLowerCase()}`}
+              accessibilityRole="button"
+              onPress={() => setSelectedIds(new Set(unusedIds))}
+              style={({ pressed }) => [
+                styles.selectUnusedButton,
+                pressed && { backgroundColor: colors.interactiveMuted },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.selectUnusedText,
+                  { color: colors.textSecondary },
+                ]}
+              >
+                Select unused
+              </Text>
+            </Pressable>
+          )}
           <Pressable
             accessibilityLabel={`Sort by ${
               usageOrder === 'most' ? 'least' : 'most'
@@ -279,6 +410,7 @@ function MetadataUsageList<TEntity extends UsageEntity>({
               name: item.metadata.name,
               eventCount: item.eventCount,
             };
+            const selected = selectedIds.has(item.metadata.id);
 
             const row = isPendingDeletion ? (
               <View
@@ -315,10 +447,30 @@ function MetadataUsageList<TEntity extends UsageEntity>({
               </View>
             ) : (
               <Pressable
-                accessibilityLabel={`Edit ${item.metadata.name}, ${count}`}
-                accessibilityRole="button"
+                accessibilityLabel={
+                  selectionMode
+                    ? `${selected ? 'Deselect' : 'Select'} ${item.metadata.name}`
+                    : `Edit ${item.metadata.name}, ${count}`
+                }
+                accessibilityRole={selectionMode ? 'checkbox' : 'button'}
+                accessibilityState={
+                  selectionMode ? { checked: selected } : undefined
+                }
+                onLongPress={() => {
+                  if (selectionMode) return;
+                  suppressEditRef.current = item.metadata.id;
+                  toggleSelection(item.metadata.id);
+                }}
                 onPress={() => {
+                  if (suppressEditRef.current === item.metadata.id) {
+                    suppressEditRef.current = null;
+                    return;
+                  }
                   if (closeOpenSwipe()) return;
+                  if (selectionMode) {
+                    toggleSelection(item.metadata.id);
+                    return;
+                  }
                   onEdit(item);
                 }}
                 style={({ pressed }) => [
@@ -328,6 +480,29 @@ function MetadataUsageList<TEntity extends UsageEntity>({
                 ]}
               >
                 <View style={styles.rowMain}>
+                  {selectionMode && (
+                    <View
+                      style={[
+                        styles.selectionControl,
+                        {
+                          backgroundColor: selected
+                            ? colors.primary
+                            : colors.bg,
+                          borderColor: selected
+                            ? colors.primary
+                            : colors.borderStrong,
+                        },
+                      ]}
+                    >
+                      {selected && (
+                        <Check
+                          color={colors.onPrimary}
+                          size={14}
+                          strokeWidth={3}
+                        />
+                      )}
+                    </View>
+                  )}
                   {color && (
                     <View
                       style={[
@@ -372,34 +547,37 @@ function MetadataUsageList<TEntity extends UsageEntity>({
             return (
               <SwipeReveal
                 actionWidth={80}
+                enabled={!selectionMode}
                 action={
-                  <Pressable
-                    accessibilityLabel={`Delete ${item.metadata.name}`}
-                    accessibilityRole="button"
-                    onPress={() => requestDeletion(deletion)}
-                    style={({ pressed }) => [
-                      styles.deleteAction,
-                      {
-                        backgroundColor: pressed
-                          ? colors.destructiveSurfacePressed
-                          : colors.destructiveSurface,
-                      },
-                    ]}
-                  >
-                    <Trash2
-                      color={colors.onDestructive}
-                      size={18}
-                      strokeWidth={2}
-                    />
-                    <Text
-                      style={[
-                        styles.deleteActionText,
-                        { color: colors.onDestructive },
+                  selectionMode ? null : (
+                    <Pressable
+                      accessibilityLabel={`Delete ${item.metadata.name}`}
+                      accessibilityRole="button"
+                      onPress={() => requestDeletion(deletion)}
+                      style={({ pressed }) => [
+                        styles.deleteAction,
+                        {
+                          backgroundColor: pressed
+                            ? colors.destructiveSurfacePressed
+                            : colors.destructiveSurface,
+                        },
                       ]}
                     >
-                      Delete
-                    </Text>
-                  </Pressable>
+                      <Trash2
+                        color={colors.onDestructive}
+                        size={18}
+                        strokeWidth={2}
+                      />
+                      <Text
+                        style={[
+                          styles.deleteActionText,
+                          { color: colors.onDestructive },
+                        ]}
+                      >
+                        Delete
+                      </Text>
+                    </Pressable>
+                  )
                 }
               >
                 {row}
@@ -816,6 +994,47 @@ export default function MetadataUsageSection({
 
 const styles = StyleSheet.create({
   root: { flex: 1, paddingTop: spacing[3] },
+  selectionToolbar: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[1],
+    marginHorizontal: spacing[4],
+    marginBottom: spacing[2],
+    paddingHorizontal: spacing[1],
+    borderWidth: 1,
+    borderRadius: radius.md,
+  },
+  selectionButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectionCount: { ...typography.small, flex: 1, fontWeight: '700' },
+  selectUnusedButton: {
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingHorizontal: spacing[2],
+  },
+  selectUnusedText: { ...typography.caption, fontWeight: '600' },
+  selectionDeleteButton: {
+    minHeight: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[1],
+    paddingHorizontal: spacing[2],
+  },
+  selectionDeleteText: { ...typography.caption, fontWeight: '700' },
+  disabledAction: { opacity: 0.45 },
+  selectionControl: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderRadius: 12,
+  },
   createRow: {
     minHeight: 44,
     flexDirection: 'row',
