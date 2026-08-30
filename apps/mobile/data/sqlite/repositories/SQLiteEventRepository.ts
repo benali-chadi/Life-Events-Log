@@ -1,6 +1,7 @@
 import {
   and,
   asc,
+  count,
   desc,
   eq,
   gt,
@@ -16,11 +17,16 @@ import {
 import {
   EVENT_SIGNIFICANCE_VALUES,
   EVENT_TITLE_MAX_LENGTH,
+  type Category,
+  type EventAttachment,
   type EventDetails,
   type EventSignificance,
   type LELEvent,
   type LocalDate,
   type LocalTime,
+  type Location,
+  type Person,
+  type Tag,
   type UUID,
 } from '@/models';
 import {
@@ -38,17 +44,23 @@ import {
 import {
   compareMetadataNames,
   normalizeMetadataName,
+  normalizeSearchText,
 } from '@/data/repositories/metadataName';
 import type { AppDatabase } from '../database';
 import {
   categories,
+  categoryModelColumns,
   eventAttachments,
   eventPeople,
   events,
+  eventModelColumns,
   eventTags,
   locations,
+  locationModelColumns,
   people,
+  personModelColumns,
   tags,
+  tagModelColumns,
 } from '../schema';
 
 type Values = Omit<CreateEventInput, 'tagIds' | 'peopleIds'> & {
@@ -63,6 +75,15 @@ type Cursor = {
   createdAt: string;
   id: UUID;
 };
+type EventListProjection = {
+  event: LELEvent;
+  category: Category | null;
+  location: Location | null;
+  tagsJson: string;
+  peopleJson: string;
+  attachmentCount: number;
+  attachmentPreviewJson: string | null;
+};
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 const NOTES_PREVIEW_LENGTH = 160;
@@ -76,7 +97,7 @@ export class SQLiteEventRepository implements EventRepository {
   async getById(id: UUID): Promise<LELEvent | null> {
     return (
       this.database
-        .select()
+        .select(eventModelColumns)
         .from(events)
         .where(and(eq(events.id, id), isNull(events.deletedAt)))
         .get() ?? null
@@ -84,16 +105,82 @@ export class SQLiteEventRepository implements EventRepository {
   }
 
   async getDetailsById(id: UUID): Promise<EventDetails | null> {
-    const event = await this.getById(id);
-    return event ? this.details(event) : null;
+    return this.details(id);
   }
 
   async list(query: EventListQuery) {
     const filters = this.validateListQuery(query);
     const cursor = query.cursor ? this.decodeCursor(query.cursor) : null;
     const statement = this.database
-      .select()
+      .select({
+        event: eventModelColumns,
+        category: categoryModelColumns,
+        location: locationModelColumns,
+        tagsJson: sql<string>`COALESCE((
+          SELECT json_group_array(json_object(
+            'id', ${tags.id},
+            'name', ${tags.name},
+            'createdAt', ${tags.createdAt},
+            'updatedAt', ${tags.updatedAt},
+            'deletedAt', ${tags.deletedAt}
+          ))
+          FROM ${eventTags}
+          INNER JOIN ${tags} ON ${tags.id} = ${eventTags.tagId}
+          WHERE ${eventTags.eventId} = ${events.id}
+            AND ${eventTags.deletedAt} IS NULL
+            AND ${tags.deletedAt} IS NULL
+        ), '[]')`,
+        peopleJson: sql<string>`COALESCE((
+          SELECT json_group_array(json_object(
+            'id', ${people.id},
+            'name', ${people.name},
+            'createdAt', ${people.createdAt},
+            'updatedAt', ${people.updatedAt},
+            'deletedAt', ${people.deletedAt}
+          ))
+          FROM ${eventPeople}
+          INNER JOIN ${people} ON ${people.id} = ${eventPeople.personId}
+          WHERE ${eventPeople.eventId} = ${events.id}
+            AND ${eventPeople.deletedAt} IS NULL
+            AND ${people.deletedAt} IS NULL
+        ), '[]')`,
+        attachmentCount: sql<number>`(
+          SELECT count(*)
+          FROM ${eventAttachments}
+          WHERE ${eventAttachments.eventId} = ${events.id}
+            AND ${eventAttachments.deletedAt} IS NULL
+        )`,
+        attachmentPreviewJson: sql<string | null>`(
+          SELECT json_object(
+            'id', ${eventAttachments.id},
+            'eventId', ${eventAttachments.eventId},
+            'relativePath', ${eventAttachments.relativePath},
+            'filename', ${eventAttachments.filename},
+            'mimeType', ${eventAttachments.mimeType},
+            'width', ${eventAttachments.width},
+            'height', ${eventAttachments.height},
+            'fileSize', ${eventAttachments.fileSize},
+            'sortOrder', ${eventAttachments.sortOrder},
+            'createdAt', ${eventAttachments.createdAt},
+            'updatedAt', ${eventAttachments.updatedAt},
+            'deletedAt', ${eventAttachments.deletedAt}
+          )
+          FROM ${eventAttachments}
+          WHERE ${eventAttachments.eventId} = ${events.id}
+            AND ${eventAttachments.deletedAt} IS NULL
+          ORDER BY ${eventAttachments.sortOrder}, ${eventAttachments.id}
+          LIMIT 1
+        )`,
+      })
       .from(events)
+      .leftJoin(
+        categories,
+        and(eq(categories.id, events.categoryId), isNull(categories.deletedAt))
+      )
+      .leftJoin(
+        locations,
+        and(eq(locations.id, events.locationId), isNull(locations.deletedAt))
+      )
       .where(and(...this.listConditions(filters, cursor)))
       .orderBy(
         desc(events.date),
@@ -102,22 +189,27 @@ export class SQLiteEventRepository implements EventRepository {
         desc(events.createdAt),
         asc(events.id)
       );
-    const matching = filters.titleSearch
-      ? statement
-          .all()
-          .filter((event) =>
-            normalizeMetadataName(event.title)
-              .toLowerCase()
-              .includes(filters.titleSearch)
-          )
-      : statement.limit(query.limit + 1).all();
+    const matching = statement.limit(query.limit + 1).all();
     const page = matching.slice(0, query.limit);
     const last = page.at(-1);
     return {
-      items: page.map((event) => this.listItem(event)),
+      items: page.map((row) => this.listItem(row)),
       nextCursor:
-        matching.length > query.limit && last ? this.encodeCursor(last) : null,
+        matching.length > query.limit && last
+          ? this.encodeCursor(last.event)
+          : null,
     };
+  }
+
+  async count(query: EventListQuery) {
+    const filters = this.validateListQuery(query);
+    const result = this.database
+      .select({ value: count(events.id) })
+      .from(events)
+      .where(and(...this.listConditions(filters, null)))
+      .get();
+
+    return result?.value ?? 0;
   }
 
   async create(input: CreateEventInput): Promise<EventDetails> {
@@ -154,11 +246,16 @@ export class SQLiteEventRepository implements EventRepository {
       deletedAt: null,
     };
     this.database.transaction((tx) => {
-      tx.insert(events).values(event).run();
+      tx.insert(events)
+        .values({
+          ...event,
+          normalizedTitle: normalizeSearchText(event.title),
+        })
+        .run();
       this.replaceTags(id, values.tagIds, timestamp, tx);
       this.replacePeople(id, values.peopleIds, timestamp, tx);
     });
-    return this.details(event);
+    return this.details(id)!;
   }
 
   async update(id: UUID, input: UpdateEventInput): Promise<EventDetails> {
@@ -204,7 +301,7 @@ export class SQLiteEventRepository implements EventRepository {
       input.peopleIds !== undefined &&
       !this.sameIds(oldPeople, values.peopleIds);
     if (!eventChanged && !tagsChanged && !peopleChanged)
-      return this.details(existing);
+      return this.details(id)!;
 
     const updated: LELEvent = {
       ...existing,
@@ -218,24 +315,55 @@ export class SQLiteEventRepository implements EventRepository {
       updatedAt: this.dependencies.now(),
     };
     this.database.transaction((tx) => {
-      tx.update(events).set(updated).where(eq(events.id, id)).run();
+      tx.update(events)
+        .set({
+          ...updated,
+          normalizedTitle: normalizeSearchText(updated.title),
+        })
+        .where(eq(events.id, id))
+        .run();
       if (tagsChanged)
         this.replaceTags(id, values.tagIds, updated.updatedAt, tx);
       if (peopleChanged)
         this.replacePeople(id, values.peopleIds, updated.updatedAt, tx);
     });
-    return this.details(updated);
+    return this.details(id)!;
   }
 
   async softDelete(id: UUID): Promise<void> {
-    const event = this.eventOrThrow(id);
-    if (event.deletedAt !== null) return;
-    const timestamp = this.dependencies.now();
-    this.database
-      .update(events)
-      .set({ updatedAt: timestamp, deletedAt: timestamp })
-      .where(and(eq(events.id, id), isNull(events.deletedAt)))
-      .run();
+    await this.softDeleteMany([id]);
+  }
+
+  async softDeleteMany(ids: readonly UUID[]): Promise<void> {
+    const uniqueIds = [...new Set(ids)];
+    if (uniqueIds.length === 0) return;
+
+    this.database.transaction((transaction) => {
+      const selectedEvents = transaction
+        .select({ id: events.id, deletedAt: events.deletedAt })
+        .from(events)
+        .where(inArray(events.id, uniqueIds))
+        .all();
+      const eventsById = new Map(
+        selectedEvents.map((event) => [event.id, event])
+      );
+
+      uniqueIds.forEach((id) => {
+        if (!eventsById.has(id)) throw new EntityNotFoundError('Event', id);
+      });
+
+      const activeIds = selectedEvents
+        .filter((event) => event.deletedAt === null)
+        .map((event) => event.id);
+      if (activeIds.length === 0) return;
+
+      const timestamp = this.dependencies.now();
+      transaction
+        .update(events)
+        .set({ updatedAt: timestamp, deletedAt: timestamp })
+        .where(and(inArray(events.id, activeIds), isNull(events.deletedAt)))
+        .run();
+    });
   }
 
   async restore(id: UUID): Promise<void> {
@@ -283,35 +411,34 @@ export class SQLiteEventRepository implements EventRepository {
     };
   }
 
-  private details(event: LELEvent): EventDetails {
-    const category = event.categoryId
-      ? (this.database
-          .select()
-          .from(categories)
-          .where(
-            and(
-              eq(categories.id, event.categoryId),
-              isNull(categories.deletedAt)
-            )
-          )
-          .get() ?? null)
-      : null;
-    const location = event.locationId
-      ? (this.database
-          .select()
-          .from(locations)
-          .where(
-            and(eq(locations.id, event.locationId), isNull(locations.deletedAt))
-          )
-          .get() ?? null)
-      : null;
+  private details(id: UUID): EventDetails | null {
+    const base = this.database
+      .select({
+        event: eventModelColumns,
+        category: categoryModelColumns,
+        location: locationModelColumns,
+      })
+      .from(events)
+      .leftJoin(
+        categories,
+        and(eq(categories.id, events.categoryId), isNull(categories.deletedAt))
+      )
+      .leftJoin(
+        locations,
+        and(eq(locations.id, events.locationId), isNull(locations.deletedAt))
+      )
+      .where(and(eq(events.id, id), isNull(events.deletedAt)))
+      .get();
+
+    if (!base) return null;
+
     const resolvedTags = this.database
-      .select({ value: tags })
+      .select({ value: tagModelColumns })
       .from(eventTags)
       .innerJoin(tags, eq(tags.id, eventTags.tagId))
       .where(
         and(
-          eq(eventTags.eventId, event.id),
+          eq(eventTags.eventId, id),
           isNull(eventTags.deletedAt),
           isNull(tags.deletedAt)
         )
@@ -320,12 +447,12 @@ export class SQLiteEventRepository implements EventRepository {
       .map(({ value }) => value)
       .sort(compareMetadataNames);
     const resolvedPeople = this.database
-      .select({ value: people })
+      .select({ value: personModelColumns })
       .from(eventPeople)
       .innerJoin(people, eq(people.id, eventPeople.personId))
       .where(
         and(
-          eq(eventPeople.eventId, event.id),
+          eq(eventPeople.eventId, id),
           isNull(eventPeople.deletedAt),
           isNull(people.deletedAt)
         )
@@ -338,34 +465,48 @@ export class SQLiteEventRepository implements EventRepository {
       .from(eventAttachments)
       .where(
         and(
-          eq(eventAttachments.eventId, event.id),
+          eq(eventAttachments.eventId, id),
           isNull(eventAttachments.deletedAt)
         )
       )
       .orderBy(eventAttachments.sortOrder, eventAttachments.id)
       .all();
     return {
-      event,
-      category,
-      location,
+      event: base.event,
+      category: base.category,
+      location: base.location,
       tags: resolvedTags,
       people: resolvedPeople,
       attachments,
     };
   }
 
-  private listItem(event: LELEvent): EventListItem {
-    const details = this.details(event);
-    const { notes: _notes, ...withoutNotes } = details.event;
+  private listItem(row: EventListProjection): EventListItem {
+    const { notes: _notes, ...withoutNotes } = row.event;
     return {
-      event: { ...withoutNotes, notesPreview: this.notesPreview(event.notes) },
-      category: details.category,
-      location: details.location,
-      tags: details.tags,
-      people: details.people,
-      attachmentCount: details.attachments.length,
-      attachmentPreview: details.attachments[0] ?? null,
+      event: {
+        ...withoutNotes,
+        notesPreview: this.notesPreview(row.event.notes),
+      },
+      category: row.category,
+      location: row.location,
+      tags: this.parseJsonArray<Tag>(row.tagsJson).sort(compareMetadataNames),
+      people: this.parseJsonArray<Person>(row.peopleJson).sort(
+        compareMetadataNames
+      ),
+      attachmentCount: row.attachmentCount,
+      attachmentPreview: row.attachmentPreviewJson
+        ? this.parseJson<EventAttachment>(row.attachmentPreviewJson)
+        : null,
     };
+  }
+
+  private parseJson<T>(value: string): T {
+    return JSON.parse(value) as T;
+  }
+
+  private parseJsonArray<T>(value: string): T[] {
+    return this.parseJson<T[]>(value);
   }
 
   private replaceTags(
@@ -486,6 +627,12 @@ export class SQLiteEventRepository implements EventRepository {
     cursor: Cursor | null
   ) {
     const conditions: SQL[] = [isNull(events.deletedAt)];
+
+    if (query.titleSearch) {
+      conditions.push(
+        sql`instr(${events.normalizedTitle}, ${query.titleSearch}) > 0`
+      );
+    }
 
     if (query.significance?.length) {
       conditions.push(inArray(events.significance, query.significance));
@@ -626,9 +773,7 @@ export class SQLiteEventRepository implements EventRepository {
     this.validMultiFilter(query.peopleIds, 'people');
     return {
       ...query,
-      titleSearch: query.search
-        ? normalizeMetadataName(query.search).toLowerCase()
-        : '',
+      titleSearch: query.search ? normalizeSearchText(query.search) : '',
     };
   }
 
@@ -720,20 +865,6 @@ export class SQLiteEventRepository implements EventRepository {
       ? `${plain.slice(0, NOTES_PREVIEW_LENGTH - 1).trimEnd()}…`
       : plain;
   }
-  private compareOrder(
-    a: Pick<LELEvent, 'date' | 'time' | 'createdAt' | 'id'>,
-    b: Pick<LELEvent, 'date' | 'time' | 'createdAt' | 'id'>
-  ) {
-    const date = b.date.localeCompare(a.date);
-    if (date) return date;
-    if (a.time !== null && b.time === null) return -1;
-    if (a.time === null && b.time !== null) return 1;
-    if (a.time && b.time) {
-      const time = b.time.localeCompare(a.time);
-      if (time) return time;
-    }
-    return b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id);
-  }
   private encodeCursor(event: LELEvent) {
     return encodeURIComponent(
       JSON.stringify({
@@ -775,7 +906,7 @@ export class SQLiteEventRepository implements EventRepository {
   }
   private eventOrThrow(id: UUID) {
     const event = this.database
-      .select()
+      .select(eventModelColumns)
       .from(events)
       .where(eq(events.id, id))
       .get();
@@ -784,7 +915,7 @@ export class SQLiteEventRepository implements EventRepository {
   }
   private activeEventOrThrow(id: UUID) {
     const event = this.database
-      .select()
+      .select(eventModelColumns)
       .from(events)
       .where(and(eq(events.id, id), isNull(events.deletedAt)))
       .get();

@@ -1,4 +1,14 @@
-import { and, count, eq, isNull } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  ne,
+  sql,
+} from 'drizzle-orm';
 import {
   DuplicateNameError,
   EntityNotFoundError,
@@ -14,12 +24,11 @@ import {
 } from '@/data/repositories';
 import {
   comparableMetadataName,
-  compareMetadataNames,
   normalizeMetadataName,
 } from '@/data/repositories/metadataName';
 import type { Location, UUID } from '@/models';
 import type { AppDatabase } from '../database';
-import { events, locations } from '../schema';
+import { events, locationModelColumns, locations } from '../schema';
 
 export class SQLiteLocationRepository implements LocationRepository {
   constructor(
@@ -30,7 +39,7 @@ export class SQLiteLocationRepository implements LocationRepository {
   async getById(id: UUID): Promise<Location | null> {
     return (
       this.database
-        .select()
+        .select(locationModelColumns)
         .from(locations)
         .where(and(eq(locations.id, id), isNull(locations.deletedAt)))
         .get() ?? null
@@ -41,15 +50,18 @@ export class SQLiteLocationRepository implements LocationRepository {
     const search = query?.search ? comparableMetadataName(query.search) : '';
 
     return this.database
-      .select()
+      .select(locationModelColumns)
       .from(locations)
-      .where(isNull(locations.deletedAt))
-      .all()
-      .filter(
-        (location) =>
-          !search || comparableMetadataName(location.name).includes(search)
+      .where(
+        and(
+          isNull(locations.deletedAt),
+          search
+            ? sql`instr(${locations.normalizedName}, ${search}) > 0`
+            : undefined
+        )
       )
-      .sort(compareMetadataNames);
+      .orderBy(asc(locations.normalizedName), asc(locations.id))
+      .all();
   }
 
   async listWithUsage(
@@ -59,7 +71,7 @@ export class SQLiteLocationRepository implements LocationRepository {
 
     return this.database
       .select({
-        metadata: locations,
+        metadata: locationModelColumns,
         eventCount: count(events.id),
       })
       .from(locations)
@@ -67,18 +79,21 @@ export class SQLiteLocationRepository implements LocationRepository {
         events,
         and(eq(events.locationId, locations.id), isNull(events.deletedAt))
       )
-      .where(isNull(locations.deletedAt))
-      .groupBy(locations.id)
-      .all()
-      .filter(
-        ({ metadata }) =>
-          !search || comparableMetadataName(metadata.name).includes(search)
+      .where(
+        and(
+          isNull(locations.deletedAt),
+          search
+            ? sql`instr(${locations.normalizedName}, ${search}) > 0`
+            : undefined
+        )
       )
-      .sort(
-        (left, right) =>
-          right.eventCount - left.eventCount ||
-          compareMetadataNames(left.metadata, right.metadata)
-      );
+      .groupBy(locations.id)
+      .orderBy(
+        desc(count(events.id)),
+        asc(locations.normalizedName),
+        asc(locations.id)
+      )
+      .all();
   }
 
   async create(input: CreateNamedMetadataInput): Promise<Location> {
@@ -107,7 +122,13 @@ export class SQLiteLocationRepository implements LocationRepository {
       deletedAt: null,
     };
 
-    this.database.insert(locations).values(location).run();
+    this.database
+      .insert(locations)
+      .values({
+        ...location,
+        normalizedName: comparableMetadataName(location.name),
+      })
+      .run();
 
     return location;
   }
@@ -125,7 +146,11 @@ export class SQLiteLocationRepository implements LocationRepository {
 
     this.database
       .update(locations)
-      .set({ name: updated.name, updatedAt: updated.updatedAt })
+      .set({
+        name: updated.name,
+        normalizedName: comparableMetadataName(updated.name),
+        updatedAt: updated.updatedAt,
+      })
       .where(eq(locations.id, id))
       .run();
 
@@ -135,7 +160,7 @@ export class SQLiteLocationRepository implements LocationRepository {
   async softDelete(id: UUID): Promise<SoftDeleteMetadataResult> {
     return this.database.transaction((transaction) => {
       const location = transaction
-        .select()
+        .select(locationModelColumns)
         .from(locations)
         .where(eq(locations.id, id))
         .get();
@@ -162,6 +187,34 @@ export class SQLiteLocationRepository implements LocationRepository {
     });
   }
 
+  async softDeleteMany(
+    ids: readonly UUID[]
+  ): Promise<SoftDeleteMetadataResult> {
+    const uniqueIds = [...new Set(ids)];
+    const existingIds = new Set(
+      uniqueIds.length === 0
+        ? []
+        : this.database
+            .select({ id: locations.id })
+            .from(locations)
+            .where(inArray(locations.id, uniqueIds))
+            .all()
+            .map((location) => location.id)
+    );
+    uniqueIds.forEach((id) => {
+      if (!existingIds.has(id)) throw new EntityNotFoundError('Location', id);
+    });
+
+    const affectedEventIds = new Set<UUID>();
+    for (const id of uniqueIds) {
+      const result = await this.softDelete(id);
+      result.affectedEventIds.forEach((eventId) =>
+        affectedEventIds.add(eventId)
+      );
+    }
+    return { affectedEventIds: [...affectedEventIds].sort() };
+  }
+
   private validName(value: string) {
     const name = normalizeMetadataName(value);
 
@@ -171,24 +224,24 @@ export class SQLiteLocationRepository implements LocationRepository {
   }
 
   private assertUniqueName(name: string, excludedId?: UUID) {
-    const comparison = comparableMetadataName(name);
     const duplicate = this.database
-      .select({ id: locations.id, name: locations.name })
+      .select({ id: locations.id })
       .from(locations)
-      .where(isNull(locations.deletedAt))
-      .all()
-      .some(
-        (location) =>
-          location.id !== excludedId &&
-          comparableMetadataName(location.name) === comparison
-      );
+      .where(
+        and(
+          isNull(locations.deletedAt),
+          eq(locations.normalizedName, comparableMetadataName(name)),
+          excludedId ? ne(locations.id, excludedId) : undefined
+        )
+      )
+      .get();
 
     if (duplicate) throw new DuplicateNameError('Location', name);
   }
 
   private activeLocationOrThrow(id: UUID) {
     const location = this.database
-      .select()
+      .select(locationModelColumns)
       .from(locations)
       .where(and(eq(locations.id, id), isNull(locations.deletedAt)))
       .get();

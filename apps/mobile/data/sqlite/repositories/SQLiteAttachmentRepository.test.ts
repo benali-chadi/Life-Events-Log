@@ -33,6 +33,7 @@ function insertEvent(
     .values({
       id,
       title: id,
+      normalizedTitle: id.toLowerCase(),
       date: '2026-08-18',
       time: null,
       significance: 'ordinary',

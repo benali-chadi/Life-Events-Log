@@ -32,12 +32,12 @@ const eventSignificanceSql = sql.raw(
   EVENT_SIGNIFICANCE_VALUES.map((value) => `'${value}'`).join(', ')
 );
 
-function activeNormalizedNameIndex(
+function activeNameIndex(
   name: string,
-  table: { name: AnySQLiteColumn; deletedAt: AnySQLiteColumn }
+  table: { normalizedName: AnySQLiteColumn; deletedAt: AnySQLiteColumn }
 ) {
   return uniqueIndex(name)
-    .on(sql`lower(${table.name})`)
+    .on(table.normalizedName)
     .where(sql`${table.deletedAt} IS NULL`);
 }
 
@@ -46,11 +46,12 @@ export const categories = sqliteTable(
   {
     id: text('id').primaryKey(),
     name: text('name').notNull(),
+    normalizedName: text('normalized_name').notNull().default(''),
     color: text('color').$type<CategoryColor>().notNull(),
     ...syncTimestamps,
   },
   (table) => [
-    activeNormalizedNameIndex('categories_active_name_unique', table),
+    activeNameIndex('categories_active_normalized_name_unique', table),
     check(
       'categories_color_check',
       sql`${table.color} IN (${categoryColorSql})`
@@ -63,9 +64,10 @@ export const tags = sqliteTable(
   {
     id: text('id').primaryKey(),
     name: text('name').notNull(),
+    normalizedName: text('normalized_name').notNull().default(''),
     ...syncTimestamps,
   },
-  (table) => [activeNormalizedNameIndex('tags_active_name_unique', table)]
+  (table) => [activeNameIndex('tags_active_normalized_name_unique', table)]
 );
 
 export const people = sqliteTable(
@@ -73,9 +75,10 @@ export const people = sqliteTable(
   {
     id: text('id').primaryKey(),
     name: text('name').notNull(),
+    normalizedName: text('normalized_name').notNull().default(''),
     ...syncTimestamps,
   },
-  (table) => [activeNormalizedNameIndex('people_active_name_unique', table)]
+  (table) => [activeNameIndex('people_active_normalized_name_unique', table)]
 );
 
 export const locations = sqliteTable(
@@ -83,9 +86,10 @@ export const locations = sqliteTable(
   {
     id: text('id').primaryKey(),
     name: text('name').notNull(),
+    normalizedName: text('normalized_name').notNull().default(''),
     ...syncTimestamps,
   },
-  (table) => [activeNormalizedNameIndex('locations_active_name_unique', table)]
+  (table) => [activeNameIndex('locations_active_normalized_name_unique', table)]
 );
 
 export const events = sqliteTable(
@@ -93,6 +97,7 @@ export const events = sqliteTable(
   {
     id: text('id').primaryKey(),
     title: text('title').notNull(),
+    normalizedTitle: text('normalized_title').notNull().default(''),
     date: text('date').$type<LocalDate>().notNull(),
     time: text('time').$type<LocalTime>(),
     significance: text('significance').$type<EventSignificance>().notNull(),
@@ -111,6 +116,10 @@ export const events = sqliteTable(
     ),
     index('events_category_idx').on(table.categoryId, table.deletedAt),
     index('events_location_idx').on(table.locationId, table.deletedAt),
+    index('events_normalized_title_idx').on(
+      table.normalizedTitle,
+      table.deletedAt
+    ),
     check(
       'events_title_length_check',
       sql`length(${table.title}) <= ${sql.raw(String(EVENT_TITLE_MAX_LENGTH))}`
@@ -198,6 +207,53 @@ export const eventPeople = sqliteTable(
     ),
   ]
 );
+
+export const categoryModelColumns = {
+  id: categories.id,
+  name: categories.name,
+  color: categories.color,
+  createdAt: categories.createdAt,
+  updatedAt: categories.updatedAt,
+  deletedAt: categories.deletedAt,
+};
+
+export const tagModelColumns = {
+  id: tags.id,
+  name: tags.name,
+  createdAt: tags.createdAt,
+  updatedAt: tags.updatedAt,
+  deletedAt: tags.deletedAt,
+};
+
+export const personModelColumns = {
+  id: people.id,
+  name: people.name,
+  createdAt: people.createdAt,
+  updatedAt: people.updatedAt,
+  deletedAt: people.deletedAt,
+};
+
+export const locationModelColumns = {
+  id: locations.id,
+  name: locations.name,
+  createdAt: locations.createdAt,
+  updatedAt: locations.updatedAt,
+  deletedAt: locations.deletedAt,
+};
+
+export const eventModelColumns = {
+  id: events.id,
+  title: events.title,
+  date: events.date,
+  time: events.time,
+  significance: events.significance,
+  categoryId: events.categoryId,
+  locationId: events.locationId,
+  notes: events.notes,
+  createdAt: events.createdAt,
+  updatedAt: events.updatedAt,
+  deletedAt: events.deletedAt,
+};
 
 export type EventRow = typeof events.$inferSelect;
 export type EventAttachmentRow = typeof eventAttachments.$inferSelect;

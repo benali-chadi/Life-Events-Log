@@ -1,6 +1,6 @@
 import { radius } from '@lel/design';
 import type { ReactNode } from 'react';
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
@@ -24,12 +24,14 @@ type SwipeRevealProps = {
   action: ReactNode;
   actionWidth: number;
   children: ReactNode;
+  enabled?: boolean;
 };
 
 export default function SwipeReveal({
   action,
   actionWidth,
   children,
+  enabled = true,
 }: SwipeRevealProps) {
   const translateX = useRef(new Animated.Value(0)).current;
   const idRef = useRef(Symbol('swipe-reveal'));
@@ -60,6 +62,7 @@ export default function SwipeReveal({
   const panGesture = useMemo(
     () =>
       Gesture.Pan()
+        .enabled(enabled)
         .runOnJS(true)
         .activeOffsetX([-12, 12])
         .failOffsetY([-10, 10])
@@ -81,8 +84,12 @@ export default function SwipeReveal({
             event.velocityX * 0.04;
           animateTo(projectedPosition < -actionWidth / 2 ? -actionWidth : 0);
         }),
-    [actionWidth, animateTo, translateX]
+    [actionWidth, animateTo, enabled, translateX]
   );
+
+  useEffect(() => {
+    if (!enabled) animateTo(0);
+  }, [animateTo, enabled]);
 
   return (
     <View style={styles.root}>

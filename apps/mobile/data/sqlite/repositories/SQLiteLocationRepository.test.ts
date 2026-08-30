@@ -34,6 +34,7 @@ function insertEvent(
     .values({
       id,
       title: id,
+      normalizedTitle: id.toLowerCase(),
       date: '2026-08-18',
       time: null,
       significance: 'ordinary',
@@ -61,6 +62,7 @@ describe('SQLiteLocationRepository', () => {
       .values({
         id: LOCATION_ID,
         name: 'Rabat',
+        normalizedName: 'rabat',
         createdAt: '2026-08-01T10:00:00.000Z',
         updatedAt: '2026-08-01T10:00:00.000Z',
         deletedAt: null,

@@ -1,3 +1,5 @@
+import { eventColors } from '@lel/design';
+import { useTheme } from '@lel/design/useTheme';
 import { useState } from 'react';
 import { useCategoriesQuery, useCreateCategoryMutation } from '@/data/query';
 import SingleSelect from '../ui/SingleSelect';
@@ -14,6 +16,7 @@ export default function CategoryMetadata({
   value,
   onChange,
 }: CategoryMetadataProps = {}) {
+  const { isDark } = useTheme();
   const categoriesQuery = useCategoriesQuery();
   const createCategory = useCreateCategoryMutation();
   const [internalValue, setInternalValue] = useState<SelectOption | null>(null);
@@ -24,6 +27,7 @@ export default function CategoryMetadata({
   const options = (categoriesQuery.data ?? []).map((item) => ({
     id: item.id,
     label: item.name,
+    color: eventColors[item.color][isDark ? 'dark' : 'light'],
   }));
 
   return (
@@ -56,7 +60,11 @@ export default function CategoryMetadata({
             void createCategory
               .mutateAsync({ name, color })
               .then((created) => {
-                setCategory({ id: created.id, label: created.name });
+                setCategory({
+                  id: created.id,
+                  label: created.name,
+                  color: eventColors[created.color][isDark ? 'dark' : 'light'],
+                });
                 setCreationName(null);
               })
               .catch((error: unknown) => {

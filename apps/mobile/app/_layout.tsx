@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useMemo } from 'react';
+import { Image, StyleSheet } from 'react-native';
 import 'react-native-reanimated';
 import { useTheme } from '@lel/design/useTheme';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -12,6 +13,10 @@ import { createAppRepositories } from '@/data/appRepositories';
 import { appQueryClient } from '@/data/query';
 import { RepositoryProvider } from '@/data/RepositoryProvider';
 import { DATABASE_NAME, initializeDatabase } from '@/data/sqlite/database';
+
+export const unstable_settings = {
+  anchor: 'index',
+};
 
 export default function RootLayout() {
   return (
@@ -45,7 +50,20 @@ function AppLayout() {
               <Stack.Screen
                 name="index"
                 options={{
-                  title: 'Life Events Log',
+                  headerTitle: () => (
+                    <Image
+                      accessibilityLabel="Life Events Log"
+                      accessible
+                      resizeMode="contain"
+                      source={
+                        // require('@/assets/images/adaptive-icon-foreground.png')
+                        isDark
+                          ? require('@/assets/images/logo-lockup-dark.png')
+                          : require('@/assets/images/logo-lockup.png')
+                      }
+                      style={styles.timelineLockup}
+                    />
+                  ),
                   headerRight: () => <TimelineOverflowMenu />,
                 }}
               />
@@ -56,7 +74,13 @@ function AppLayout() {
                   headerBackTitle: 'Back',
                 }}
               />
-              <Stack.Screen name="new" options={{ presentation: 'modal' }} />
+              <Stack.Screen
+                name="new"
+                options={{
+                  presentation: 'modal',
+                  headerShown: false,
+                }}
+              />
               <Stack.Screen
                 name="metadata"
                 options={{
@@ -73,3 +97,10 @@ function AppLayout() {
     </RepositoryProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  timelineLockup: {
+    width: 150,
+    height: 50,
+  },
+});

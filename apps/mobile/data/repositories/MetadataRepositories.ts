@@ -37,6 +37,7 @@ export interface NamedMetadataRepository<TEntity> {
   create(input: CreateNamedMetadataInput): Promise<TEntity>;
   update(id: UUID, input: UpdateNamedMetadataInput): Promise<TEntity>;
   softDelete(id: UUID): Promise<SoftDeleteMetadataResult>;
+  softDeleteMany(ids: readonly UUID[]): Promise<SoftDeleteMetadataResult>;
 }
 
 export type TagRepository = NamedMetadataRepository<Tag>;
@@ -59,4 +60,5 @@ export interface CategoryRepository {
   create(input: CreateCategoryInput): Promise<Category>;
   update(id: UUID, input: UpdateCategoryInput): Promise<Category>;
   softDelete(id: UUID): Promise<SoftDeleteMetadataResult>;
+  softDeleteMany(ids: readonly UUID[]): Promise<SoftDeleteMetadataResult>;
 }

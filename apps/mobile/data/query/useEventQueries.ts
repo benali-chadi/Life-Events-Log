@@ -40,3 +40,13 @@ export function useInfiniteEventListQuery(query: EventListQueryInput) {
     placeholderData: keepPreviousData,
   });
 }
+
+export function useEventCountQuery(query: EventListQueryInput) {
+  const repository = useEventRepository();
+
+  return useQuery({
+    queryKey: eventKeys.count(query),
+    queryFn: () => repository.count(query),
+    placeholderData: keepPreviousData,
+  });
+}

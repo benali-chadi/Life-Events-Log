@@ -76,6 +76,9 @@ export default function SingleSelect({
       }),
     [maxVisibleSuggestions, options, query]
   );
+  const displayedValue = value
+    ? (options.find((option) => option.id === value.id) ?? value)
+    : null;
   const canCreate =
     Boolean(onCreate || onCreateRequest) &&
     Boolean(normalizedQuery) &&
@@ -240,14 +243,28 @@ export default function SingleSelect({
           />
         ) : (
           <View style={styles.valueRow}>
+            {displayedValue?.color && (
+              <View
+                style={[
+                  styles.colorIndicator,
+                  { backgroundColor: displayedValue.color },
+                ]}
+              />
+            )}
             <Text
               numberOfLines={1}
               style={[
                 styles.valueText,
-                { color: value ? colors.textSecondary : colors.textMuted },
+                {
+                  color: displayedValue
+                    ? colors.textSecondary
+                    : colors.textMuted,
+                },
               ]}
             >
-              {value ? `${prefix}${value.label}` : placeholder}
+              {displayedValue
+                ? `${prefix}${displayedValue.label}`
+                : placeholder}
             </Text>
             {value && clearable && !disabled && (
               <Pressable
@@ -293,10 +310,20 @@ export default function SingleSelect({
                 },
               ]}
             >
-              <Text style={[styles.suggestionText, { color: colors.text }]}>
-                {prefix}
-                {suggestion.label}
-              </Text>
+              <View style={styles.suggestionContent}>
+                {suggestion.color && (
+                  <View
+                    style={[
+                      styles.colorIndicator,
+                      { backgroundColor: suggestion.color },
+                    ]}
+                  />
+                )}
+                <Text style={[styles.suggestionText, { color: colors.text }]}>
+                  {prefix}
+                  {suggestion.label}
+                </Text>
+              </View>
               {suggestion.id === value?.id && (
                 <Check color={colors.textSecondary} size={16} strokeWidth={2} />
               )}
@@ -343,7 +370,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[3],
     paddingVertical: spacing[2],
   },
-  valueRow: { minHeight: 26, flexDirection: 'row', alignItems: 'center' },
+  valueRow: {
+    minHeight: 26,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+  },
   valueText: { ...typography.small, flex: 1 },
   clearButton: {
     width: 26,
@@ -368,7 +400,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[3],
     paddingVertical: spacing[2],
   },
+  suggestionContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+  },
   suggestionText: { ...typography.small, flexShrink: 1 },
+  colorIndicator: {
+    width: 10,
+    height: 10,
+    flexShrink: 0,
+    borderRadius: 5,
+  },
   emptyRow: {
     minHeight: 44,
     justifyContent: 'center',

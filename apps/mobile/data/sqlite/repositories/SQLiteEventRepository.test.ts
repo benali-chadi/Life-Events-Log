@@ -1,4 +1,5 @@
 import type { Database } from 'sql.js';
+import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   EntityNotFoundError,
@@ -55,15 +56,22 @@ describe('SQLiteEventRepository', () => {
   let sqlite: Database;
   let database: AppDatabase;
   let repository: SQLiteEventRepository;
+  let queries: string[];
 
   beforeEach(async () => {
-    ({ sqlite, database } = await createTestDatabase());
+    queries = [];
+    ({ sqlite, database } = await createTestDatabase({
+      logger: {
+        logQuery: (query) => queries.push(query),
+      },
+    }));
     repository = new SQLiteEventRepository(database, dependencies);
     database
       .insert(categories)
       .values({
         id: CATEGORY_ID,
         name: 'Personal',
+        normalizedName: 'personal',
         color: 'green',
         createdAt: NOW,
         updatedAt: NOW,
@@ -75,6 +83,7 @@ describe('SQLiteEventRepository', () => {
       .values({
         id: LOCATION_ID,
         name: 'Rabat',
+        normalizedName: 'rabat',
         createdAt: NOW,
         updatedAt: NOW,
         deletedAt: null,
@@ -86,6 +95,7 @@ describe('SQLiteEventRepository', () => {
         {
           id: TAG_ID,
           name: 'Family',
+          normalizedName: 'family',
           createdAt: NOW,
           updatedAt: NOW,
           deletedAt: null,
@@ -93,6 +103,7 @@ describe('SQLiteEventRepository', () => {
         {
           id: OTHER_TAG_ID,
           name: 'Travel',
+          normalizedName: 'travel',
           createdAt: NOW,
           updatedAt: NOW,
           deletedAt: null,
@@ -104,6 +115,7 @@ describe('SQLiteEventRepository', () => {
       .values({
         id: PERSON_ID,
         name: 'Leila',
+        normalizedName: 'leila',
         createdAt: NOW,
         updatedAt: NOW,
         deletedAt: null,
@@ -140,6 +152,21 @@ describe('SQLiteEventRepository', () => {
     expect(database.select().from(eventPeople).all()).toHaveLength(1);
   });
 
+  it('counts events using the same filters as the timeline list', async () => {
+    await repository.create(validInput());
+
+    await expect(repository.count({ limit: 10 })).resolves.toBe(1);
+    await expect(
+      repository.count({ limit: 10, search: 'family' })
+    ).resolves.toBe(1);
+    await expect(
+      repository.count({ limit: 10, search: 'missing' })
+    ).resolves.toBe(0);
+
+    await repository.softDelete(EVENT_ID);
+    await expect(repository.count({ limit: 10 })).resolves.toBe(0);
+  });
+
   it('updates fields and tombstones/restores relationship rows', async () => {
     await repository.create(validInput());
     await repository.update(EVENT_ID, {
@@ -154,6 +181,13 @@ describe('SQLiteEventRepository', () => {
       tags: [{ name: 'Travel' }],
       people: [],
     });
+    expect(
+      database
+        .select({ value: events.normalizedTitle })
+        .from(events)
+        .where(eq(events.id, EVENT_ID))
+        .get()?.value
+    ).toBe('updated');
     expect(database.select().from(eventTags).all()).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ tagId: TAG_ID, deletedAt: NOW }),
@@ -201,6 +235,7 @@ describe('SQLiteEventRepository', () => {
       .values({
         id: 'older',
         title: 'Older',
+        normalizedTitle: 'older',
         date: '2026-08-16',
         time: null,
         significance: 'ordinary',
@@ -213,6 +248,7 @@ describe('SQLiteEventRepository', () => {
       })
       .run();
 
+    queries = [];
     const first = await repository.list({
       search: 'family',
       tagIds: { ids: [TAG_ID] },
@@ -224,6 +260,7 @@ describe('SQLiteEventRepository', () => {
       attachmentPreview: { id: 'attachment-1' },
     });
     expect(first.nextCursor).toBeNull();
+    expect(queries).toHaveLength(1);
 
     const pageOne = await repository.list({ limit: 1 });
     const pageTwo = await repository.list({
@@ -232,6 +269,12 @@ describe('SQLiteEventRepository', () => {
     });
     expect(pageOne.items[0]?.event.id).toBe(EVENT_ID);
     expect(pageTwo.items[0]?.event.id).toBe('older');
+
+    await repository.update(EVENT_ID, { title: 'ÉTÉ à Rabat' });
+    const accentedSearch = await repository.list({ search: 'été', limit: 10 });
+    expect(accentedSearch.items.map((item) => item.event.id)).toEqual([
+      EVENT_ID,
+    ]);
   });
 
   it('soft deletes and restores without deleting owned rows', async () => {

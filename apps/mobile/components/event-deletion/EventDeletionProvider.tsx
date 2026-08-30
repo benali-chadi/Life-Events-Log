@@ -18,7 +18,12 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useDeleteEventMutation, useRestoreEventMutation } from '@/data/query';
+import {
+  useDeleteEventMutation,
+  useDeleteManyEventsMutation,
+  useRestoreEventMutation,
+  useRestoreManyEventsMutation,
+} from '@/data/query';
 import type { UUID } from '@/models';
 
 type DeletableEvent = {
@@ -28,6 +33,8 @@ type DeletableEvent = {
 
 type EventDeletionContextValue = {
   deleteEvent: (event: DeletableEvent) => Promise<void>;
+  deleteEvents: (events: readonly DeletableEvent[]) => Promise<void>;
+  isDeletingEvents: boolean;
 };
 
 const EventDeletionContext = createContext<EventDeletionContextValue | null>(
@@ -43,8 +50,10 @@ export default function EventDeletionProvider({
 }) {
   const { colors } = useTheme();
   const deleteEventMutation = useDeleteEventMutation();
+  const deleteManyEventsMutation = useDeleteManyEventsMutation();
   const restoreEventMutation = useRestoreEventMutation();
-  const [pendingEvent, setPendingEvent] = useState<DeletableEvent | null>(null);
+  const restoreManyEventsMutation = useRestoreManyEventsMutation();
+  const [pendingEvents, setPendingEvents] = useState<DeletableEvent[]>([]);
   const [reduceMotion, setReduceMotion] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const undoProgress = useRef(new Animated.Value(1)).current;
@@ -79,7 +88,7 @@ export default function EventDeletionProvider({
     async (event: DeletableEvent) => {
       await deleteEventMutation.mutateAsync(event.id);
       clearUndoTimer();
-      setPendingEvent(event);
+      setPendingEvents([event]);
       undoProgress.setValue(1);
 
       if (!reduceMotion) {
@@ -91,36 +100,75 @@ export default function EventDeletionProvider({
       }
 
       timerRef.current = setTimeout(() => {
-        setPendingEvent(null);
+        setPendingEvents([]);
         timerRef.current = null;
       }, UNDO_WINDOW_MS);
     },
     [clearUndoTimer, deleteEventMutation, reduceMotion, undoProgress]
   );
 
+  const deleteEvents = useCallback(
+    async (events: readonly DeletableEvent[]) => {
+      if (events.length === 0) return;
+
+      await deleteManyEventsMutation.mutateAsync(events.map(({ id }) => id));
+      clearUndoTimer();
+      setPendingEvents([...events]);
+      undoProgress.setValue(1);
+
+      if (!reduceMotion) {
+        Animated.timing(undoProgress, {
+          toValue: 0,
+          duration: UNDO_WINDOW_MS,
+          useNativeDriver: false,
+        }).start();
+      }
+
+      timerRef.current = setTimeout(() => {
+        setPendingEvents([]);
+        timerRef.current = null;
+      }, UNDO_WINDOW_MS);
+    },
+    [clearUndoTimer, deleteManyEventsMutation, reduceMotion, undoProgress]
+  );
+
   const undo = async () => {
-    if (!pendingEvent) return;
+    if (pendingEvents.length === 0) return;
 
     clearUndoTimer();
-    const eventToRestore = pendingEvent;
+    const eventsToRestore = pendingEvents;
 
     try {
-      await restoreEventMutation.mutateAsync(eventToRestore.id);
-      setPendingEvent(null);
+      if (eventsToRestore.length === 1) {
+        await restoreEventMutation.mutateAsync(eventsToRestore[0]!.id);
+      } else {
+        await restoreManyEventsMutation.mutateAsync(
+          eventsToRestore.map(({ id }) => id)
+        );
+      }
+      setPendingEvents([]);
     } catch {
-      setPendingEvent(null);
+      setPendingEvents([]);
       Alert.alert(
-        'Could not restore event',
-        'The event could not be restored. Please try again.'
+        eventsToRestore.length === 1
+          ? 'Could not restore event'
+          : 'Could not restore events',
+        `The ${eventsToRestore.length === 1 ? 'event' : 'events'} could not be restored. Please try again.`
       );
     }
   };
 
   return (
-    <EventDeletionContext.Provider value={{ deleteEvent }}>
+    <EventDeletionContext.Provider
+      value={{
+        deleteEvent,
+        deleteEvents,
+        isDeletingEvents: deleteManyEventsMutation.isPending,
+      }}
+    >
       {children}
 
-      {pendingEvent && (
+      {pendingEvents.length > 0 && (
         <View
           accessibilityLiveRegion="polite"
           style={[
@@ -135,7 +183,9 @@ export default function EventDeletionProvider({
             numberOfLines={1}
             style={[styles.toastText, { color: colors.text }]}
           >
-            Event deleted
+            {pendingEvents.length === 1
+              ? 'Event deleted'
+              : `${pendingEvents.length} events deleted`}
           </Text>
           <Pressable
             accessibilityRole="button"

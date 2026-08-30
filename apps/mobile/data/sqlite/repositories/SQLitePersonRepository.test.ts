@@ -31,6 +31,7 @@ function insertEvent(
     .values({
       id,
       title: id,
+      normalizedTitle: id.toLowerCase(),
       date: '2026-08-18',
       time: null,
       significance: 'ordinary',
@@ -75,6 +76,7 @@ describe('SQLitePersonRepository', () => {
       .values({
         id: PERSON_ID,
         name: 'Leila',
+        normalizedName: 'leila',
         createdAt: '2026-08-01T10:00:00.000Z',
         updatedAt: '2026-08-01T10:00:00.000Z',
         deletedAt: null,

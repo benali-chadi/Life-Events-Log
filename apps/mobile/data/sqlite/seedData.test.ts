@@ -23,6 +23,7 @@ describe('default seed data migration', () => {
       {
         id: '148d67ea-a892-412c-8293-4f469621ba43',
         name: 'Personal',
+        normalizedName: 'personal',
         color: 'magenta',
         createdAt: SEED_TIMESTAMP,
         updatedAt: SEED_TIMESTAMP,
@@ -31,6 +32,7 @@ describe('default seed data migration', () => {
       {
         id: '237ef166-7b37-43f7-b7d5-6bb453d88259',
         name: 'Work',
+        normalizedName: 'work',
         color: 'blue',
         createdAt: SEED_TIMESTAMP,
         updatedAt: SEED_TIMESTAMP,
@@ -39,6 +41,7 @@ describe('default seed data migration', () => {
       {
         id: '5c92cef4-26c0-49cf-837f-ff90cb46a0a5',
         name: 'Travel',
+        normalizedName: 'travel',
         color: 'green',
         createdAt: SEED_TIMESTAMP,
         updatedAt: SEED_TIMESTAMP,

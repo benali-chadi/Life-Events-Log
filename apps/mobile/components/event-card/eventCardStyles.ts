@@ -2,6 +2,22 @@ import { radius, spacing, typography } from '@lel/design';
 import { StyleSheet } from 'react-native';
 
 export const eventCardStyles = StyleSheet.create({
+  selectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[3],
+  },
+  selectionControl: {
+    width: 26,
+    height: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderRadius: 13,
+  },
+  selectionCard: {
+    flex: 1,
+  },
   deleteAction: {
     width: '100%',
     height: '100%',

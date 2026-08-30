@@ -1,4 +1,14 @@
-import { and, count, eq, inArray, isNull } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  ne,
+  sql,
+} from 'drizzle-orm';
 import {
   DuplicateNameError,
   EntityNotFoundError,
@@ -14,12 +24,11 @@ import {
 } from '@/data/repositories';
 import {
   comparableMetadataName,
-  compareMetadataNames,
   normalizeMetadataName,
 } from '@/data/repositories/metadataName';
 import type { Tag, UUID } from '@/models';
 import type { AppDatabase } from '../database';
-import { events, eventTags, tags } from '../schema';
+import { events, eventTags, tagModelColumns, tags } from '../schema';
 
 export class SQLiteTagRepository implements TagRepository {
   constructor(
@@ -30,7 +39,7 @@ export class SQLiteTagRepository implements TagRepository {
   async getById(id: UUID): Promise<Tag | null> {
     return (
       this.database
-        .select()
+        .select(tagModelColumns)
         .from(tags)
         .where(and(eq(tags.id, id), isNull(tags.deletedAt)))
         .get() ?? null
@@ -41,14 +50,16 @@ export class SQLiteTagRepository implements TagRepository {
     const search = query?.search ? comparableMetadataName(query.search) : '';
 
     return this.database
-      .select()
+      .select(tagModelColumns)
       .from(tags)
-      .where(isNull(tags.deletedAt))
-      .all()
-      .filter(
-        (tag) => !search || comparableMetadataName(tag.name).includes(search)
+      .where(
+        and(
+          isNull(tags.deletedAt),
+          search ? sql`instr(${tags.normalizedName}, ${search}) > 0` : undefined
+        )
       )
-      .sort(compareMetadataNames);
+      .orderBy(asc(tags.normalizedName), asc(tags.id))
+      .all();
   }
 
   async listWithUsage(
@@ -57,7 +68,7 @@ export class SQLiteTagRepository implements TagRepository {
     const search = query?.search ? comparableMetadataName(query.search) : '';
 
     return this.database
-      .select({ metadata: tags, eventCount: count(events.id) })
+      .select({ metadata: tagModelColumns, eventCount: count(events.id) })
       .from(tags)
       .leftJoin(
         eventTags,
@@ -67,18 +78,15 @@ export class SQLiteTagRepository implements TagRepository {
         events,
         and(eq(events.id, eventTags.eventId), isNull(events.deletedAt))
       )
-      .where(isNull(tags.deletedAt))
-      .groupBy(tags.id)
-      .all()
-      .filter(
-        ({ metadata }) =>
-          !search || comparableMetadataName(metadata.name).includes(search)
+      .where(
+        and(
+          isNull(tags.deletedAt),
+          search ? sql`instr(${tags.normalizedName}, ${search}) > 0` : undefined
+        )
       )
-      .sort(
-        (left, right) =>
-          right.eventCount - left.eventCount ||
-          compareMetadataNames(left.metadata, right.metadata)
-      );
+      .groupBy(tags.id)
+      .orderBy(desc(count(events.id)), asc(tags.normalizedName), asc(tags.id))
+      .all();
   }
 
   async create(input: CreateNamedMetadataInput): Promise<Tag> {
@@ -107,7 +115,10 @@ export class SQLiteTagRepository implements TagRepository {
       deletedAt: null,
     };
 
-    this.database.insert(tags).values(tag).run();
+    this.database
+      .insert(tags)
+      .values({ ...tag, normalizedName: comparableMetadataName(tag.name) })
+      .run();
 
     return tag;
   }
@@ -125,7 +136,11 @@ export class SQLiteTagRepository implements TagRepository {
 
     this.database
       .update(tags)
-      .set({ name: updated.name, updatedAt: updated.updatedAt })
+      .set({
+        name: updated.name,
+        normalizedName: comparableMetadataName(updated.name),
+        updatedAt: updated.updatedAt,
+      })
       .where(eq(tags.id, id))
       .run();
 
@@ -134,7 +149,11 @@ export class SQLiteTagRepository implements TagRepository {
 
   async softDelete(id: UUID): Promise<SoftDeleteMetadataResult> {
     return this.database.transaction((transaction) => {
-      const tag = transaction.select().from(tags).where(eq(tags.id, id)).get();
+      const tag = transaction
+        .select(tagModelColumns)
+        .from(tags)
+        .where(eq(tags.id, id))
+        .get();
 
       if (!tag) throw new EntityNotFoundError('Tag', id);
       if (tag.deletedAt !== null) return { affectedEventIds: [] };
@@ -170,6 +189,34 @@ export class SQLiteTagRepository implements TagRepository {
     });
   }
 
+  async softDeleteMany(
+    ids: readonly UUID[]
+  ): Promise<SoftDeleteMetadataResult> {
+    const uniqueIds = [...new Set(ids)];
+    const existingIds = new Set(
+      uniqueIds.length === 0
+        ? []
+        : this.database
+            .select({ id: tags.id })
+            .from(tags)
+            .where(inArray(tags.id, uniqueIds))
+            .all()
+            .map((tag) => tag.id)
+    );
+    uniqueIds.forEach((id) => {
+      if (!existingIds.has(id)) throw new EntityNotFoundError('Tag', id);
+    });
+
+    const affectedEventIds = new Set<UUID>();
+    for (const id of uniqueIds) {
+      const result = await this.softDelete(id);
+      result.affectedEventIds.forEach((eventId) =>
+        affectedEventIds.add(eventId)
+      );
+    }
+    return { affectedEventIds: [...affectedEventIds].sort() };
+  }
+
   private validName(value: string) {
     const name = normalizeMetadataName(value);
 
@@ -179,24 +226,24 @@ export class SQLiteTagRepository implements TagRepository {
   }
 
   private assertUniqueName(name: string, excludedId?: UUID) {
-    const comparison = comparableMetadataName(name);
     const duplicate = this.database
-      .select({ id: tags.id, name: tags.name })
+      .select({ id: tags.id })
       .from(tags)
-      .where(isNull(tags.deletedAt))
-      .all()
-      .some(
-        (tag) =>
-          tag.id !== excludedId &&
-          comparableMetadataName(tag.name) === comparison
-      );
+      .where(
+        and(
+          isNull(tags.deletedAt),
+          eq(tags.normalizedName, comparableMetadataName(name)),
+          excludedId ? ne(tags.id, excludedId) : undefined
+        )
+      )
+      .get();
 
     if (duplicate) throw new DuplicateNameError('Tag', name);
   }
 
   private activeTagOrThrow(id: UUID) {
     const tag = this.database
-      .select()
+      .select(tagModelColumns)
       .from(tags)
       .where(and(eq(tags.id, id), isNull(tags.deletedAt)))
       .get();

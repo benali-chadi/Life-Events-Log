@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, max } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, max } from 'drizzle-orm';
 import {
   EntityNotFoundError,
   ModelValidationError,
@@ -154,19 +154,63 @@ export class SQLiteAttachmentRepository implements AttachmentRepository {
   }
 
   async softDelete(id: UUID): Promise<void> {
-    const attachment = this.attachmentOrThrow(id);
-    this.activeEventOrThrow(attachment.eventId);
+    await this.softDeleteMany([id]);
+  }
 
-    if (attachment.deletedAt !== null) return;
+  async softDeleteMany(ids: readonly UUID[]): Promise<void> {
+    const uniqueIds = [...new Set(ids)];
+    if (uniqueIds.length === 0) return;
 
-    const timestamp = this.dependencies.now();
-    this.database
-      .update(eventAttachments)
-      .set({ updatedAt: timestamp, deletedAt: timestamp })
-      .where(
-        and(eq(eventAttachments.id, id), isNull(eventAttachments.deletedAt))
-      )
-      .run();
+    this.database.transaction((transaction) => {
+      const selectedAttachments = transaction
+        .select()
+        .from(eventAttachments)
+        .where(inArray(eventAttachments.id, uniqueIds))
+        .all();
+      const attachmentsById = new Map(
+        selectedAttachments.map((attachment) => [attachment.id, attachment])
+      );
+
+      uniqueIds.forEach((id) => {
+        if (!attachmentsById.has(id)) {
+          throw new EntityNotFoundError('Attachment', id);
+        }
+      });
+
+      const eventIds = [
+        ...new Set(selectedAttachments.map(({ eventId }) => eventId)),
+      ];
+      const activeEventIds = new Set(
+        transaction
+          .select({ id: events.id })
+          .from(events)
+          .where(and(inArray(events.id, eventIds), isNull(events.deletedAt)))
+          .all()
+          .map((event) => event.id)
+      );
+      eventIds.forEach((eventId) => {
+        if (!activeEventIds.has(eventId)) {
+          throw new EntityNotFoundError('Event', eventId);
+        }
+      });
+
+      const activeIds = selectedAttachments
+        .filter((attachment) => attachment.deletedAt === null)
+        .map((attachment) => attachment.id);
+      if (activeIds.length === 0) return;
+
+      const timestamp = this.dependencies.now();
+      transaction
+        .update(eventAttachments)
+        .set({ updatedAt: timestamp, deletedAt: timestamp })
+        .where(
+          and(
+            inArray(eventAttachments.id, activeIds),
+            isNull(eventAttachments.deletedAt)
+          )
+        )
+        .run();
+    });
   }
 
   async restore(id: UUID): Promise<void> {

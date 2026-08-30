@@ -1,8 +1,8 @@
 import { useTheme } from '@lel/design/useTheme';
 import { useRouter } from 'expo-router';
-import { Trash2 } from 'lucide-react-native';
-import { useCallback, useState } from 'react';
-import { Alert, Pressable, Text } from 'react-native';
+import { Check, Trash2 } from 'lucide-react-native';
+import { useCallback, useRef, useState } from 'react';
+import { Alert, Pressable, Text, View } from 'react-native';
 import { useEventDeletion } from '../event-deletion/EventDeletionProvider';
 import { confirmEventDeletion } from '../event-deletion/confirmEventDeletion';
 import SwipeReveal, { closeOpenSwipe } from '../ui/SwipeReveal';
@@ -12,12 +12,21 @@ import type { EventListItem } from '@/data/repositories';
 
 type EventCardProps = {
   event: EventListItem;
+  isSelected?: boolean;
+  selectionMode?: boolean;
+  onSelect?: () => void;
 };
 
-export default function EventCard({ event }: EventCardProps) {
+export default function EventCard({
+  event,
+  isSelected = false,
+  selectionMode = false,
+  onSelect,
+}: EventCardProps) {
   const router = useRouter();
   const { colors, isDark } = useTheme();
   const { deleteEvent } = useEventDeletion();
+  const suppressNextOpenRef = useRef(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [hasTitleOverflow, setHasTitleOverflow] = useState(false);
 
@@ -38,7 +47,17 @@ export default function EventCard({ event }: EventCardProps) {
   }, []);
 
   const openEvent = () => {
+    if (suppressNextOpenRef.current) {
+      suppressNextOpenRef.current = false;
+      return;
+    }
+
     if (closeOpenSwipe()) return;
+
+    if (selectionMode) {
+      onSelect?.();
+      return;
+    }
 
     router.navigate({
       pathname: '/[eventId]',
@@ -46,50 +65,93 @@ export default function EventCard({ event }: EventCardProps) {
     });
   };
 
+  const startSelection = () => {
+    suppressNextOpenRef.current = true;
+    onSelect?.();
+  };
+
   return (
-    <SwipeReveal
-      actionWidth={80}
-      action={
+    <View style={selectionMode && styles.selectionRow}>
+      {selectionMode && (
         <Pressable
-          accessibilityLabel={`Delete ${event.event.title}`}
-          accessibilityRole="button"
-          onPress={() =>
-            confirmEventDeletion(event.event.title, () => {
-              void deleteEvent(event.event).catch(() => {
-                Alert.alert(
-                  'Could not delete event',
-                  'The event was not deleted. Please try again.'
-                );
-              });
-            })
-          }
-          style={({ pressed }) => [
-            styles.deleteAction,
+          accessibilityLabel={`${isSelected ? 'Deselect' : 'Select'} ${event.event.title}`}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: isSelected }}
+          hitSlop={8}
+          onPress={onSelect}
+          style={[
+            styles.selectionControl,
             {
-              backgroundColor: pressed
-                ? colors.destructiveSurfacePressed
-                : colors.destructiveSurface,
+              backgroundColor: isSelected ? colors.primary : colors.bg,
+              borderColor: isSelected ? colors.primary : colors.borderStrong,
             },
           ]}
         >
-          <Trash2 color={colors.onDestructive} size={19} strokeWidth={2} />
-          <Text style={[styles.deleteText, { color: colors.onDestructive }]}>
-            Delete
-          </Text>
+          {isSelected && (
+            <Check color={colors.onPrimary} size={16} strokeWidth={3} />
+          )}
         </Pressable>
-      }
-    >
-      <EventCardContent
-        event={event}
-        significance={significance}
-        colors={colors}
-        isDark={isDark}
-        hasExpandableContent={hasExpandableContent}
-        isExpanded={isExpanded}
-        onOpen={openEvent}
-        onToggleExpanded={() => setIsExpanded((current) => !current)}
-        onTitleOverflowChange={handleTitleOverflowChange}
-      />
-    </SwipeReveal>
+      )}
+      <View style={selectionMode && styles.selectionCard}>
+        <SwipeReveal
+          actionWidth={80}
+          enabled={!selectionMode}
+          action={
+            selectionMode ? null : (
+              <Pressable
+                accessibilityLabel={`Delete ${event.event.title}`}
+                accessibilityRole="button"
+                onPress={() =>
+                  confirmEventDeletion(event.event.title, () => {
+                    void deleteEvent(event.event).catch(() => {
+                      Alert.alert(
+                        'Could not delete event',
+                        'The event was not deleted. Please try again.'
+                      );
+                    });
+                  })
+                }
+                style={({ pressed }) => [
+                  styles.deleteAction,
+                  {
+                    backgroundColor: pressed
+                      ? colors.destructiveSurfacePressed
+                      : colors.destructiveSurface,
+                  },
+                ]}
+              >
+                <Trash2
+                  color={colors.onDestructive}
+                  size={19}
+                  strokeWidth={2}
+                />
+                <Text
+                  style={[styles.deleteText, { color: colors.onDestructive }]}
+                >
+                  Delete
+                </Text>
+              </Pressable>
+            )
+          }
+        >
+          <EventCardContent
+            event={event}
+            significance={significance}
+            colors={colors}
+            isDark={isDark}
+            hasExpandableContent={hasExpandableContent}
+            isExpanded={isExpanded}
+            onLongPress={selectionMode ? undefined : startSelection}
+            onOpen={openEvent}
+            onToggleExpanded={
+              selectionMode
+                ? () => onSelect?.()
+                : () => setIsExpanded((current) => !current)
+            }
+            onTitleOverflowChange={handleTitleOverflowChange}
+          />
+        </SwipeReveal>
+      </View>
+    </View>
   );
 }

@@ -205,4 +205,26 @@ describe('InMemoryCategoryRepository', () => {
     ).rejects.toBeInstanceOf(EntityNotFoundError);
     expect([...database.events.entries()]).toEqual(eventsBefore);
   });
+
+  it('tombstones many categories and combines affected event IDs', async () => {
+    const { database, repository } = createRepository();
+    const categoryIds = DEVELOPMENT_SEED.categories
+      .slice(0, 2)
+      .map((category) => category.id);
+    const expectedEventIds = [...database.events.values()]
+      .filter((event) =>
+        categoryIds.some((categoryId) => categoryId === event.categoryId)
+      )
+      .map((event) => event.id)
+      .sort();
+
+    await expect(
+      repository.softDeleteMany([...categoryIds, categoryIds[0]!])
+    ).resolves.toEqual({ affectedEventIds: expectedEventIds });
+    categoryIds.forEach((id) => {
+      expect(database.categories.get(id)?.deletedAt).toBe(
+        '2026-07-30T10:00:00.000Z'
+      );
+    });
+  });
 });

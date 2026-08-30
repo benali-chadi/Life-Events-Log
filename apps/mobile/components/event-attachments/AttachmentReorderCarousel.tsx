@@ -27,6 +27,7 @@ export default function AttachmentReorderCarousel({
 
     const reordered = [...attachments];
     const [attachment] = reordered.splice(from, 1);
+    if (!attachment) return;
     reordered.splice(to, 0, attachment);
     onOrderChange(reordered);
     void Haptics.selectionAsync();

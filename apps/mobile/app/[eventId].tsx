@@ -5,11 +5,13 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import {
@@ -19,6 +21,7 @@ import {
   MoreVertical,
   Shapes,
   Tags,
+  Trash2,
   UsersRound,
 } from 'lucide-react-native';
 import TagsMetadata from '@/components/metadata/TagsMetadata';
@@ -27,7 +30,7 @@ import PeopleMetadata from '@/components/metadata/PeopleMetadata';
 import CategoryMetadata from '@/components/metadata/CategoryMetadata';
 import SignificanceMetadata from '@/components/metadata/SignificanceMetadata';
 import LocationMetadata from '@/components/metadata/LocationMetadata';
-import { radius, spacing, typography } from '@lel/design';
+import { elevation, radius, spacing, typography } from '@lel/design';
 import DateMetadata, {
   type DateValue,
 } from '@/components/metadata/DateMetadata';
@@ -45,6 +48,7 @@ import { useEventDeletion } from '@/components/event-deletion/EventDeletionProvi
 import { confirmEventDeletion } from '@/components/event-deletion/confirmEventDeletion';
 import {
   useDeleteAttachmentMutation,
+  useDeleteManyAttachmentsMutation,
   useEventDetailsQuery,
   useImportAttachmentMutation,
   useReorderAttachmentsMutation,
@@ -164,6 +168,7 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
   const updateEvent = useUpdateEventMutation();
   const importAttachment = useImportAttachmentMutation();
   const deleteAttachment = useDeleteAttachmentMutation();
+  const deleteManyAttachments = useDeleteManyAttachmentsMutation();
   const reorderAttachments = useReorderAttachmentsMutation();
   const immediateSaveVersions = useRef<Record<ImmediateEventField, number>>({
     date: 0,
@@ -342,6 +347,13 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
     });
   };
 
+  const removeAttachments = async (attachments: AttachmentPreview[]) => {
+    await deleteManyAttachments.mutateAsync({
+      ids: attachments.map(({ id }) => id),
+      eventId: event.id,
+    });
+  };
+
   const reorderEventAttachments = async (attachmentIds: string[]) => {
     await reorderAttachments.mutateAsync({
       eventId: event.id,
@@ -375,24 +387,7 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
           headerTitle: () => <EventTitleHeader title={title} />,
           headerBackTitle: 'Back',
           headerRight: () => (
-            <Pressable
-              accessibilityLabel="Event actions"
-              accessibilityRole="button"
-              hitSlop={8}
-              onPress={confirmDelete}
-              style={({ pressed }) => [
-                styles.headerMenuButton,
-                pressed && {
-                  backgroundColor: colors.interactivePressed,
-                },
-              ]}
-            >
-              <MoreVertical
-                color={colors.textSecondary}
-                size={21}
-                strokeWidth={2}
-              />
-            </Pressable>
+            <EventActionsMenu disabled={isDeleting} onDelete={confirmDelete} />
           ),
         }}
       />
@@ -444,19 +439,6 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
               />
             </MetadataRow>
             <MetadataRow
-              label="Tags"
-              icon={<Tags size={14} strokeWidth={2} color={colors.textMuted} />}
-            >
-              <TagsMetadata
-                value={tags}
-                onChange={(nextTags) =>
-                  void saveImmediate('tags', nextTags, tags, setTags, {
-                    tagIds: nextTags.map((tag) => tag.id),
-                  })
-                }
-              />
-            </MetadataRow>
-            <MetadataRow
               label="Category"
               icon={
                 <Shapes size={14} strokeWidth={2} color={colors.textMuted} />
@@ -472,25 +454,6 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
                     setCategory,
                     { categoryId: nextCategory?.id ?? null }
                   )
-                }
-              />
-            </MetadataRow>
-            <MetadataRow
-              label="People"
-              icon={
-                <UsersRound
-                  size={14}
-                  strokeWidth={2}
-                  color={colors.textMuted}
-                />
-              }
-            >
-              <PeopleMetadata
-                value={people}
-                onChange={(nextPeople) =>
-                  void saveImmediate('people', nextPeople, people, setPeople, {
-                    peopleIds: nextPeople.map((person) => person.id),
-                  })
                 }
               />
             </MetadataRow>
@@ -519,6 +482,38 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
                     }
                   );
                 }}
+              />
+            </MetadataRow>
+            <MetadataRow
+              label="Tags"
+              icon={<Tags size={14} strokeWidth={2} color={colors.textMuted} />}
+            >
+              <TagsMetadata
+                value={tags}
+                onChange={(nextTags) =>
+                  void saveImmediate('tags', nextTags, tags, setTags, {
+                    tagIds: nextTags.map((tag) => tag.id),
+                  })
+                }
+              />
+            </MetadataRow>
+            <MetadataRow
+              label="People"
+              icon={
+                <UsersRound
+                  size={14}
+                  strokeWidth={2}
+                  color={colors.textMuted}
+                />
+              }
+            >
+              <PeopleMetadata
+                value={people}
+                onChange={(nextPeople) =>
+                  void saveImmediate('people', nextPeople, people, setPeople, {
+                    peopleIds: nextPeople.map((person) => person.id),
+                  })
+                }
               />
             </MetadataRow>
             <MetadataRow
@@ -557,11 +552,120 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
               attachments={attachments}
               onAdd={addAttachments}
               onRemove={removeAttachment}
+              onRemoveMany={removeAttachments}
               onReorder={reorderEventAttachments}
             />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+    </>
+  );
+}
+
+const EVENT_MENU_WIDTH = 216;
+
+function EventActionsMenu({
+  disabled,
+  onDelete,
+}: {
+  disabled: boolean;
+  onDelete: () => void;
+}) {
+  const { colors } = useTheme();
+  const { width: windowWidth } = useWindowDimensions();
+  const triggerRef = useRef<View>(null);
+  const [menuPosition, setMenuPosition] = useState<{
+    top: number;
+    right: number;
+  } | null>(null);
+
+  const openMenu = () => {
+    if (disabled) return;
+
+    triggerRef.current?.measureInWindow((x, y, width, height) => {
+      setMenuPosition({
+        top: y + height + spacing[1],
+        right: Math.max(spacing[2], windowWidth - x - width),
+      });
+    });
+  };
+
+  const closeMenu = () => setMenuPosition(null);
+  const deleteEvent = () => {
+    closeMenu();
+    requestAnimationFrame(onDelete);
+  };
+
+  return (
+    <>
+      <Pressable
+        ref={triggerRef}
+        accessibilityLabel="Event actions"
+        accessibilityRole="button"
+        accessibilityState={{ disabled, expanded: menuPosition !== null }}
+        disabled={disabled}
+        hitSlop={8}
+        onPress={openMenu}
+        style={({ pressed }) => [
+          styles.headerMenuButton,
+          disabled && styles.disabledMenuButton,
+          pressed && { backgroundColor: colors.interactivePressed },
+        ]}
+      >
+        <MoreVertical color={colors.textSecondary} size={21} strokeWidth={2} />
+      </Pressable>
+
+      <Modal
+        animationType="fade"
+        onRequestClose={closeMenu}
+        statusBarTranslucent
+        transparent
+        visible={menuPosition !== null}
+      >
+        <View style={styles.menuModalRoot}>
+          <Pressable
+            accessibilityLabel="Close event actions"
+            accessibilityRole="button"
+            onPress={closeMenu}
+            style={StyleSheet.absoluteFill}
+          />
+
+          {menuPosition && (
+            <View
+              accessibilityViewIsModal
+              style={[
+                styles.eventMenu,
+                elevation.dropdown,
+                menuPosition,
+                {
+                  backgroundColor: colors.surfaceElevated,
+                  borderColor: colors.border,
+                  shadowColor: colors.text,
+                },
+              ]}
+            >
+              <Pressable
+                accessibilityRole="button"
+                onPress={deleteEvent}
+                style={({ pressed }) => [
+                  styles.eventMenuItem,
+                  pressed && { backgroundColor: colors.destructiveMuted },
+                ]}
+              >
+                <Trash2 color={colors.destructive} size={18} strokeWidth={2} />
+                <Text
+                  style={[
+                    styles.eventMenuItemText,
+                    { color: colors.destructive },
+                  ]}
+                >
+                  Delete event
+                </Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
+      </Modal>
     </>
   );
 }
@@ -614,5 +718,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.sm,
+  },
+  disabledMenuButton: {
+    opacity: 0.5,
+  },
+  menuModalRoot: {
+    flex: 1,
+  },
+  eventMenu: {
+    position: 'absolute',
+    width: EVENT_MENU_WIDTH,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderRadius: radius.md,
+  },
+  eventMenuItem: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[3],
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[2],
+  },
+  eventMenuItemText: {
+    ...typography.small,
+    fontWeight: '600',
   },
 });

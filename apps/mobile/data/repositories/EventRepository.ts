@@ -83,8 +83,10 @@ export interface EventRepository {
   getById(id: UUID): Promise<LELEvent | null>;
   getDetailsById(id: UUID): Promise<EventDetails | null>;
   list(query: EventListQuery): Promise<EventPage>;
+  count(query: EventListQuery): Promise<number>;
   create(input: CreateEventInput): Promise<EventDetails>;
   update(id: UUID, input: UpdateEventInput): Promise<EventDetails>;
   softDelete(id: UUID): Promise<void>;
+  softDeleteMany(ids: readonly UUID[]): Promise<void>;
   restore(id: UUID): Promise<void>;
 }

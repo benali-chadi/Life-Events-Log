@@ -24,3 +24,34 @@ export function confirmEventDeletion(title: string, onConfirm: () => void) {
     { text: 'Delete event', style: 'destructive', onPress: onConfirm },
   ]);
 }
+
+export function confirmManyEventsDeletion(
+  eventCount: number,
+  onConfirm: () => void
+) {
+  const noun = eventCount === 1 ? 'event' : 'events';
+  const title = `Delete ${eventCount} ${noun}?`;
+  const message = `The selected ${noun} will be removed from your timeline.`;
+  const action = eventCount === 1 ? 'Delete event' : 'Delete events';
+
+  if (Platform.OS === 'ios') {
+    ActionSheetIOS.showActionSheetWithOptions(
+      {
+        title,
+        message,
+        options: ['Cancel', action],
+        cancelButtonIndex: 0,
+        destructiveButtonIndex: 1,
+      },
+      (buttonIndex) => {
+        if (buttonIndex === 1) onConfirm();
+      }
+    );
+    return;
+  }
+
+  Alert.alert(title, message, [
+    { text: 'Cancel', style: 'cancel' },
+    { text: action, style: 'destructive', onPress: onConfirm },
+  ]);
+}

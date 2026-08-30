@@ -3,7 +3,11 @@ export function normalizeMetadataName(name: string) {
 }
 
 export function comparableMetadataName(name: string) {
-  return normalizeMetadataName(name).toLowerCase();
+  return normalizeSearchText(name);
+}
+
+export function normalizeSearchText(value: string) {
+  return normalizeMetadataName(value).toLowerCase();
 }
 
 export function compareMetadataNames(

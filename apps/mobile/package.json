@@ -6,8 +6,8 @@
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -57,6 +57,7 @@
     "@types/react": "~19.1.0",
     "@types/sql.js": "^1.4.11",
     "babel-plugin-inline-import": "^3.0.0",
+    "babel-preset-expo": "54.0.11",
     "drizzle-kit": "^0.31.10",
     "sql.js": "^1.14.2",
     "typescript": "~5.9.2"

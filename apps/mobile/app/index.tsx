@@ -1,13 +1,12 @@
 import { radius, spacing, typography } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
 import { router } from 'expo-router';
-import { Plus } from 'lucide-react-native';
-import { useEffect, useMemo, useState } from 'react';
+import { Plus, Trash2, X } from 'lucide-react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  LayoutAnimation,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
+  Alert,
+  BackHandler,
   Pressable,
   SectionList,
   StyleSheet,
@@ -15,7 +14,10 @@ import {
   View,
 } from 'react-native';
 import EventCard from '@/components/event-card';
+import { useEventDeletion } from '@/components/event-deletion/EventDeletionProvider';
+import { confirmManyEventsDeletion } from '@/components/event-deletion/confirmEventDeletion';
 import EventsHeader, {
+  type EventsHeaderHandle,
   type TimelineFilters,
   UNCATEGORIZED_FILTER_ID,
   WITHOUT_LOCATION_FILTER_ID,
@@ -23,12 +25,13 @@ import EventsHeader, {
 import { closeOpenSwipe } from '@/components/ui/SwipeReveal';
 import {
   type EventListQueryInput,
+  useEventCountQuery,
   useInfiniteEventListQuery,
 } from '@/data/query';
 import type { EventListItem } from '@/data/repositories';
-import type { LocalDate } from '@/models';
+import type { LocalDate, UUID } from '@/models';
 
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 10;
 const SEARCH_DEBOUNCE_MS = 300;
 
 const INITIAL_FILTERS: TimelineFilters = {
@@ -111,9 +114,14 @@ function groupEventsByDate(items: EventListItem[]) {
 
 export default function Index() {
   const { colors } = useTheme();
+  const eventsHeaderRef = useRef<EventsHeaderHandle>(null);
   const [filters, setFilters] = useState<TimelineFilters>(INITIAL_FILTERS);
+  const [selectedEventIds, setSelectedEventIds] = useState<Set<UUID>>(
+    () => new Set()
+  );
+  const { deleteEvents, isDeletingEvents } = useEventDeletion();
+  const selectionMode = selectedEventIds.size > 0;
   const debouncedSearch = useDebouncedValue(filters.search, SEARCH_DEBOUNCE_MS);
-  const [isToolbarCompact, setIsToolbarCompact] = useState(false);
   const eventListQuery = useMemo<EventListQueryInput>(() => {
     const categoryIds = filters.categoryIds.filter(
       (id) => id !== UNCATEGORIZED_FILTER_ID
@@ -147,8 +155,8 @@ export default function Index() {
       timeTo: filters.timeRange.to,
     };
   }, [debouncedSearch, filters]);
-  const hasActiveFilters =
-    filters.search.trim().length > 0 ||
+  const hasSearch = debouncedSearch.trim().length > 0;
+  const hasTimelineFilters =
     filters.categoryIds.length > 0 ||
     filters.significance.length > 0 ||
     filters.tagIds.length > 0 ||
@@ -157,6 +165,7 @@ export default function Index() {
     Boolean(filters.dateRange.from || filters.dateRange.to) ||
     Boolean(filters.timeRange.from || filters.timeRange.to);
   const eventsQuery = useInfiniteEventListQuery(eventListQuery);
+  const eventCountQuery = useEventCountQuery(eventListQuery);
   const sections = useMemo(
     () =>
       groupEventsByDate(
@@ -165,19 +174,57 @@ export default function Index() {
     [eventsQuery.data]
   );
 
+  const exitSelectionMode = useCallback(() => {
+    setSelectedEventIds(new Set());
+  }, []);
+
+  const toggleEventSelection = useCallback((id: UUID) => {
+    closeOpenSwipe();
+    setSelectedEventIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const deleteSelectedEvents = useCallback(() => {
+    const ids = [...selectedEventIds];
+    if (ids.length === 0) return;
+    const selectedEvents =
+      eventsQuery.data?.pages
+        .flatMap((page) => page.items)
+        .filter((item) => selectedEventIds.has(item.event.id))
+        .map((item) => ({ id: item.event.id, title: item.event.title })) ?? [];
+
+    confirmManyEventsDeletion(ids.length, () => {
+      void deleteEvents(selectedEvents)
+        .then(exitSelectionMode)
+        .catch(() => {
+          Alert.alert(
+            'Could not delete events',
+            'The selected events were not deleted. Please try again.'
+          );
+        });
+    });
+  }, [deleteEvents, eventsQuery.data, exitSelectionMode, selectedEventIds]);
+
+  useEffect(() => {
+    if (!selectionMode) return;
+
+    const subscription = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        exitSelectionMode();
+        return true;
+      }
+    );
+    return () => subscription.remove();
+  }, [exitSelectionMode, selectionMode]);
+
   const loadMore = () => {
     if (eventsQuery.hasNextPage && !eventsQuery.isFetchingNextPage) {
       void eventsQuery.fetchNextPage();
-    }
-  };
-
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const offset = event.nativeEvent.contentOffset.y;
-    const shouldCompact = isToolbarCompact ? offset > 24 : offset > 72;
-
-    if (shouldCompact !== isToolbarCompact) {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      setIsToolbarCompact(shouldCompact);
     }
   };
 
@@ -218,13 +265,70 @@ export default function Index() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
-      <EventsHeader
-        compact={isToolbarCompact}
-        filters={filters}
-        hasActiveFilters={hasActiveFilters}
-        onChange={setFilters}
-        onClear={() => setFilters(INITIAL_FILTERS)}
-      />
+      {selectionMode ? (
+        <View
+          accessibilityLiveRegion="polite"
+          style={[
+            styles.selectionToolbar,
+            {
+              backgroundColor: colors.surfaceElevated,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          <Pressable
+            accessibilityLabel="Exit selection mode"
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={exitSelectionMode}
+            style={({ pressed }) => [
+              styles.selectionToolbarButton,
+              pressed && { backgroundColor: colors.interactivePressed },
+            ]}
+          >
+            <X color={colors.text} size={22} />
+          </Pressable>
+          <Text style={[styles.selectionCount, { color: colors.text }]}>
+            {selectedEventIds.size} selected
+          </Text>
+          <Pressable
+            accessibilityLabel={`Delete ${selectedEventIds.size} selected ${selectedEventIds.size === 1 ? 'event' : 'events'}`}
+            accessibilityRole="button"
+            disabled={isDeletingEvents}
+            onPress={deleteSelectedEvents}
+            style={({ pressed }) => [
+              styles.deleteSelectedButton,
+              pressed && { backgroundColor: colors.destructiveMuted },
+              isDeletingEvents && styles.disabledAction,
+            ]}
+          >
+            {isDeletingEvents ? (
+              <ActivityIndicator color={colors.destructive} size="small" />
+            ) : (
+              <Trash2 color={colors.destructive} size={19} strokeWidth={2} />
+            )}
+            <Text
+              style={[styles.deleteSelectedText, { color: colors.destructive }]}
+            >
+              Delete
+            </Text>
+          </Pressable>
+        </View>
+      ) : (
+        <EventsHeader
+          ref={eventsHeaderRef}
+          eventCount={eventCountQuery.data}
+          filters={filters}
+          isEventCountFetching={eventCountQuery.isFetching}
+          onChange={setFilters}
+          onClear={() =>
+            setFilters((current) => ({
+              ...INITIAL_FILTERS,
+              search: current.search,
+            }))
+          }
+        />
+      )}
       <SectionList
         sections={sections}
         contentContainerStyle={[
@@ -232,14 +336,19 @@ export default function Index() {
           sections.length === 0 && styles.emptyListContent,
         ]}
         keyExtractor={(item) => item.event.id}
-        renderItem={({ item }) => <EventCard event={item} />}
+        renderItem={({ item }) => (
+          <EventCard
+            event={item}
+            isSelected={selectedEventIds.has(item.event.id)}
+            selectionMode={selectionMode}
+            onSelect={() => toggleEventSelection(item.event.id)}
+          />
+        )}
         onEndReached={loadMore}
         onEndReachedThreshold={0.4}
         onRefresh={() => void eventsQuery.refetch()}
         refreshing={eventsQuery.isRefetching && !eventsQuery.isFetchingNextPage}
-        onScroll={handleScroll}
         onScrollBeginDrag={closeOpenSwipe}
-        scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         renderSectionHeader={({ section: { title } }) => (
           <View style={[styles.sectionHeader, { backgroundColor: colors.bg }]}>
@@ -249,16 +358,23 @@ export default function Index() {
           </View>
         )}
         ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Text style={[styles.stateTitle, { color: colors.text }]}>
-              {hasActiveFilters ? 'No matching events' : 'No events yet'}
-            </Text>
-            <Text style={[styles.stateText, { color: colors.textMuted }]}>
-              {hasActiveFilters
-                ? 'Try changing or clearing your search and filters.'
-                : 'Create your first event to start your timeline.'}
-            </Text>
-          </View>
+          <TimelineEmptyState
+            hasSearch={hasSearch}
+            hasTimelineFilters={hasTimelineFilters}
+            onClearAll={() => setFilters(INITIAL_FILTERS)}
+            onClearFilters={() =>
+              setFilters((current) => ({
+                ...INITIAL_FILTERS,
+                search: current.search,
+              }))
+            }
+            onClearSearch={() =>
+              setFilters((current) => ({ ...current, search: '' }))
+            }
+            onCreate={() => router.push('/new')}
+            onEditFilters={() => eventsHeaderRef.current?.openFilters()}
+            search={filters.search}
+          />
         }
         ListFooterComponent={
           eventsQuery.isFetchingNextPage ? (
@@ -275,20 +391,174 @@ export default function Index() {
         )}
         stickySectionHeadersEnabled
       />
-      <Pressable
-        accessibilityLabel="Create event"
-        accessibilityRole="button"
-        onPress={() => router.push('/new')}
-        style={({ pressed }) => [
-          styles.createButton,
-          {
-            backgroundColor: pressed ? colors.primaryPressed : colors.primary,
-          },
+      {!selectionMode && (
+        <Pressable
+          accessibilityLabel="Create event"
+          accessibilityRole="button"
+          onPress={() => router.push('/new')}
+          style={({ pressed }) => [
+            styles.createButton,
+            {
+              backgroundColor: pressed ? colors.primaryPressed : colors.primary,
+            },
+          ]}
+        >
+          <Plus color={colors.onPrimary} size={26} strokeWidth={2.25} />
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+type TimelineEmptyStateProps = {
+  hasSearch: boolean;
+  hasTimelineFilters: boolean;
+  onClearAll: () => void;
+  onClearFilters: () => void;
+  onClearSearch: () => void;
+  onCreate: () => void;
+  onEditFilters: () => void;
+  search: string;
+};
+
+function TimelineEmptyState({
+  hasSearch,
+  hasTimelineFilters,
+  onClearAll,
+  onClearFilters,
+  onClearSearch,
+  onCreate,
+  onEditFilters,
+  search,
+}: TimelineEmptyStateProps) {
+  const { colors } = useTheme();
+
+  if (!hasSearch && !hasTimelineFilters) {
+    return (
+      <View style={styles.emptyState}>
+        <Text style={[styles.stateTitle, { color: colors.text }]}>
+          Your timeline starts here
+        </Text>
+        <Text style={[styles.stateText, { color: colors.textMuted }]}>
+          Capture meaningful moments and everyday events as they happen.
+        </Text>
+        <PrimaryStateAction label="Create event" onPress={onCreate} />
+      </View>
+    );
+  }
+
+  if (hasSearch && !hasTimelineFilters) {
+    const normalizedSearch = search.trim();
+    const displayedSearch =
+      normalizedSearch.length > 42
+        ? `${normalizedSearch.slice(0, 39)}…`
+        : normalizedSearch;
+
+    return (
+      <View style={styles.emptyState}>
+        <Text style={[styles.stateTitle, { color: colors.text }]}>
+          No events found
+        </Text>
+        <Text style={[styles.stateText, { color: colors.textMuted }]}>
+          Nothing matches “{displayedSearch}”.
+        </Text>
+        <PrimaryStateAction label="Clear search" onPress={onClearSearch} />
+      </View>
+    );
+  }
+
+  if (!hasSearch && hasTimelineFilters) {
+    return (
+      <View style={styles.emptyState}>
+        <Text style={[styles.stateTitle, { color: colors.text }]}>
+          No events match these filters
+        </Text>
+        <Text style={[styles.stateText, { color: colors.textMuted }]}>
+          Try changing your selections or clearing the filters.
+        </Text>
+        <PrimaryStateAction label="Edit filters" onPress={onEditFilters} />
+        <SecondaryStateAction
+          label="Clear all filters"
+          onPress={onClearFilters}
+        />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.emptyState}>
+      <Text style={[styles.stateTitle, { color: colors.text }]}>
+        No matching events
+      </Text>
+      <Text style={[styles.stateText, { color: colors.textMuted }]}>
+        Try a different search or adjust your filters.
+      </Text>
+      <View style={styles.emptyActionsRow}>
+        <SecondaryStateAction label="Clear search" onPress={onClearSearch} />
+        <PrimaryStateAction label="Edit filters" onPress={onEditFilters} />
+      </View>
+      <SecondaryStateAction label="Clear everything" onPress={onClearAll} />
+    </View>
+  );
+}
+
+function PrimaryStateAction({
+  label,
+  onPress,
+}: {
+  label: string;
+  onPress: () => void;
+}) {
+  const { colors } = useTheme();
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.primaryStateAction,
+        {
+          backgroundColor: pressed ? colors.primaryPressed : colors.primary,
+        },
+      ]}
+    >
+      <Text
+        style={[styles.primaryStateActionText, { color: colors.onPrimary }]}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+function SecondaryStateAction({
+  label,
+  onPress,
+}: {
+  label: string;
+  onPress: () => void;
+}) {
+  const { colors } = useTheme();
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.secondaryStateAction,
+        { borderColor: colors.borderStrong },
+        pressed && { backgroundColor: colors.interactivePressed },
+      ]}
+    >
+      <Text
+        style={[
+          styles.secondaryStateActionText,
+          { color: colors.textSecondary },
         ]}
       >
-        <Plus color={colors.onPrimary} size={26} strokeWidth={2.25} />
-      </Pressable>
-    </View>
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -297,6 +567,41 @@ const styles = StyleSheet.create({
     height: '100%',
     gap: spacing[2],
     paddingHorizontal: 20,
+  },
+  selectionToolbar: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing[2],
+  },
+  selectionToolbarButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.sm,
+  },
+  selectionCount: {
+    ...typography.body,
+    flex: 1,
+    fontWeight: '700',
+  },
+  deleteSelectedButton: {
+    minHeight: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing[3],
+  },
+  deleteSelectedText: {
+    ...typography.small,
+    fontWeight: '700',
+  },
+  disabledAction: {
+    opacity: 0.55,
   },
   list: {
     flex: 1,
@@ -330,8 +635,14 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing[2],
+    gap: spacing[3],
     paddingHorizontal: spacing[6],
+  },
+  emptyActionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: spacing[2],
   },
   stateTitle: {
     ...typography.h3,
@@ -339,7 +650,29 @@ const styles = StyleSheet.create({
   },
   stateText: {
     ...typography.small,
+    maxWidth: 340,
     textAlign: 'center',
+  },
+  primaryStateAction: {
+    minHeight: 44,
+    justifyContent: 'center',
+    borderRadius: radius.md,
+    paddingHorizontal: spacing[5],
+  },
+  primaryStateActionText: {
+    ...typography.small,
+    fontWeight: '700',
+  },
+  secondaryStateAction: {
+    minHeight: 44,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing[4],
+  },
+  secondaryStateActionText: {
+    ...typography.small,
+    fontWeight: '600',
   },
   retryButton: {
     minHeight: 44,

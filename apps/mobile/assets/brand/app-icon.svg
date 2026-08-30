@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Life Events Log app icon</title>
+  <desc id="desc">The Life Events Log open-loop mark on a warm ivory field.</desc>
+  <rect width="1024" height="1024" fill="#FBF6EC"/>
+  <defs>
+    <mask id="event-cutouts" maskUnits="userSpaceOnUse">
+      <rect width="1024" height="1024" fill="white"/>
+      <circle cx="326" cy="489" r="18" fill="black"/>
+      <circle cx="590" cy="224" r="18" fill="black"/>
+      <circle cx="666" cy="661" r="18" fill="black"/>
+    </mask>
+  </defs>
+  <g fill="none" stroke="#91BFA3" stroke-width="24" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 214 770 C 154 738, 150 650, 202 584 C 247 527, 286 510, 326 489 C 393 369, 468 244, 590 224 C 681 209, 738 267, 747 347 C 757 432, 716 495, 680 543 C 635 603, 621 644, 666 661 C 721 704, 793 730, 862 669" mask="url(#event-cutouts)"/>
+    <circle cx="326" cy="489" r="30"/>
+    <circle cx="590" cy="224" r="30"/>
+    <circle cx="666" cy="661" r="30"/>
+    <path d="M 824 675 L 862 669 L 855 707"/>
+  </g>
+</svg>

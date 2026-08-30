@@ -1,6 +1,7 @@
 export type SelectOption = {
   id: string;
   label: string;
+  color?: string;
 };
 
 export function normalizeOptionValue(value: string) {
