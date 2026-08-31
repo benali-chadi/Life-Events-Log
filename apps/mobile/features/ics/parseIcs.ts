@@ -38,14 +38,16 @@ export function parseIcs(icsText: string): ParsedIcsCalendar {
     version: stringValue(calendar, 'version'),
     events: calendar
       .getAllSubcomponents('vevent')
-      .map((component, sourceIndex) => parseEvent(component, sourceIndex)),
+      .map((component, sourceIndex) =>
+        parseIcsEventComponent(component, sourceIndex)
+      ),
     rawTimezones: calendar
       .getAllSubcomponents('vtimezone')
       .map((component) => component.toString()),
   };
 }
 
-function parseEvent(
+export function parseIcsEventComponent(
   component: IcalComponent,
   sourceIndex: number
 ): ParsedIcsEvent {

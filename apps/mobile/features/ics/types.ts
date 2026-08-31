@@ -44,3 +44,20 @@ export type ParsedIcsCalendar = {
   /** VTIMEZONE definitions needed when recurrence is expanded later. */
   rawTimezones: string[];
 };
+
+export type ExpandedIcsEvent = Omit<
+  ParsedIcsEvent,
+  'rawComponent' | 'recurrence'
+> & {
+  series: {
+    uid: string | null;
+    recurrenceId: ParsedIcsDateTime;
+  } | null;
+};
+
+export type IcsRecurrenceRange = {
+  /** Inclusive local calendar date in YYYY-MM-DD form. */
+  from?: string;
+  /** Inclusive local calendar date in YYYY-MM-DD form. */
+  to: string;
+};
