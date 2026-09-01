@@ -1,3 +1,4 @@
+import type { Location, LocalDate, LocalTime, Person, Tag } from '@/models';
 export type ParsedIcsDateTime = {
   /** RFC 5545 date/date-time value after parsing and normalization. */
   value: string;
@@ -60,4 +61,68 @@ export type IcsRecurrenceRange = {
   from?: string;
   /** Inclusive local calendar date in YYYY-MM-DD form. */
   to: string;
+};
+
+export type IcsImportMetadataSnapshot = {
+  tags: readonly Tag[];
+  people: readonly Person[];
+  locations: readonly Location[];
+};
+
+export type NewIcsImportMetadata = {
+  temporaryId: string;
+  name: string;
+};
+
+export type IcsImportMetadataReference<TEntity> =
+  | { kind: 'existing'; entity: TEntity }
+  | { kind: 'new'; metadata: NewIcsImportMetadata };
+
+export type IcsImportWarningCode =
+  'missing-title' | 'title-truncated' | 'attendee-name-missing';
+
+export type IcsImportWarning = {
+  code: IcsImportWarningCode;
+  message: string;
+};
+
+export type IcsImportSkipReason =
+  'cancelled' | 'missing-start' | 'invalid-start';
+
+export type SkippedIcsImportEvent = {
+  sourceIndex: number;
+  uid: string | null;
+  title: string | null;
+  reason: IcsImportSkipReason;
+};
+
+export type IcsImportCandidate = {
+  id: string;
+  event: {
+    title: string;
+    date: LocalDate;
+    time: LocalTime | null;
+    notes: string;
+    significance: 'ordinary';
+  };
+  tags: IcsImportMetadataReference<Tag>[];
+  people: IcsImportMetadataReference<Person>[];
+  location: IcsImportMetadataReference<Location> | null;
+  source: {
+    sourceIndex: number;
+    uid: string | null;
+    timezone: string;
+    recurring: boolean;
+  };
+  warnings: IcsImportWarning[];
+};
+
+export type IcsImportMappingResult = {
+  candidates: IcsImportCandidate[];
+  newMetadata: {
+    tags: NewIcsImportMetadata[];
+    people: NewIcsImportMetadata[];
+    locations: NewIcsImportMetadata[];
+  };
+  skipped: SkippedIcsImportEvent[];
 };

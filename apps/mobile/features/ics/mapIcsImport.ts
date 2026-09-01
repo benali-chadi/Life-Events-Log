@@ -1,0 +1,212 @@
+import {
+  comparableMetadataName,
+  normalizeMetadataName,
+} from '@/data/repositories/metadataName';
+import {
+  EVENT_TITLE_MAX_LENGTH,
+  type LocalDate,
+  type LocalTime,
+} from '@/models';
+import type {
+  ExpandedIcsEvent,
+  IcsImportCandidate,
+  IcsImportMappingResult,
+  IcsImportMetadataReference,
+  IcsImportMetadataSnapshot,
+  IcsImportSkipReason,
+  IcsImportWarning,
+  NewIcsImportMetadata,
+  SkippedIcsImportEvent,
+} from './types';
+
+export function mapIcsImport(
+  events: readonly ExpandedIcsEvent[],
+  metadata: IcsImportMetadataSnapshot
+): IcsImportMappingResult {
+  const tags = new MetadataResolver('tag', metadata.tags);
+  const people = new MetadataResolver('person', metadata.people);
+  const locations = new MetadataResolver('location', metadata.locations);
+  const candidates: IcsImportCandidate[] = [];
+  const skipped: SkippedIcsImportEvent[] = [];
+
+  events.forEach((event, occurrenceIndex) => {
+    const skipReason = eventSkipReason(event);
+    if (skipReason) {
+      skipped.push({
+        sourceIndex: event.sourceIndex,
+        uid: event.uid,
+        title: event.title,
+        reason: skipReason,
+      });
+      return;
+    }
+
+    const warnings: IcsImportWarning[] = [];
+    const title = mappedTitle(event.title, warnings);
+    const attendeeNames = event.attendees.flatMap((attendee) => {
+      const name = attendeeName(attendee.commonName, attendee.uri);
+      if (name) return [name];
+      warnings.push({
+        code: 'attendee-name-missing',
+        message: `An attendee on “${title}” has no usable name or email address.`,
+      });
+      return [];
+    });
+
+    candidates.push({
+      id: candidateId(event, occurrenceIndex),
+      event: {
+        title,
+        date: event.start!.value.slice(0, 10) as LocalDate,
+        time: event.start!.isDate
+          ? null
+          : (event.start!.value.slice(11, 16) as LocalTime),
+        notes: event.description ?? '',
+        significance: 'ordinary',
+      },
+      tags: tags.resolveMany(event.categories),
+      people: people.resolveMany(attendeeNames),
+      location: event.location ? locations.resolve(event.location) : null,
+      source: {
+        sourceIndex: event.sourceIndex,
+        uid: event.uid,
+        timezone: event.start!.timezone,
+        recurring: event.series !== null,
+      },
+      warnings,
+    });
+  });
+
+  return {
+    candidates,
+    newMetadata: {
+      tags: tags.newMetadata,
+      people: people.newMetadata,
+      locations: locations.newMetadata,
+    },
+    skipped,
+  };
+}
+
+class MetadataResolver<TEntity extends { id: string; name: string }> {
+  readonly newMetadata: NewIcsImportMetadata[] = [];
+  private readonly existingByName = new Map<string, TEntity>();
+  private readonly newByName = new Map<string, NewIcsImportMetadata>();
+
+  constructor(
+    private readonly type: 'tag' | 'person' | 'location',
+    existing: readonly TEntity[]
+  ) {
+    for (const entity of existing) {
+      if (!this.existingByName.has(comparableMetadataName(entity.name))) {
+        this.existingByName.set(comparableMetadataName(entity.name), entity);
+      }
+    }
+  }
+
+  resolve(name: string): IcsImportMetadataReference<TEntity> | null {
+    const normalized = normalizeMetadataName(name);
+    if (!normalized) return null;
+    const comparable = comparableMetadataName(normalized);
+    const existing = this.existingByName.get(comparable);
+    if (existing) return { kind: 'existing', entity: existing };
+
+    let proposed = this.newByName.get(comparable);
+    if (!proposed) {
+      proposed = {
+        temporaryId: `new:${this.type}:${comparable}`,
+        name: normalized,
+      };
+      this.newByName.set(comparable, proposed);
+      this.newMetadata.push(proposed);
+    }
+    return { kind: 'new', metadata: proposed };
+  }
+
+  resolveMany(names: readonly string[]): IcsImportMetadataReference<TEntity>[] {
+    const resolved = new Map<string, IcsImportMetadataReference<TEntity>>();
+    for (const name of names) {
+      const reference = this.resolve(name);
+      if (!reference) continue;
+      const key =
+        reference.kind === 'existing'
+          ? `existing:${reference.entity.id}`
+          : `new:${reference.metadata.temporaryId}`;
+      resolved.set(key, reference);
+    }
+    return [...resolved.values()];
+  }
+}
+
+function eventSkipReason(event: ExpandedIcsEvent): IcsImportSkipReason | null {
+  if (event.status?.toUpperCase() === 'CANCELLED') return 'cancelled';
+  if (!event.start) return 'missing-start';
+  if (!validStart(event.start.value, event.start.isDate))
+    return 'invalid-start';
+  return null;
+}
+
+function validStart(value: string, isDate: boolean): boolean {
+  if (isDate) return validDate(value);
+  const match =
+    /^(\d{4}-\d{2}-\d{2})T(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?Z?$/.exec(
+      value
+    );
+  return !!match && validDate(match[1]!);
+}
+
+function validDate(value: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+}
+
+function mappedTitle(
+  sourceTitle: string | null,
+  warnings: IcsImportWarning[]
+): string {
+  const normalized = normalizeMetadataName(sourceTitle ?? '');
+  if (!normalized) {
+    warnings.push({
+      code: 'missing-title',
+      message:
+        'This event has no title and will be imported as “Untitled event”.',
+    });
+    return 'Untitled event';
+  }
+  if (normalized.length <= EVENT_TITLE_MAX_LENGTH) return normalized;
+
+  warnings.push({
+    code: 'title-truncated',
+    message: `This title exceeds ${EVENT_TITLE_MAX_LENGTH} characters and will be shortened.`,
+  });
+  return normalized.slice(0, EVENT_TITLE_MAX_LENGTH).trimEnd();
+}
+
+function attendeeName(commonName: string | null, uri: string): string | null {
+  const normalizedCommonName = normalizeMetadataName(commonName ?? '');
+  if (normalizedCommonName) return normalizedCommonName;
+  if (!uri.toLowerCase().startsWith('mailto:')) return null;
+
+  const email = normalizeMetadataName(uri.slice('mailto:'.length));
+  if (!email) return null;
+  try {
+    return decodeURIComponent(email);
+  } catch {
+    return email;
+  }
+}
+
+function candidateId(event: ExpandedIcsEvent, occurrenceIndex: number): string {
+  const occurrence =
+    event.series?.recurrenceId.value ?? event.start?.value ?? '';
+  return `${event.sourceIndex}:${event.uid ?? ''}:${occurrence}:${occurrenceIndex}`;
+}

@@ -8,12 +8,22 @@ export {
   IcsRecurrenceExpansionError,
   type IcsRecurrenceExpansionErrorCode,
 } from './expandIcsRecurrences';
+export { mapIcsImport } from './mapIcsImport';
 export type {
   ExpandedIcsEvent,
+  IcsImportCandidate,
+  IcsImportMappingResult,
+  IcsImportMetadataReference,
+  IcsImportMetadataSnapshot,
+  IcsImportSkipReason,
+  IcsImportWarning,
+  IcsImportWarningCode,
   IcsRecurrenceRange,
+  NewIcsImportMetadata,
   ParsedIcsAttendee,
   ParsedIcsCalendar,
   ParsedIcsDateTime,
   ParsedIcsEvent,
   ParsedIcsRecurrence,
+  SkippedIcsImportEvent,
 } from './types';
