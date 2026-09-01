@@ -1,4 +1,8 @@
-import type { Location, LocalDate, LocalTime, Person, Tag } from '@/models';
+import type {
+  CreateEventInput,
+  NewEventImportMetadata,
+} from '@/data/repositories';
+import type { Location, Person, Tag } from '@/models';
 export type ParsedIcsDateTime = {
   /** RFC 5545 date/date-time value after parsing and normalization. */
   value: string;
@@ -69,10 +73,7 @@ export type IcsImportMetadataSnapshot = {
   locations: readonly Location[];
 };
 
-export type NewIcsImportMetadata = {
-  temporaryId: string;
-  name: string;
-};
+export type NewIcsImportMetadata = NewEventImportMetadata;
 
 export type IcsImportMetadataReference<TEntity> =
   | { kind: 'existing'; entity: TEntity }
@@ -98,13 +99,10 @@ export type SkippedIcsImportEvent = {
 
 export type IcsImportCandidate = {
   id: string;
-  event: {
-    title: string;
-    date: LocalDate;
-    time: LocalTime | null;
-    notes: string;
-    significance: 'ordinary';
-  };
+  event: Omit<
+    CreateEventInput,
+    'categoryId' | 'locationId' | 'tagIds' | 'peopleIds'
+  >;
   tags: IcsImportMetadataReference<Tag>[];
   people: IcsImportMetadataReference<Person>[];
   location: IcsImportMetadataReference<Location> | null;

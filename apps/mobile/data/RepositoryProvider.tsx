@@ -4,6 +4,7 @@ import type {
   AttachmentRepository,
   CategoryRepository,
   EventRepository,
+  EventImportRepository,
   LocationRepository,
   PersonRepository,
   Repositories,
@@ -38,6 +39,10 @@ export function useRepositories(): Repositories {
 
 export function useEventRepository(): EventRepository {
   return useRepositories().events;
+}
+
+export function useEventImportRepository(): EventImportRepository {
+  return useRepositories().eventImports;
 }
 
 export function useAttachmentRepository(): AttachmentRepository {

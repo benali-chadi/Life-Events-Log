@@ -4,6 +4,7 @@ import {
   InMemoryAttachmentRepository,
   InMemoryCategoryRepository,
   InMemoryEventRepository,
+  InMemoryEventImportRepository,
   InMemoryLocationRepository,
   InMemoryPersonRepository,
   InMemoryTagRepository,
@@ -23,6 +24,7 @@ export function createInMemoryRepositories({
 
   return {
     events: new InMemoryEventRepository(database, dependencies),
+    eventImports: new InMemoryEventImportRepository(database, dependencies),
     attachments: new InMemoryAttachmentRepository(database, dependencies),
     tags: new InMemoryTagRepository(database, dependencies),
     categories: new InMemoryCategoryRepository(database, dependencies),
