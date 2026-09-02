@@ -1,7 +1,8 @@
 import { elevation, radius, spacing, typography } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
 import { router } from 'expo-router';
-import { MoreVertical, Tags } from 'lucide-react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import { FileUp, MoreVertical, Tags } from 'lucide-react-native';
 import { useRef, useState } from 'react';
 import {
   Modal,
@@ -11,6 +12,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { useAppToast } from '@/components/ui/AppToastProvider';
 
 type MenuPosition = {
   top: number;
@@ -21,6 +23,7 @@ const MENU_WIDTH = 216;
 
 export default function TimelineOverflowMenu() {
   const { colors } = useTheme();
+  const { showToast } = useAppToast();
   const { width: windowWidth } = useWindowDimensions();
   const triggerRef = useRef<View>(null);
   const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
@@ -39,6 +42,32 @@ export default function TimelineOverflowMenu() {
   const manageMetadata = () => {
     closeMenu();
     requestAnimationFrame(() => router.push('/metadata'));
+  };
+
+  const importIcs = async () => {
+    closeMenu();
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        copyToCacheDirectory: true,
+        multiple: false,
+        type: ['text/calendar', 'application/ics'],
+      });
+      if (result.canceled) return;
+
+      const file = result.assets[0];
+      if (!file) return;
+      router.push({
+        pathname: './import-ics',
+        params: { name: file.name, uri: file.uri },
+      });
+    } catch (error) {
+      showToast(
+        error instanceof Error
+          ? error.message
+          : 'The calendar file could not be opened.',
+        'error'
+      );
+    }
   };
 
   return (
@@ -87,6 +116,23 @@ export default function TimelineOverflowMenu() {
                 },
               ]}
             >
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => void importIcs()}
+                style={({ pressed }) => [
+                  styles.menuItem,
+                  pressed && { backgroundColor: colors.interactivePressed },
+                ]}
+              >
+                <FileUp
+                  color={colors.textSecondary}
+                  size={18}
+                  strokeWidth={2}
+                />
+                <Text style={[styles.menuItemText, { color: colors.text }]}>
+                  Import from ICS file
+                </Text>
+              </Pressable>
               <Pressable
                 accessibilityRole="button"
                 onPress={manageMetadata}

@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { SQLiteProvider, useSQLiteContext } from 'expo-sqlite';
 import EventDeletionProvider from '@/components/event-deletion/EventDeletionProvider';
+import AppToastProvider from '@/components/ui/AppToastProvider';
 import TimelineOverflowMenu from '@/components/TimelineOverflowMenu';
 import { createAppRepositories } from '@/data/appRepositories';
 import { appQueryClient } from '@/data/query';
@@ -35,63 +36,72 @@ function AppLayout() {
     <RepositoryProvider repositories={repositories}>
       <QueryClientProvider client={appQueryClient}>
         <GestureHandlerRootView style={{ flex: 1 }}>
-          <EventDeletionProvider>
-            <Stack
-              screenOptions={{
-                headerStyle: {
-                  backgroundColor: colors.surface,
-                },
-                headerTintColor: colors.text,
-                headerTitleStyle: {
-                  color: colors.text,
-                },
-              }}
-            >
-              <Stack.Screen
-                name="index"
-                options={{
-                  headerTitle: () => (
-                    <Image
-                      accessibilityLabel="Life Events Log"
-                      accessible
-                      resizeMode="contain"
-                      source={
-                        // require('@/assets/images/adaptive-icon-foreground.png')
-                        isDark
-                          ? require('@/assets/images/logo-lockup-dark.png')
-                          : require('@/assets/images/logo-lockup.png')
-                      }
-                      style={styles.timelineLockup}
-                    />
-                  ),
-                  headerRight: () => <TimelineOverflowMenu />,
+          <AppToastProvider>
+            <EventDeletionProvider>
+              <Stack
+                screenOptions={{
+                  headerStyle: {
+                    backgroundColor: colors.surface,
+                  },
+                  headerTintColor: colors.text,
+                  headerTitleStyle: {
+                    color: colors.text,
+                  },
                 }}
-              />
-              <Stack.Screen
-                name="[eventId]"
-                options={{
-                  title: 'Event',
-                  headerBackTitle: 'Back',
-                }}
-              />
-              <Stack.Screen
-                name="new"
-                options={{
-                  presentation: 'modal',
-                  headerShown: false,
-                }}
-              />
-              <Stack.Screen
-                name="metadata"
-                options={{
-                  title: 'Manage metadata',
-                  headerBackTitle: 'Back',
-                }}
-              />
-            </Stack>
+              >
+                <Stack.Screen
+                  name="index"
+                  options={{
+                    headerTitle: () => (
+                      <Image
+                        accessibilityLabel="Life Events Log"
+                        accessible
+                        resizeMode="contain"
+                        source={
+                          // require('@/assets/images/adaptive-icon-foreground.png')
+                          isDark
+                            ? require('@/assets/images/logo-lockup-dark.png')
+                            : require('@/assets/images/logo-lockup.png')
+                        }
+                        style={styles.timelineLockup}
+                      />
+                    ),
+                    headerRight: () => <TimelineOverflowMenu />,
+                  }}
+                />
+                <Stack.Screen
+                  name="[eventId]"
+                  options={{
+                    title: 'Event',
+                    headerBackTitle: 'Back',
+                  }}
+                />
+                <Stack.Screen
+                  name="new"
+                  options={{
+                    presentation: 'modal',
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="metadata"
+                  options={{
+                    title: 'Manage metadata',
+                    headerBackTitle: 'Back',
+                  }}
+                />
+                <Stack.Screen
+                  name="import-ics"
+                  options={{
+                    title: 'Import calendar',
+                    headerBackTitle: 'Back',
+                  }}
+                />
+              </Stack>
 
-            <StatusBar style={isDark ? 'light' : 'dark'} />
-          </EventDeletionProvider>
+              <StatusBar style={isDark ? 'light' : 'dark'} />
+            </EventDeletionProvider>
+          </AppToastProvider>
         </GestureHandlerRootView>
       </QueryClientProvider>
     </RepositoryProvider>
