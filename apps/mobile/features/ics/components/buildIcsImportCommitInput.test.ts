@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { IcsImportMappingResult } from './types';
+import type { IcsImportMappingResult } from '../mapping/types';
 import { buildIcsImportCommitInput } from './buildIcsImportCommitInput';
 
 describe('buildIcsImportCommitInput', () => {

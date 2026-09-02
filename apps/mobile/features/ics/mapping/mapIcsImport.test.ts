@@ -1,7 +1,7 @@
 import type { Location, Person, Tag } from '@/models';
 import { describe, expect, it } from 'vitest';
 import { mapIcsImport } from './mapIcsImport';
-import type { ExpandedIcsEvent } from './types';
+import type { ExpandedIcsEvent } from '../parsing/types';
 
 const timestamp = '2026-09-01T10:00:00.000Z';
 

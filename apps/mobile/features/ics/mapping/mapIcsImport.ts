@@ -8,7 +8,6 @@ import {
   type LocalTime,
 } from '@/models';
 import type {
-  ExpandedIcsEvent,
   IcsImportCandidate,
   IcsImportMappingResult,
   IcsImportMetadataReference,
@@ -18,6 +17,7 @@ import type {
   NewIcsImportMetadata,
   SkippedIcsImportEvent,
 } from './types';
+import type { ExpandedIcsEvent } from '../parsing/types';
 
 export function mapIcsImport(
   events: readonly ExpandedIcsEvent[],

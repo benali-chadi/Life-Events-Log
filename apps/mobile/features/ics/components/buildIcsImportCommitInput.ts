@@ -7,7 +7,7 @@ import type {
   IcsImportCandidate,
   IcsImportMappingResult,
   IcsImportMetadataReference,
-} from './types';
+} from '../mapping/types';
 
 export function buildIcsImportCommitInput(
   mapping: IcsImportMappingResult,

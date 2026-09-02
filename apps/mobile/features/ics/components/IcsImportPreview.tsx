@@ -35,7 +35,7 @@ import type {
   IcsImportCandidate,
   IcsImportMappingResult,
   IcsImportMetadataReference,
-} from './types';
+} from '../mapping/types';
 
 type IcsImportPreviewProps = {
   mapping: IcsImportMappingResult;
@@ -52,7 +52,6 @@ export default function IcsImportPreview({
   onImported,
 }: IcsImportPreviewProps) {
   const { colors, isDark } = useTheme();
-  const warningColor = eventColors.amber[isDark ? 'dark' : 'light'];
   const categoriesQuery = useCategoriesQuery();
   const commitImport = useCommitEventImportMutation();
   const [selectedIds, setSelectedIds] = useState(
@@ -155,12 +154,12 @@ export default function IcsImportPreview({
           style={[
             styles.notice,
             {
-              backgroundColor: colors.interactiveMuted,
-              borderColor: warningColor,
+              backgroundColor: colors.warningMuted,
+              borderColor: colors.warning,
             },
           ]}
         >
-          <AlertTriangle color={warningColor} size={18} />
+          <AlertTriangle color={colors.warning} size={18} />
           <Text style={[styles.noticeText, { color: colors.textSecondary }]}>
             {mapping.skipped.length > 0
               ? `${mapping.skipped.length} event${mapping.skipped.length === 1 ? ' was' : 's were'} skipped. `
@@ -294,8 +293,7 @@ function CandidateRow({
   selected: boolean;
   onToggle: () => void;
 }) {
-  const { colors, isDark } = useTheme();
-  const warningColor = eventColors.amber[isDark ? 'dark' : 'light'];
+  const { colors } = useTheme();
   const metadata = candidateMetadata(candidate);
   return (
     <Pressable
@@ -361,7 +359,7 @@ function CandidateRow({
         {candidate.warnings.map((warning, index) => (
           <Text
             key={`${warning.code}:${index}`}
-            style={[styles.warningText, { color: warningColor }]}
+            style={[styles.warningText, { color: colors.warning }]}
           >
             {warning.message}
           </Text>

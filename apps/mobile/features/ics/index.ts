@@ -1,21 +1,20 @@
-export { IcsParseError, parseIcs } from './parseIcs';
+export { IcsParseError, parseIcs } from './parsing/parseIcs';
 export {
   MAX_ICS_IMPORT_EVENTS,
   MAX_ICS_OCCURRENCES_PER_SERIES,
-} from './limits';
+} from './parsing/limits';
 export {
   expandIcsRecurrences,
   IcsRecurrenceExpansionError,
   type IcsRecurrenceExpansionErrorCode,
-} from './expandIcsRecurrences';
-export { mapIcsImport } from './mapIcsImport';
-export { default as IcsImportPreview } from './IcsImportPreview';
+} from './parsing/expandIcsRecurrences';
+export { mapIcsImport } from './mapping/mapIcsImport';
+export { default as IcsImportPreview } from './components/IcsImportPreview';
 export {
   buildIcsImportCommitInput,
   selectedWarningCount,
-} from './buildIcsImportCommitInput';
+} from './components/buildIcsImportCommitInput';
 export type {
-  ExpandedIcsEvent,
   IcsImportCandidate,
   IcsImportMappingResult,
   IcsImportMetadataReference,
@@ -23,12 +22,15 @@ export type {
   IcsImportSkipReason,
   IcsImportWarning,
   IcsImportWarningCode,
-  IcsRecurrenceRange,
   NewIcsImportMetadata,
+  SkippedIcsImportEvent,
+} from './mapping/types';
+export type {
+  ExpandedIcsEvent,
+  IcsRecurrenceRange,
   ParsedIcsAttendee,
   ParsedIcsCalendar,
   ParsedIcsDateTime,
   ParsedIcsEvent,
   ParsedIcsRecurrence,
-  SkippedIcsImportEvent,
-} from './types';
+} from './parsing/types';
