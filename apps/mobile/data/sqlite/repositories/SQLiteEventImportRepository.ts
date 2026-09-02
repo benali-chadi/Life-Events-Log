@@ -13,6 +13,7 @@ import {
   type RepositoryDependencies,
 } from '@/data/repositories';
 import {
+  validateEventImportCategory,
   validateEventImportValues,
   validateNewMetadataDefinitions,
 } from '@/data/repositories/eventImportValidation';
@@ -56,6 +57,7 @@ export class SQLiteEventImportRepository implements EventImportRepository {
       'Location',
       input.newMetadata.locations
     );
+    const categoryInput = validateEventImportCategory(input.category);
     const referenceIds = collectExistingReferenceIds(eventValues);
 
     return this.database.transaction((transaction) => {
@@ -72,7 +74,34 @@ export class SQLiteEventImportRepository implements EventImportRepository {
         transaction,
         referenceIds.locations
       );
-      const category = selectActiveCategory(transaction, input.categoryId);
+      let category: Category | null = null;
+      let categoryCreated = false;
+      if (categoryInput?.kind === 'existing') {
+        category = selectActiveCategory(transaction, categoryInput.id);
+        if (!category) {
+          throw new EntityNotFoundError('Category', categoryInput.id);
+        }
+      } else if (categoryInput?.kind === 'new') {
+        category = selectActiveCategoryByName(transaction, categoryInput.name);
+        if (!category) {
+          category = {
+            id: this.uniqueCategoryId(transaction),
+            name: categoryInput.name,
+            color: categoryInput.color,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+            deletedAt: null,
+          };
+          transaction
+            .insert(categories)
+            .values({
+              ...category,
+              normalizedName: comparableMetadataName(category.name),
+            })
+            .run();
+          categoryCreated = true;
+        }
+      }
       assertExistingReferences(referenceIds.tags, existingTags, 'Tag');
       assertExistingReferences(referenceIds.people, existingPeople, 'Person');
       assertExistingReferences(
@@ -80,9 +109,6 @@ export class SQLiteEventImportRepository implements EventImportRepository {
         existingLocations,
         'Location'
       );
-      if (input.categoryId && !category) {
-        throw new EntityNotFoundError('Category', input.categoryId);
-      }
 
       const tagResolution = resolveDefinitions(
         tagDefinitions,
@@ -229,6 +255,7 @@ export class SQLiteEventImportRepository implements EventImportRepository {
       return {
         eventCount: eventValues.length,
         createdMetadata: {
+          categoryCount: categoryCreated ? 1 : 0,
           tagCount: tagResolution.created.length,
           peopleCount: personResolution.created.length,
           locationCount: locationResolution.created.length,
@@ -239,6 +266,10 @@ export class SQLiteEventImportRepository implements EventImportRepository {
 
   private uniqueTagId(database: Pick<AppDatabase, 'select'>) {
     return this.uniqueId(database, tags, 'tag');
+  }
+
+  private uniqueCategoryId(database: Pick<AppDatabase, 'select'>) {
+    return this.uniqueId(database, categories, 'category');
   }
 
   private uniquePersonId(database: Pick<AppDatabase, 'select'>) {
@@ -255,7 +286,12 @@ export class SQLiteEventImportRepository implements EventImportRepository {
 
   private uniqueId(
     database: Pick<AppDatabase, 'select'>,
-    table: typeof tags | typeof people | typeof locations | typeof events,
+    table:
+      | typeof categories
+      | typeof tags
+      | typeof people
+      | typeof locations
+      | typeof events,
     entityName: string
   ) {
     const id = this.dependencies.createId();
@@ -413,6 +449,24 @@ function selectActiveCategory(
       .select(categoryModelColumns)
       .from(categories)
       .where(and(isNull(categories.deletedAt), eq(categories.id, id)))
+      .get() ?? null
+  );
+}
+
+function selectActiveCategoryByName(
+  database: ReadDatabase,
+  name: string
+): Category | null {
+  return (
+    database
+      .select(categoryModelColumns)
+      .from(categories)
+      .where(
+        and(
+          isNull(categories.deletedAt),
+          eq(categories.normalizedName, comparableMetadataName(name))
+        )
+      )
       .get() ?? null
   );
 }

@@ -15,7 +15,13 @@ import {
   invalidateMetadataLists,
   invalidateMetadataUsageLists,
 } from './invalidation';
-import { eventKeys, locationKeys, personKeys, tagKeys } from './queryKeys';
+import {
+  categoryKeys,
+  eventKeys,
+  locationKeys,
+  personKeys,
+  tagKeys,
+} from './queryKeys';
 
 export function useCreateEventMutation() {
   const repository = useEventRepository();
@@ -43,6 +49,9 @@ export function useCommitEventImportMutation() {
       await Promise.all([
         invalidateEventLists(queryClient),
         invalidateMetadataUsageLists(queryClient),
+        result.createdMetadata.categoryCount > 0
+          ? invalidateMetadataLists(queryClient, categoryKeys)
+          : Promise.resolve(),
         result.createdMetadata.tagCount > 0
           ? invalidateMetadataLists(queryClient, tagKeys)
           : Promise.resolve(),

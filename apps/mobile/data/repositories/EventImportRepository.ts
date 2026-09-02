@@ -1,4 +1,4 @@
-import type { UUID } from '@/models';
+import type { CategoryColor, UUID } from '@/models';
 import type { CreateEventInput } from './EventRepository';
 
 export type EventImportMetadataReference =
@@ -8,6 +8,10 @@ export type NewEventImportMetadata = {
   temporaryId: string;
   name: string;
 };
+
+export type EventImportCategory =
+  | { kind: 'existing'; id: UUID }
+  | { kind: 'new'; name: string; color: CategoryColor };
 
 export type EventImportEventInput = Omit<
   CreateEventInput,
@@ -19,7 +23,7 @@ export type EventImportEventInput = Omit<
 };
 
 export type CommitEventImportInput = {
-  categoryId: UUID | null;
+  category: EventImportCategory | null;
   events: readonly EventImportEventInput[];
   newMetadata: {
     tags: readonly NewEventImportMetadata[];
@@ -31,6 +35,7 @@ export type CommitEventImportInput = {
 export type CommitEventImportResult = {
   eventCount: number;
   createdMetadata: {
+    categoryCount: number;
     tagCount: number;
     peopleCount: number;
     locationCount: number;

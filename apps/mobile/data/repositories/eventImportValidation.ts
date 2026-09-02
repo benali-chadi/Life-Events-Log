@@ -1,6 +1,7 @@
 import {
   EVENT_SIGNIFICANCE_VALUES,
   EVENT_TITLE_MAX_LENGTH,
+  CATEGORY_COLOR_VALUES,
   type EventSignificance,
   type LocalDate,
   type LocalTime,
@@ -8,6 +9,7 @@ import {
 import { ModelValidationError } from './errors';
 import type {
   EventImportEventInput,
+  EventImportCategory,
   NewEventImportMetadata,
 } from './EventImportRepository';
 import { normalizeMetadataName } from './metadataName';
@@ -60,6 +62,20 @@ export function validateNewMetadataDefinitions(
     temporaryIds.add(temporaryId);
     return { temporaryId, name };
   });
+}
+
+export function validateEventImportCategory(
+  category: EventImportCategory | null
+): EventImportCategory | null {
+  if (!category || category.kind === 'existing') return category;
+  const name = normalizeMetadataName(category.name);
+  if (!name) throw new ModelValidationError('Category name cannot be empty.');
+  if (!CATEGORY_COLOR_VALUES.includes(category.color)) {
+    throw new ModelValidationError(
+      `Invalid category color “${category.color}”.`
+    );
+  }
+  return { ...category, name };
 }
 
 function validDate(value: LocalDate) {

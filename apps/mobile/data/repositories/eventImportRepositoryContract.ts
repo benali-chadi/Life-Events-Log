@@ -16,7 +16,7 @@ export function eventImportRepositoryContract(
         color: 'blue',
       });
       const result = await repositories.eventImports.commit({
-        categoryId: category.id,
+        category: { kind: 'existing', id: category.id },
         newMetadata: {
           tags: [{ temporaryId: 'new:tag:travel', name: 'Travel' }],
           people: [{ temporaryId: 'new:person:youssef', name: 'Youssef' }],
@@ -46,6 +46,7 @@ export function eventImportRepositoryContract(
       expect(result).toEqual({
         eventCount: 2,
         createdMetadata: {
+          categoryCount: 0,
           tagCount: 1,
           peopleCount: 1,
           locationCount: 1,
@@ -68,7 +69,7 @@ export function eventImportRepositoryContract(
       const repositories = await createRepositories();
       const concurrentTag = await repositories.tags.create({ name: 'travel' });
       const result = await repositories.eventImports.commit({
-        categoryId: null,
+        category: null,
         newMetadata: {
           tags: [{ temporaryId: 'new:tag:travel', name: ' Travel ' }],
           people: [],
@@ -87,10 +88,32 @@ export function eventImportRepositoryContract(
       await expect(repositories.tags.list()).resolves.toHaveLength(1);
     });
 
+    it('creates a proposed category in the same commit and assigns it to every event', async () => {
+      const repositories = await createRepositories();
+      const result = await repositories.eventImports.commit({
+        category: { kind: 'new', name: 'Calendar import', color: 'teal' },
+        newMetadata: { tags: [], people: [], locations: [] },
+        events: [importEvent(), importEvent({ title: 'Second event' })],
+      });
+
+      expect(result).toMatchObject({
+        eventCount: 2,
+        createdMetadata: { categoryCount: 1 },
+      });
+      const categories = await repositories.categories.list();
+      expect(categories).toMatchObject([
+        { name: 'Calendar import', color: 'teal' },
+      ]);
+      const imported = await repositories.events.list({ limit: 10 });
+      expect(
+        imported.items.every((item) => item.category?.id === categories[0]?.id)
+      ).toBe(true);
+    });
+
     it('rolls back metadata and events when a temporary reference is invalid', async () => {
       const repositories = await createRepositories();
       const input: CommitEventImportInput = {
-        categoryId: null,
+        category: { kind: 'new', name: 'Should roll back', color: 'rose' },
         newMetadata: {
           tags: [{ temporaryId: 'defined', name: 'Should roll back' }],
           people: [],
@@ -107,6 +130,7 @@ export function eventImportRepositoryContract(
         'has no definition'
       );
       await expect(repositories.tags.list()).resolves.toEqual([]);
+      await expect(repositories.categories.list()).resolves.toEqual([]);
       await expect(repositories.events.count({ limit: 1 })).resolves.toBe(0);
     });
 
@@ -114,7 +138,7 @@ export function eventImportRepositoryContract(
       const repositories = await createRepositories();
       await expect(
         repositories.eventImports.commit({
-          categoryId: 'missing-category',
+          category: { kind: 'existing', id: 'missing-category' },
           newMetadata: { tags: [], people: [], locations: [] },
           events: [
             importEvent({
@@ -130,7 +154,7 @@ export function eventImportRepositoryContract(
       const repositories = await createRepositories();
       await expect(
         repositories.eventImports.commit({
-          categoryId: null,
+          category: null,
           newMetadata: {
             tags: [{ temporaryId: 'new-tag', name: 'New tag' }],
             people: [],

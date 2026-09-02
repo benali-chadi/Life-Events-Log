@@ -12,10 +12,12 @@ import {
   type RepositoryDependencies,
 } from '@/data/repositories';
 import {
+  validateEventImportCategory,
   validateEventImportValues,
   validateNewMetadataDefinitions,
 } from '@/data/repositories/eventImportValidation';
 import type {
+  Category,
   LELEvent,
   Location,
   Person,
@@ -52,10 +54,12 @@ export class InMemoryEventImportRepository implements EventImportRepository {
       'Location',
       input.newMetadata.locations
     );
-    const category = activeEntity(staged.categories, input.categoryId);
-    if (input.categoryId && !category) {
-      throw new EntityNotFoundError('Category', input.categoryId);
-    }
+    const categoryInput = validateEventImportCategory(input.category);
+    const { category, created: categoryCreated } = this.resolveCategory(
+      staged.categories,
+      categoryInput,
+      timestamp
+    );
     const createdTags: Tag[] = [];
     const createdPeople: Person[] = [];
     const createdLocations: Location[] = [];
@@ -141,11 +145,43 @@ export class InMemoryEventImportRepository implements EventImportRepository {
     return {
       eventCount: eventValues.length,
       createdMetadata: {
+        categoryCount: categoryCreated ? 1 : 0,
         tagCount: createdTags.length,
         peopleCount: createdPeople.length,
         locationCount: createdLocations.length,
       },
     };
+  }
+
+  private resolveCategory(
+    table: Map<UUID, Category>,
+    category: CommitEventImportInput['category'],
+    timestamp: Timestamp
+  ): { category: Category | null; created: boolean } {
+    if (!category) return { category: null, created: false };
+    if (category.kind === 'existing') {
+      const existing = activeEntity(table, category.id);
+      if (!existing) throw new EntityNotFoundError('Category', category.id);
+      return { category: existing, created: false };
+    }
+    const comparison = comparableMetadataName(category.name);
+    const existing = [...table.values()].find(
+      (entity) =>
+        entity.deletedAt === null &&
+        comparableMetadataName(entity.name) === comparison
+    );
+    if (existing) return { category: existing, created: false };
+
+    const created: Category = {
+      id: this.uniqueId(table, 'category'),
+      name: normalizeMetadataName(category.name),
+      color: category.color,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      deletedAt: null,
+    };
+    table.set(created.id, created);
+    return { category: created, created: true };
   }
 
   private resolveDefinitions<TEntity extends NamedEntity>(
