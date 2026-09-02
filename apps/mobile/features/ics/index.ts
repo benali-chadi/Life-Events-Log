@@ -9,6 +9,11 @@ export {
   type IcsRecurrenceExpansionErrorCode,
 } from './expandIcsRecurrences';
 export { mapIcsImport } from './mapIcsImport';
+export { default as IcsImportPreview } from './IcsImportPreview';
+export {
+  buildIcsImportCommitInput,
+  selectedWarningCount,
+} from './buildIcsImportCommitInput';
 export type {
   ExpandedIcsEvent,
   IcsImportCandidate,
