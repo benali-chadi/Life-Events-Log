@@ -7,11 +7,13 @@ import type { SelectOption } from '../ui/select';
 type PeopleMetadataProps = {
   value?: SelectOption[];
   onChange?: (value: SelectOption[]) => void;
+  maxVisibleValues?: number;
 };
 
 export default function PeopleMetadata({
   value,
   onChange,
+  maxVisibleValues,
 }: PeopleMetadataProps = {}) {
   const peopleQuery = usePeopleQuery();
   const createPerson = useCreatePersonMutation();
@@ -30,6 +32,7 @@ export default function PeopleMetadata({
       searchPlaceholder="Search or create a person..."
       options={options}
       values={selectedPeople}
+      maxVisibleValues={maxVisibleValues}
       onChange={setSelectedPeople}
       onCreate={async (label) => {
         const person = await createPerson.mutateAsync({ name: label });

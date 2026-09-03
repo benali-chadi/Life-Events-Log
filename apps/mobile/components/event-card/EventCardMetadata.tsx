@@ -25,10 +25,8 @@ export default function EventCardMetadata({
   isExpanded,
   onToggleExpanded,
 }: EventCardMetadataProps) {
-  const visibleTags = isExpanded ? tags : tags.slice(0, COLLAPSED_ITEM_LIMIT);
-  const visiblePeople = isExpanded
-    ? people
-    : people.slice(0, COLLAPSED_ITEM_LIMIT);
+  const visibleTags = tags.slice(0, COLLAPSED_ITEM_LIMIT);
+  const visiblePeople = people.slice(0, COLLAPSED_ITEM_LIMIT);
 
   if (tags.length === 0 && people.length === 0 && !hasExpandableContent) {
     return null;
@@ -45,7 +43,7 @@ export default function EventCardMetadata({
             #{tag}
           </Text>
         ))}
-        {!isExpanded && tags.length > COLLAPSED_ITEM_LIMIT && (
+        {tags.length > COLLAPSED_ITEM_LIMIT && (
           <Text style={[styles.metadataText, { color: colors.textMuted }]}>
             +{tags.length - COLLAPSED_ITEM_LIMIT}
           </Text>
@@ -59,7 +57,7 @@ export default function EventCardMetadata({
             @{person}
           </Text>
         ))}
-        {!isExpanded && people.length > COLLAPSED_ITEM_LIMIT && (
+        {people.length > COLLAPSED_ITEM_LIMIT && (
           <Text style={[styles.metadataText, { color: colors.textMuted }]}>
             +{people.length - COLLAPSED_ITEM_LIMIT}
           </Text>

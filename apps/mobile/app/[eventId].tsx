@@ -491,6 +491,7 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
               icon={<Tags size={14} strokeWidth={2} color={colors.textMuted} />}
             >
               <TagsMetadata
+                maxVisibleValues={3}
                 value={tags}
                 onChange={(nextTags) =>
                   void saveImmediate('tags', nextTags, tags, setTags, {
@@ -510,6 +511,7 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
               }
             >
               <PeopleMetadata
+                maxVisibleValues={3}
                 value={people}
                 onChange={(nextPeople) =>
                   void saveImmediate('people', nextPeople, people, setPeople, {

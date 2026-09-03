@@ -57,6 +57,8 @@ const SECTION_ORDER: TimelineFilterSectionId[] = [
   'date',
   'time',
 ];
+const SELECTED_OPTION_LIMIT = 3;
+const SUGGESTION_LIMIT = 6;
 
 export default function TimelineFiltersSheet({
   categoryOptions,
@@ -349,12 +351,16 @@ function InlineMultiSelectSection({
 }: InlineMultiSelectSectionProps) {
   const { colors } = useTheme();
   const [search, setSearch] = useState('');
+  const [selectedExpanded, setSelectedExpanded] = useState(false);
   const selectingSuggestion = useRef(false);
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const selectedOptions = useMemo(
     () => options.filter((option) => selectedSet.has(option.id)),
     [options, selectedSet]
   );
+  const visibleSelectedOptions = selectedExpanded
+    ? selectedOptions
+    : selectedOptions.slice(0, SELECTED_OPTION_LIMIT);
   const suggestions = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
     const matches = options.filter(
@@ -365,10 +371,12 @@ function InlineMultiSelectSection({
           option.description?.toLocaleLowerCase().includes(query))
     );
 
-    return [...matches].sort((a, b) => {
-      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
-      return a.label.localeCompare(b.label);
-    });
+    return [...matches]
+      .sort((a, b) => {
+        if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+        return a.label.localeCompare(b.label);
+      })
+      .slice(0, SUGGESTION_LIMIT);
   }, [options, search, selectedSet]);
 
   const select = (id: string) => {
@@ -456,7 +464,7 @@ function InlineMultiSelectSection({
         <>
           {selectedOptions.length > 0 && (
             <View style={styles.options}>
-              {selectedOptions.map((option) => (
+              {visibleSelectedOptions.map((option) => (
                 <Pressable
                   key={option.id}
                   accessibilityLabel={`Remove ${option.label}`}
@@ -487,6 +495,32 @@ function InlineMultiSelectSection({
                   <X color={colors.textMuted} size={14} strokeWidth={2.25} />
                 </Pressable>
               ))}
+              {selectedOptions.length > SELECTED_OPTION_LIMIT && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: selectedExpanded }}
+                  onPress={() => setSelectedExpanded((current) => !current)}
+                  style={({ pressed }) => [
+                    styles.optionToggle,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    },
+                    pressed && { backgroundColor: colors.interactivePressed },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.optionToggleText,
+                      { color: colors.textMuted },
+                    ]}
+                  >
+                    {selectedExpanded
+                      ? 'Show less'
+                      : `+${selectedOptions.length - SELECTED_OPTION_LIMIT} more`}
+                  </Text>
+                </Pressable>
+              )}
             </View>
           )}
 
@@ -895,6 +929,14 @@ const styles = StyleSheet.create({
   },
   optionColor: { width: 9, height: 9, borderRadius: 5 },
   optionText: { ...typography.small, fontWeight: '500' },
+  optionToggle: {
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingHorizontal: spacing[3],
+    borderWidth: 1,
+    borderRadius: radius.lg,
+  },
+  optionToggleText: { ...typography.caption, fontWeight: '600' },
   suggestions: {
     borderRadius: radius.md,
     overflow: 'hidden',

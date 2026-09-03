@@ -33,6 +33,7 @@ type CreatableTokenInputProps = {
 
   disabled?: boolean;
   maxVisibleSuggestions?: number;
+  maxVisibleValues?: number;
 };
 
 export default function CreatableTokenInput({
@@ -49,6 +50,7 @@ export default function CreatableTokenInput({
   prefix = '',
   disabled = false,
   maxVisibleSuggestions = 6,
+  maxVisibleValues,
 }: CreatableTokenInputProps) {
   const { colors } = useTheme();
 
@@ -60,6 +62,13 @@ export default function CreatableTokenInput({
   const [query, setQuery] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [isCreating, setIsCreating] = useState(false);
+  const [valuesExpanded, setValuesExpanded] = useState(false);
+
+  const visibleValues =
+    isEditing || valuesExpanded || maxVisibleValues === undefined
+      ? values
+      : values.slice(0, maxVisibleValues);
+  const hiddenValueCount = values.length - visibleValues.length;
 
   const selectedIds = useMemo(
     () => new Set(values.map((value) => value.id)),
@@ -308,7 +317,7 @@ export default function CreatableTokenInput({
         ]}
       >
         <View style={styles.tokenContainer}>
-          {values.map((value) => (
+          {visibleValues.map((value) => (
             <View
               key={value.id}
               style={[
@@ -353,6 +362,29 @@ export default function CreatableTokenInput({
               )}
             </View>
           ))}
+
+          {!isEditing &&
+            maxVisibleValues !== undefined &&
+            values.length > maxVisibleValues && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ expanded: valuesExpanded }}
+                onPress={(event) => {
+                  event.stopPropagation();
+                  setValuesExpanded((current) => !current);
+                }}
+                style={({ pressed }) => [
+                  styles.valuesToggle,
+                  pressed && { backgroundColor: colors.interactivePressed },
+                ]}
+              >
+                <Text
+                  style={[styles.valuesToggleText, { color: colors.textMuted }]}
+                >
+                  {valuesExpanded ? 'Show less' : `+${hiddenValueCount} more`}
+                </Text>
+              </Pressable>
+            )}
 
           {isEditing ? (
             <TextInput
@@ -524,6 +556,13 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     marginLeft: 2,
   },
+  valuesToggle: {
+    minHeight: 26,
+    justifyContent: 'center',
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing[2],
+  },
+  valuesToggleText: { ...typography.caption, fontWeight: '600' },
 
   textInput: {
     ...typography.small,
