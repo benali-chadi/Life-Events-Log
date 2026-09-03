@@ -65,6 +65,7 @@ export default function IcsImportPreview({
   const [categoryCreationName, setCategoryCreationName] = useState<
     string | null
   >(null);
+  const [showWarningEventsOnly, setShowWarningEventsOnly] = useState(false);
 
   const categories = useMemo(
     () => categoriesQuery.data ?? [],
@@ -88,6 +89,14 @@ export default function IcsImportPreview({
 
   const selectedCount = selectedIds.size;
   const warningCount = selectedWarningCount(mapping.candidates, selectedIds);
+  const warningEvents = useMemo(
+    () =>
+      mapping.candidates.filter((candidate) => candidate.warnings.length > 0),
+    [mapping.candidates]
+  );
+  const visibleCandidates = showWarningEventsOnly
+    ? warningEvents
+    : mapping.candidates;
   const allSelected = selectedCount === mapping.candidates.length;
   const category = selectedCategory(categoryOption, proposedCategory);
 
@@ -149,7 +158,7 @@ export default function IcsImportPreview({
         </Pressable>
       </View>
 
-      {(mapping.skipped.length > 0 || warningCount > 0) && (
+      {(mapping.skipped.length > 0 || warningEvents.length > 0) && (
         <View
           style={[
             styles.notice,
@@ -166,8 +175,27 @@ export default function IcsImportPreview({
               : ''}
             {warningCount > 0
               ? `${warningCount} warning${warningCount === 1 ? '' : 's'} in selected events.`
-              : ''}
+              : warningEvents.length > 0
+                ? `${warningEvents.length} event${warningEvents.length === 1 ? ' has' : 's have'} warnings.`
+                : ''}
           </Text>
+          {warningEvents.length > 0 && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ selected: showWarningEventsOnly }}
+              onPress={() => setShowWarningEventsOnly((current) => !current)}
+              style={({ pressed }) => [
+                styles.warningFilterButton,
+                pressed && { backgroundColor: colors.interactivePressed },
+              ]}
+            >
+              <Text
+                style={[styles.warningFilterText, { color: colors.warning }]}
+              >
+                {showWarningEventsOnly ? 'Show all' : 'Show events'}
+              </Text>
+            </Pressable>
+          )}
         </View>
       )}
 
@@ -194,7 +222,9 @@ export default function IcsImportPreview({
         />
       </View>
 
-      <Text style={[styles.sectionLabel, { color: colors.text }]}>Events</Text>
+      <Text style={[styles.sectionLabel, { color: colors.text }]}>
+        {showWarningEventsOnly ? 'Events with warnings' : 'Events'}
+      </Text>
     </View>
   );
 
@@ -202,7 +232,7 @@ export default function IcsImportPreview({
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
       <FlatList
         contentContainerStyle={styles.listContent}
-        data={mapping.candidates}
+        data={visibleCandidates}
         extraData={selectedIds}
         keyExtractor={(candidate) => candidate.id}
         ListEmptyComponent={
@@ -416,6 +446,14 @@ const styles = StyleSheet.create({
     padding: spacing[3],
   },
   noticeText: { ...typography.small, flex: 1 },
+  warningFilterButton: {
+    minHeight: 32,
+    alignSelf: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing[2],
+  },
+  warningFilterText: { ...typography.caption, fontWeight: '700' },
   categorySection: {
     borderWidth: 1,
     borderRadius: radius.md,
