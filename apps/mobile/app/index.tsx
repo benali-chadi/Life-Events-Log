@@ -120,7 +120,8 @@ export default function Index() {
   const [selectedEventIds, setSelectedEventIds] = useState<Set<UUID>>(
     () => new Set()
   );
-  const { deleteEvents, isDeletingEvents } = useEventDeletion();
+  const { deleteEvents, isDeletingEvents, pendingEventIds } =
+    useEventDeletion();
   const selectionMode = selectedEventIds.size > 0;
   const debouncedSearch = useDebouncedValue(filters.search, SEARCH_DEBOUNCE_MS);
   const eventListQuery = useMemo<EventListQueryInput>(() => {
@@ -170,9 +171,11 @@ export default function Index() {
   const sections = useMemo(
     () =>
       groupEventsByDate(
-        eventsQuery.data?.pages.flatMap((page) => page.items) ?? []
+        (eventsQuery.data?.pages.flatMap((page) => page.items) ?? []).filter(
+          (item) => !pendingEventIds.has(item.event.id)
+        )
       ),
-    [eventsQuery.data]
+    [eventsQuery.data, pendingEventIds]
   );
 
   const exitSelectionMode = useCallback(() => {
@@ -324,7 +327,11 @@ export default function Index() {
       ) : (
         <EventsHeader
           ref={eventsHeaderRef}
-          eventCount={eventCountQuery.data}
+          eventCount={
+            eventCountQuery.data === undefined
+              ? undefined
+              : Math.max(0, eventCountQuery.data - pendingEventIds.size)
+          }
           filters={filters}
           isEventCountFetching={eventCountQuery.isFetching}
           onChange={setFilters}

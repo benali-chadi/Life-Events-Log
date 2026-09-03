@@ -1,10 +1,15 @@
-import { createContext, type ReactNode, useCallback, useContext } from 'react';
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useRef,
+  useState,
+} from 'react';
 import { useAppToast } from '@/components/ui/AppToastProvider';
 import {
   useDeleteEventMutation,
   useDeleteManyEventsMutation,
-  useRestoreEventMutation,
-  useRestoreManyEventsMutation,
 } from '@/data/query';
 import type { UUID } from '@/models';
 
@@ -16,6 +21,7 @@ type DeletableEvent = {
 type EventDeletionContextValue = {
   deleteEvent: (event: DeletableEvent) => Promise<void>;
   deleteEvents: (events: readonly DeletableEvent[]) => Promise<void>;
+  pendingEventIds: ReadonlySet<UUID>;
   isDeletingEvents: boolean;
 };
 
@@ -23,83 +29,117 @@ const EventDeletionContext = createContext<EventDeletionContextValue | null>(
   null
 );
 
-const UNDO_WINDOW_MS = 5000;
+const DELETE_DELAY_MS = 5000;
 
 export default function EventDeletionProvider({
   children,
 }: {
   children: ReactNode;
 }) {
-  const { showToast } = useAppToast();
+  const { dismissToast, showToast } = useAppToast();
   const deleteEventMutation = useDeleteEventMutation();
   const deleteManyEventsMutation = useDeleteManyEventsMutation();
-  const restoreEventMutation = useRestoreEventMutation();
-  const restoreManyEventsMutation = useRestoreManyEventsMutation();
+  const [pendingEvents, setPendingEvents] = useState<DeletableEvent[]>([]);
+  const pendingEventsRef = useRef<readonly DeletableEvent[]>([]);
+  const finalizingRef = useRef<Promise<boolean> | null>(null);
+  const toastIdRef = useRef<number | null>(null);
 
-  const restoreEvents = useCallback(
-    async (events: readonly DeletableEvent[]) => {
-      try {
-        if (events.length === 1) {
-          await restoreEventMutation.mutateAsync(events[0]!.id);
-        } else {
-          await restoreManyEventsMutation.mutateAsync(
-            events.map((event) => event.id)
-          );
-        }
-      } catch {
-        showToast({
-          message: `The ${events.length === 1 ? 'event' : 'events'} could not be restored. Please try again.`,
-          kind: 'error',
-        });
-      }
+  const updatePendingEvents = useCallback(
+    (events: readonly DeletableEvent[]) => {
+      pendingEventsRef.current = events;
+      setPendingEvents([...events]);
     },
-    [restoreEventMutation, restoreManyEventsMutation, showToast]
+    []
   );
 
-  const showDeletionToast = useCallback(
-    (events: readonly DeletableEvent[]) => {
-      showToast({
+  const finalizePending = useCallback(() => {
+    if (finalizingRef.current) return finalizingRef.current;
+
+    const events = pendingEventsRef.current;
+    if (events.length === 0) return Promise.resolve(true);
+
+    if (toastIdRef.current !== null) {
+      dismissToast(toastIdRef.current);
+      toastIdRef.current = null;
+    }
+
+    const operation = (
+      events.length === 1
+        ? deleteEventMutation.mutateAsync(events[0]!.id)
+        : deleteManyEventsMutation.mutateAsync(events.map((event) => event.id))
+    )
+      .then(() => {
+        if (pendingEventsRef.current === events) updatePendingEvents([]);
+        return true;
+      })
+      .catch(() => {
+        if (pendingEventsRef.current === events) updatePendingEvents([]);
+        showToast({
+          message: `The ${events.length === 1 ? 'event was' : 'events were'} not deleted. Please try again.`,
+          kind: 'error',
+        });
+        return false;
+      })
+      .finally(() => {
+        finalizingRef.current = null;
+      });
+
+    finalizingRef.current = operation;
+    return operation;
+  }, [
+    deleteEventMutation,
+    deleteManyEventsMutation,
+    dismissToast,
+    showToast,
+    updatePendingEvents,
+  ]);
+
+  const scheduleDeletion = useCallback(
+    async (events: readonly DeletableEvent[]) => {
+      if (events.length === 0) return;
+      if (pendingEventsRef.current.length > 0) {
+        const finalized = await finalizePending();
+        if (!finalized) return;
+      }
+
+      updatePendingEvents(events);
+      toastIdRef.current = showToast({
         message:
           events.length === 1
-            ? 'Event deleted'
-            : `${events.length} events deleted`,
-        duration: UNDO_WINDOW_MS,
+            ? `Delete “${events[0]!.title}”?`
+            : `Delete ${events.length} events?`,
+        duration: DELETE_DELAY_MS,
         showProgress: true,
         actions: [
           {
             label: 'Undo',
-            onPress: () => restoreEvents(events),
+            onPress: () => updatePendingEvents([]),
+          },
+          {
+            label: 'Delete now',
+            tone: 'destructive',
+            onPress: () => finalizePending(),
           },
         ],
+        onDismiss: (reason) => {
+          toastIdRef.current = null;
+          if (reason === 'timeout' || reason === 'replaced') {
+            void finalizePending();
+          }
+        },
       });
     },
-    [restoreEvents, showToast]
+    [finalizePending, showToast, updatePendingEvents]
   );
 
-  const deleteEvent = useCallback(
-    async (event: DeletableEvent) => {
-      await deleteEventMutation.mutateAsync(event.id);
-      showDeletionToast([event]);
-    },
-    [deleteEventMutation, showDeletionToast]
-  );
-
-  const deleteEvents = useCallback(
-    async (events: readonly DeletableEvent[]) => {
-      if (events.length === 0) return;
-      await deleteManyEventsMutation.mutateAsync(
-        events.map((event) => event.id)
-      );
-      showDeletionToast(events);
-    },
-    [deleteManyEventsMutation, showDeletionToast]
-  );
+  const pendingEventIds = new Set(pendingEvents.map((event) => event.id));
 
   return (
     <EventDeletionContext.Provider
       value={{
-        deleteEvent,
-        deleteEvents,
+        deleteEvent: (event) => scheduleDeletion([event]),
+        deleteEvents: scheduleDeletion,
+        pendingEventIds,
         isDeletingEvents:
           deleteEventMutation.isPending || deleteManyEventsMutation.isPending,
       }}
