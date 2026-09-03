@@ -12,11 +12,18 @@ import { useAppToast } from '@/components/ui/AppToastProvider';
 import {
   useDeleteCategoryMutation,
   useDeleteLocationMutation,
+  useDeleteManyCategoriesMutation,
+  useDeleteManyLocationsMutation,
+  useDeleteManyPeopleMutation,
+  useDeleteManyTagsMutation,
   useDeletePersonMutation,
   useDeleteTagMutation,
 } from '@/data/query';
 import type { UUID } from '@/models';
-import { confirmMetadataDeletion } from './confirmMetadataDeletion';
+import {
+  confirmManyMetadataDeletion,
+  confirmMetadataDeletion,
+} from './confirmMetadataDeletion';
 
 export type MetadataDeletionKind = 'category' | 'tag' | 'person' | 'location';
 
@@ -27,10 +34,25 @@ export type PendingMetadataDeletion = {
   eventCount: number;
 };
 
+type PendingMetadataOperation =
+  | { type: 'single'; item: PendingMetadataDeletion }
+  | {
+      type: 'many';
+      kind: MetadataDeletionKind;
+      ids: readonly UUID[];
+      label: string;
+    };
+
 type MetadataDeletionContextValue = {
-  pending: PendingMetadataDeletion | null;
+  pendingKind: MetadataDeletionKind | null;
+  pendingIds: ReadonlySet<UUID>;
   requestDeletion: (
     metadata: PendingMetadataDeletion,
+    onConfirmed?: () => void
+  ) => void;
+  requestManyDeletions: (
+    metadata: readonly PendingMetadataDeletion[],
+    label: string,
     onConfirmed?: () => void
   ) => void;
   finalizePending: () => Promise<boolean>;
@@ -52,61 +74,82 @@ export default function MetadataDeletionProvider({
   const deleteTag = useDeleteTagMutation();
   const deletePerson = useDeletePersonMutation();
   const deleteLocation = useDeleteLocationMutation();
-  const [pending, setPending] = useState<PendingMetadataDeletion | null>(null);
-  const pendingRef = useRef<PendingMetadataDeletion | null>(null);
+  const deleteCategories = useDeleteManyCategoriesMutation();
+  const deleteTags = useDeleteManyTagsMutation();
+  const deletePeople = useDeleteManyPeopleMutation();
+  const deleteLocations = useDeleteManyLocationsMutation();
+  const [pending, setPending] = useState<PendingMetadataOperation | null>(null);
+  const pendingRef = useRef<PendingMetadataOperation | null>(null);
   const finalizingRef = useRef<Promise<boolean> | null>(null);
   const toastIdRef = useRef<number | null>(null);
   const allowNavigationRef = useRef(false);
 
-  const setPendingMetadata = useCallback(
-    (metadata: PendingMetadataDeletion | null) => {
-      pendingRef.current = metadata;
-      setPending(metadata);
+  const updatePending = useCallback(
+    (operation: PendingMetadataOperation | null) => {
+      pendingRef.current = operation;
+      setPending(operation);
     },
     []
   );
 
-  const deleteMetadata = useCallback(
-    (metadata: PendingMetadataDeletion) => {
-      switch (metadata.kind) {
+  const deleteOperation = useCallback(
+    (operation: PendingMetadataOperation) => {
+      if (operation.type === 'many') {
+        switch (operation.kind) {
+          case 'category':
+            return deleteCategories.mutateAsync(operation.ids);
+          case 'tag':
+            return deleteTags.mutateAsync(operation.ids);
+          case 'person':
+            return deletePeople.mutateAsync(operation.ids);
+          case 'location':
+            return deleteLocations.mutateAsync(operation.ids);
+        }
+      }
+
+      switch (operation.item.kind) {
         case 'category':
-          return deleteCategory.mutateAsync(metadata.id);
+          return deleteCategory.mutateAsync(operation.item.id);
         case 'tag':
-          return deleteTag.mutateAsync(metadata.id);
+          return deleteTag.mutateAsync(operation.item.id);
         case 'person':
-          return deletePerson.mutateAsync(metadata.id);
+          return deletePerson.mutateAsync(operation.item.id);
         case 'location':
-          return deleteLocation.mutateAsync(metadata.id);
+          return deleteLocation.mutateAsync(operation.item.id);
       }
     },
-    [deleteCategory, deleteLocation, deletePerson, deleteTag]
+    [
+      deleteCategories,
+      deleteCategory,
+      deleteLocations,
+      deleteLocation,
+      deletePeople,
+      deletePerson,
+      deleteTags,
+      deleteTag,
+    ]
   );
 
   const finalizePending = useCallback(() => {
     if (finalizingRef.current) return finalizingRef.current;
 
-    const metadata = pendingRef.current;
-    if (!metadata) return Promise.resolve(true);
+    const operation = pendingRef.current;
+    if (!operation) return Promise.resolve(true);
 
     if (toastIdRef.current !== null) {
       dismissToast(toastIdRef.current);
       toastIdRef.current = null;
     }
 
-    const operation = deleteMetadata(metadata)
+    const deletion = deleteOperation(operation)
       .then(() => {
-        if (
-          pendingRef.current?.kind === metadata.kind &&
-          pendingRef.current.id === metadata.id
-        ) {
-          setPendingMetadata(null);
-        }
+        if (pendingRef.current === operation) updatePending(null);
         return true;
       })
       .catch(() => {
-        setPendingMetadata(null);
+        if (pendingRef.current === operation) updatePending(null);
         showToast({
-          message: `“${metadata.name}” was not deleted. Please try again.`,
+          message: deletionFailureMessage(operation),
           kind: 'error',
         });
         return false;
@@ -115,21 +158,21 @@ export default function MetadataDeletionProvider({
         finalizingRef.current = null;
       });
 
-    finalizingRef.current = operation;
-    return operation;
-  }, [deleteMetadata, dismissToast, setPendingMetadata, showToast]);
+    finalizingRef.current = deletion;
+    return deletion;
+  }, [deleteOperation, dismissToast, showToast, updatePending]);
 
   const startDelay = useCallback(
-    (metadata: PendingMetadataDeletion) => {
-      setPendingMetadata(metadata);
+    (operation: PendingMetadataOperation) => {
+      updatePending(operation);
       toastIdRef.current = showToast({
-        message: `Delete “${metadata.name}”?`,
+        message: deletionPrompt(operation),
         duration: DELETE_DELAY_MS,
         showProgress: true,
         actions: [
           {
             label: 'Undo',
-            onPress: () => setPendingMetadata(null),
+            onPress: () => updatePending(null),
           },
           {
             label: 'Delete now',
@@ -145,20 +188,56 @@ export default function MetadataDeletionProvider({
         },
       });
     },
-    [finalizePending, setPendingMetadata, showToast]
+    [finalizePending, showToast, updatePending]
+  );
+
+  const queueOperation = useCallback(
+    (operation: PendingMetadataOperation, onConfirmed?: () => void) => {
+      onConfirmed?.();
+      void (async () => {
+        if (pendingRef.current) {
+          const finalized = await finalizePending();
+          if (!finalized) return;
+        }
+        startDelay(operation);
+      })();
+    },
+    [finalizePending, startDelay]
   );
 
   const requestDeletion = useCallback(
     (metadata: PendingMetadataDeletion, onConfirmed?: () => void) => {
       confirmMetadataDeletion(metadata, () => {
-        onConfirmed?.();
-        void (async () => {
-          if (pendingRef.current) await finalizePending();
-          startDelay(metadata);
-        })();
+        queueOperation({ type: 'single', item: metadata }, onConfirmed);
       });
     },
-    [finalizePending, startDelay]
+    [queueOperation]
+  );
+
+  const requestManyDeletions = useCallback(
+    (
+      metadata: readonly PendingMetadataDeletion[],
+      label: string,
+      onConfirmed?: () => void
+    ) => {
+      if (metadata.length === 0) return;
+      const eventCount = metadata.reduce(
+        (total, item) => total + item.eventCount,
+        0
+      );
+      confirmManyMetadataDeletion(metadata.length, label, eventCount, () => {
+        queueOperation(
+          {
+            type: 'many',
+            kind: metadata[0]!.kind,
+            ids: metadata.map((item) => item.id),
+            label,
+          },
+          onConfirmed
+        );
+      });
+    },
+    [queueOperation]
   );
 
   useEffect(
@@ -176,9 +255,24 @@ export default function MetadataDeletionProvider({
     [finalizePending, navigation]
   );
 
+  const pendingIds = new Set(
+    pending ? (pending.type === 'single' ? [pending.item.id] : pending.ids) : []
+  );
+  const pendingKind = pending
+    ? pending.type === 'single'
+      ? pending.item.kind
+      : pending.kind
+    : null;
+
   return (
     <MetadataDeletionContext.Provider
-      value={{ pending, requestDeletion, finalizePending }}
+      value={{
+        pendingKind,
+        pendingIds,
+        requestDeletion,
+        requestManyDeletions,
+        finalizePending,
+      }}
     >
       {children}
     </MetadataDeletionContext.Provider>
@@ -195,4 +289,16 @@ export function useMetadataDeletion() {
   }
 
   return context;
+}
+
+function deletionPrompt(operation: PendingMetadataOperation) {
+  return operation.type === 'single'
+    ? `Delete “${operation.item.name}”?`
+    : `Delete ${operation.ids.length} ${operation.label.toLowerCase()}?`;
+}
+
+function deletionFailureMessage(operation: PendingMetadataOperation) {
+  return operation.type === 'single'
+    ? `“${operation.item.name}” was not deleted. Please try again.`
+    : `The selected ${operation.label.toLowerCase()} were not deleted. Please try again.`;
 }
