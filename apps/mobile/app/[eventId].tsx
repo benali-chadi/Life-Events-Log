@@ -46,6 +46,7 @@ import EventTitleEditor from '@/components/event-title/EventTitleEditor';
 import type { SelectOption } from '@/components/ui/select';
 import { useEventDeletion } from '@/components/event-deletion/EventDeletionProvider';
 import { confirmEventDeletion } from '@/components/event-deletion/confirmEventDeletion';
+import { useAppToast } from '@/components/ui/AppToastProvider';
 import {
   useDeleteAttachmentMutation,
   useDeleteManyAttachmentsMutation,
@@ -163,6 +164,7 @@ function EventReadState({
 
 function LoadedEventScreen({ details }: { details: EventDetails }) {
   const { colors } = useTheme();
+  const { showToast } = useAppToast();
   const navigation = useNavigation();
   const { deleteEvent } = useEventDeletion();
   const updateEvent = useUpdateEventMutation();
@@ -371,10 +373,10 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
           router.back();
         } catch {
           setIsDeleting(false);
-          Alert.alert(
-            'Could not delete event',
-            'The event was not deleted. Please try again.'
-          );
+          showToast({
+            message: 'The event was not deleted. Please try again.',
+            kind: 'error',
+          });
         }
       })();
     });

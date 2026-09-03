@@ -28,12 +28,13 @@ export default function ImportIcsScreen() {
     const queryError = tags.error ?? people.error ?? locations.error;
     if (!queryError || preparationStarted.current) return;
     preparationStarted.current = true;
-    showToast(
-      queryError instanceof Error
-        ? queryError.message
-        : 'Existing metadata could not be loaded.',
-      'error'
-    );
+    showToast({
+      message:
+        queryError instanceof Error
+          ? queryError.message
+          : 'Existing metadata could not be loaded.',
+      kind: 'error',
+    });
     router.back();
   }, [locations.error, people.error, showToast, tags.error]);
 
@@ -63,7 +64,10 @@ export default function ImportIcsScreen() {
         if (active) setMapping(prepared);
       } catch (error) {
         if (!active) return;
-        showToast(importErrorMessage(error, params.name), 'error');
+        showToast({
+          message: importErrorMessage(error, params.name),
+          kind: 'error',
+        });
         router.back();
       }
     };
@@ -87,9 +91,9 @@ export default function ImportIcsScreen() {
         mapping={mapping}
         onCancel={() => router.back()}
         onImported={(result) => {
-          showToast(
-            `${result.eventCount.toLocaleString()} event${result.eventCount === 1 ? '' : 's'} imported.`
-          );
+          showToast({
+            message: `${result.eventCount.toLocaleString()} event${result.eventCount === 1 ? '' : 's'} imported.`,
+          });
           router.back();
         }}
       />

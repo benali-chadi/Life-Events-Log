@@ -13,7 +13,6 @@ import {
 import { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Platform,
   Pressable,
@@ -45,6 +44,7 @@ import type { Category, CategoryColor, Location, Person, Tag } from '@/models';
 import CategoryCreationSheet from '../metadata/CategoryCreationSheet';
 import { suggestCategoryColor } from '../metadata/suggestCategoryColor';
 import SearchInput from '../ui/SearchInput';
+import { useAppToast } from '../ui/AppToastProvider';
 import { normalizeOptionValue } from '../ui/select';
 import SwipeReveal, { closeOpenSwipe } from '../ui/SwipeReveal';
 import {
@@ -108,6 +108,7 @@ function MetadataUsageList<TEntity extends UsageEntity>({
   onEdit,
 }: MetadataUsageListProps<TEntity>) {
   const { colors, isDark } = useTheme();
+  const { showToast } = useAppToast();
   const { finalizePending, pending, requestDeletion } = useMetadataDeletion();
   const deleteCategories = useDeleteManyCategoriesMutation();
   const deleteTags = useDeleteManyTagsMutation();
@@ -180,10 +181,10 @@ function MetadataUsageList<TEntity extends UsageEntity>({
           .mutateAsync(ids)
           .then(() => setSelectedIds(new Set()))
           .catch(() =>
-            Alert.alert(
-              `Could not delete ${label.toLowerCase()}`,
-              'The selected items were not deleted. Please try again.'
-            )
+            showToast({
+              message: 'The selected items were not deleted. Please try again.',
+              kind: 'error',
+            })
           );
       });
     });

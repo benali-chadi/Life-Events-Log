@@ -1,5 +1,3 @@
-import { radius, spacing, typography } from '@lel/design';
-import { useTheme } from '@lel/design/useTheme';
 import { useNavigation } from 'expo-router';
 import {
   createContext,
@@ -10,15 +8,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import {
-  AccessibilityInfo,
-  Alert,
-  Animated,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { useAppToast } from '@/components/ui/AppToastProvider';
 import {
   useDeleteCategoryMutation,
   useDeleteLocationMutation,
@@ -56,26 +46,17 @@ export default function MetadataDeletionProvider({
 }: {
   children: ReactNode;
 }) {
-  const { colors } = useTheme();
+  const { dismissToast, showToast } = useAppToast();
   const navigation = useNavigation();
   const deleteCategory = useDeleteCategoryMutation();
   const deleteTag = useDeleteTagMutation();
   const deletePerson = useDeletePersonMutation();
   const deleteLocation = useDeleteLocationMutation();
   const [pending, setPending] = useState<PendingMetadataDeletion | null>(null);
-  const [isFinalizing, setIsFinalizing] = useState(false);
-  const [reduceMotion, setReduceMotion] = useState(false);
   const pendingRef = useRef<PendingMetadataDeletion | null>(null);
   const finalizingRef = useRef<Promise<boolean> | null>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toastIdRef = useRef<number | null>(null);
   const allowNavigationRef = useRef(false);
-  const progress = useRef(new Animated.Value(1)).current;
-
-  const clearTimer = useCallback(() => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = null;
-    progress.stopAnimation();
-  }, [progress]);
 
   const setPendingMetadata = useCallback(
     (metadata: PendingMetadataDeletion | null) => {
@@ -107,8 +88,10 @@ export default function MetadataDeletionProvider({
     const metadata = pendingRef.current;
     if (!metadata) return Promise.resolve(true);
 
-    clearTimer();
-    setIsFinalizing(true);
+    if (toastIdRef.current !== null) {
+      dismissToast(toastIdRef.current);
+      toastIdRef.current = null;
+    }
 
     const operation = deleteMetadata(metadata)
       .then(() => {
@@ -122,40 +105,47 @@ export default function MetadataDeletionProvider({
       })
       .catch(() => {
         setPendingMetadata(null);
-        Alert.alert(
-          `Could not delete ${metadata.kind}`,
-          `“${metadata.name}” was not deleted. Please try again.`
-        );
+        showToast({
+          message: `“${metadata.name}” was not deleted. Please try again.`,
+          kind: 'error',
+        });
         return false;
       })
       .finally(() => {
         finalizingRef.current = null;
-        setIsFinalizing(false);
       });
 
     finalizingRef.current = operation;
     return operation;
-  }, [clearTimer, deleteMetadata, setPendingMetadata]);
+  }, [deleteMetadata, dismissToast, setPendingMetadata, showToast]);
 
   const startDelay = useCallback(
     (metadata: PendingMetadataDeletion) => {
       setPendingMetadata(metadata);
-      progress.setValue(1);
-
-      if (!reduceMotion) {
-        Animated.timing(progress, {
-          toValue: 0,
-          duration: DELETE_DELAY_MS,
-          useNativeDriver: false,
-        }).start();
-      }
-
-      timerRef.current = setTimeout(() => {
-        timerRef.current = null;
-        void finalizePending();
-      }, DELETE_DELAY_MS);
+      toastIdRef.current = showToast({
+        message: `Delete “${metadata.name}”?`,
+        duration: DELETE_DELAY_MS,
+        showProgress: true,
+        actions: [
+          {
+            label: 'Undo',
+            onPress: () => setPendingMetadata(null),
+          },
+          {
+            label: 'Delete now',
+            tone: 'destructive',
+            onPress: () => finalizePending(),
+          },
+        ],
+        onDismiss: (reason) => {
+          toastIdRef.current = null;
+          if (reason === 'timeout' || reason === 'replaced') {
+            void finalizePending();
+          }
+        },
+      });
     },
-    [finalizePending, progress, reduceMotion, setPendingMetadata]
+    [finalizePending, setPendingMetadata, showToast]
   );
 
   const requestDeletion = useCallback(
@@ -170,31 +160,6 @@ export default function MetadataDeletionProvider({
     },
     [finalizePending, startDelay]
   );
-
-  const undo = () => {
-    if (isFinalizing) return;
-    clearTimer();
-    setPendingMetadata(null);
-  };
-
-  useEffect(() => {
-    let mounted = true;
-
-    void AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
-      if (mounted) setReduceMotion(enabled);
-    });
-    const subscription = AccessibilityInfo.addEventListener(
-      'reduceMotionChanged',
-      setReduceMotion
-    );
-
-    return () => {
-      mounted = false;
-      subscription.remove();
-    };
-  }, []);
-
-  useEffect(() => clearTimer, [clearTimer]);
 
   useEffect(
     () =>
@@ -215,67 +180,7 @@ export default function MetadataDeletionProvider({
     <MetadataDeletionContext.Provider
       value={{ pending, requestDeletion, finalizePending }}
     >
-      <View style={styles.providerRoot}>
-        {children}
-
-        {pending && (
-          <View
-            accessibilityLiveRegion="polite"
-            style={[
-              styles.toast,
-              { backgroundColor: colors.bg, shadowColor: colors.text },
-            ]}
-          >
-            <Text
-              numberOfLines={1}
-              style={[styles.toastText, { color: colors.text }]}
-            >
-              {isFinalizing ? 'Deleting…' : `Delete “${pending.name}”?`}
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              disabled={isFinalizing}
-              onPress={undo}
-              style={({ pressed }) => [
-                styles.toastButton,
-                pressed && styles.pressedButton,
-              ]}
-            >
-              <Text style={[styles.toastAction, { color: colors.text }]}>
-                Undo
-              </Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              disabled={isFinalizing}
-              onPress={() => void finalizePending()}
-              style={({ pressed }) => [
-                styles.toastButton,
-                pressed && styles.pressedButton,
-              ]}
-            >
-              <Text style={[styles.toastAction, { color: colors.destructive }]}>
-                Delete now
-              </Text>
-            </Pressable>
-            {!reduceMotion && !isFinalizing && (
-              <Animated.View
-                pointerEvents="none"
-                style={[
-                  styles.progress,
-                  {
-                    backgroundColor: colors.destructive,
-                    width: progress.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: ['0%', '100%'],
-                    }),
-                  },
-                ]}
-              />
-            )}
-          </View>
-        )}
-      </View>
+      {children}
     </MetadataDeletionContext.Provider>
   );
 }
@@ -291,39 +196,3 @@ export function useMetadataDeletion() {
 
   return context;
 }
-
-const styles = StyleSheet.create({
-  providerRoot: { flex: 1 },
-  toast: {
-    position: 'absolute',
-    right: spacing[4],
-    bottom: spacing[6],
-    left: spacing[4],
-    minHeight: 56,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: radius.md,
-    paddingLeft: spacing[4],
-    paddingRight: spacing[2],
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
-  },
-  toastText: { ...typography.small, flex: 1, fontWeight: '600' },
-  toastButton: {
-    minHeight: 44,
-    justifyContent: 'center',
-    paddingHorizontal: spacing[2],
-  },
-  toastAction: { ...typography.caption, fontWeight: '700' },
-  pressedButton: { opacity: 0.65 },
-  progress: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    height: 3,
-    borderBottomLeftRadius: radius.md,
-    opacity: 0.65,
-  },
-});

@@ -61,12 +61,13 @@ export default function TimelineOverflowMenu() {
         params: { name: file.name, uri: file.uri },
       });
     } catch (error) {
-      showToast(
-        error instanceof Error
-          ? error.message
-          : 'The calendar file could not be opened.',
-        'error'
-      );
+      showToast({
+        message:
+          error instanceof Error
+            ? error.message
+            : 'The calendar file could not be opened.',
+        kind: 'error',
+      });
     }
   };
 

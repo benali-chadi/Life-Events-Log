@@ -1,23 +1,5 @@
-import { radius, spacing, typography } from '@lel/design';
-import { useTheme } from '@lel/design/useTheme';
-import {
-  createContext,
-  type ReactNode,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
-import {
-  AccessibilityInfo,
-  Alert,
-  Animated,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { createContext, type ReactNode, useCallback, useContext } from 'react';
+import { useAppToast } from '@/components/ui/AppToastProvider';
 import {
   useDeleteEventMutation,
   useDeleteManyEventsMutation,
@@ -48,172 +30,81 @@ export default function EventDeletionProvider({
 }: {
   children: ReactNode;
 }) {
-  const { colors } = useTheme();
+  const { showToast } = useAppToast();
   const deleteEventMutation = useDeleteEventMutation();
   const deleteManyEventsMutation = useDeleteManyEventsMutation();
   const restoreEventMutation = useRestoreEventMutation();
   const restoreManyEventsMutation = useRestoreManyEventsMutation();
-  const [pendingEvents, setPendingEvents] = useState<DeletableEvent[]>([]);
-  const [reduceMotion, setReduceMotion] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const undoProgress = useRef(new Animated.Value(1)).current;
 
-  const clearUndoTimer = useCallback(() => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = null;
-    undoProgress.stopAnimation();
-  }, [undoProgress]);
+  const restoreEvents = useCallback(
+    async (events: readonly DeletableEvent[]) => {
+      try {
+        if (events.length === 1) {
+          await restoreEventMutation.mutateAsync(events[0]!.id);
+        } else {
+          await restoreManyEventsMutation.mutateAsync(
+            events.map((event) => event.id)
+          );
+        }
+      } catch {
+        showToast({
+          message: `The ${events.length === 1 ? 'event' : 'events'} could not be restored. Please try again.`,
+          kind: 'error',
+        });
+      }
+    },
+    [restoreEventMutation, restoreManyEventsMutation, showToast]
+  );
 
-  useEffect(() => clearUndoTimer, [clearUndoTimer]);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    void AccessibilityInfo.isReduceMotionEnabled().then((isEnabled) => {
-      if (isMounted) setReduceMotion(isEnabled);
-    });
-
-    const subscription = AccessibilityInfo.addEventListener(
-      'reduceMotionChanged',
-      setReduceMotion
-    );
-
-    return () => {
-      isMounted = false;
-      subscription.remove();
-    };
-  }, []);
+  const showDeletionToast = useCallback(
+    (events: readonly DeletableEvent[]) => {
+      showToast({
+        message:
+          events.length === 1
+            ? 'Event deleted'
+            : `${events.length} events deleted`,
+        duration: UNDO_WINDOW_MS,
+        showProgress: true,
+        actions: [
+          {
+            label: 'Undo',
+            onPress: () => restoreEvents(events),
+          },
+        ],
+      });
+    },
+    [restoreEvents, showToast]
+  );
 
   const deleteEvent = useCallback(
     async (event: DeletableEvent) => {
       await deleteEventMutation.mutateAsync(event.id);
-      clearUndoTimer();
-      setPendingEvents([event]);
-      undoProgress.setValue(1);
-
-      if (!reduceMotion) {
-        Animated.timing(undoProgress, {
-          toValue: 0,
-          duration: UNDO_WINDOW_MS,
-          useNativeDriver: false,
-        }).start();
-      }
-
-      timerRef.current = setTimeout(() => {
-        setPendingEvents([]);
-        timerRef.current = null;
-      }, UNDO_WINDOW_MS);
+      showDeletionToast([event]);
     },
-    [clearUndoTimer, deleteEventMutation, reduceMotion, undoProgress]
+    [deleteEventMutation, showDeletionToast]
   );
 
   const deleteEvents = useCallback(
     async (events: readonly DeletableEvent[]) => {
       if (events.length === 0) return;
-
-      await deleteManyEventsMutation.mutateAsync(events.map(({ id }) => id));
-      clearUndoTimer();
-      setPendingEvents([...events]);
-      undoProgress.setValue(1);
-
-      if (!reduceMotion) {
-        Animated.timing(undoProgress, {
-          toValue: 0,
-          duration: UNDO_WINDOW_MS,
-          useNativeDriver: false,
-        }).start();
-      }
-
-      timerRef.current = setTimeout(() => {
-        setPendingEvents([]);
-        timerRef.current = null;
-      }, UNDO_WINDOW_MS);
-    },
-    [clearUndoTimer, deleteManyEventsMutation, reduceMotion, undoProgress]
-  );
-
-  const undo = async () => {
-    if (pendingEvents.length === 0) return;
-
-    clearUndoTimer();
-    const eventsToRestore = pendingEvents;
-
-    try {
-      if (eventsToRestore.length === 1) {
-        await restoreEventMutation.mutateAsync(eventsToRestore[0]!.id);
-      } else {
-        await restoreManyEventsMutation.mutateAsync(
-          eventsToRestore.map(({ id }) => id)
-        );
-      }
-      setPendingEvents([]);
-    } catch {
-      setPendingEvents([]);
-      Alert.alert(
-        eventsToRestore.length === 1
-          ? 'Could not restore event'
-          : 'Could not restore events',
-        `The ${eventsToRestore.length === 1 ? 'event' : 'events'} could not be restored. Please try again.`
+      await deleteManyEventsMutation.mutateAsync(
+        events.map((event) => event.id)
       );
-    }
-  };
+      showDeletionToast(events);
+    },
+    [deleteManyEventsMutation, showDeletionToast]
+  );
 
   return (
     <EventDeletionContext.Provider
       value={{
         deleteEvent,
         deleteEvents,
-        isDeletingEvents: deleteManyEventsMutation.isPending,
+        isDeletingEvents:
+          deleteEventMutation.isPending || deleteManyEventsMutation.isPending,
       }}
     >
       {children}
-
-      {pendingEvents.length > 0 && (
-        <View
-          accessibilityLiveRegion="polite"
-          style={[
-            styles.toast,
-            {
-              backgroundColor: colors.bg,
-              shadowColor: colors.text,
-            },
-          ]}
-        >
-          <Text
-            numberOfLines={1}
-            style={[styles.toastText, { color: colors.text }]}
-          >
-            {pendingEvents.length === 1
-              ? 'Event deleted'
-              : `${pendingEvents.length} events deleted`}
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => void undo()}
-            style={({ pressed }) => [
-              styles.undoButton,
-              pressed && { opacity: 0.65 },
-            ]}
-          >
-            <Text style={[styles.undoText, { color: colors.text }]}>Undo</Text>
-          </Pressable>
-          {!reduceMotion && (
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                styles.undoProgress,
-                {
-                  backgroundColor: colors.textMuted,
-                  width: undoProgress.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: ['0%', '100%'],
-                  }),
-                },
-              ]}
-            />
-          )}
-        </View>
-      )}
     </EventDeletionContext.Provider>
   );
 }
@@ -229,43 +120,3 @@ export function useEventDeletion() {
 
   return context;
 }
-
-const styles = StyleSheet.create({
-  toast: {
-    position: 'absolute',
-    right: spacing[4],
-    bottom: spacing[6],
-    left: spacing[4],
-    minHeight: 52,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: radius.md,
-    paddingHorizontal: spacing[4],
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
-  },
-  toastText: {
-    ...typography.small,
-    flex: 1,
-    fontWeight: '600',
-  },
-  undoButton: {
-    minHeight: 40,
-    justifyContent: 'center',
-    paddingHorizontal: spacing[2],
-  },
-  undoText: {
-    ...typography.small,
-    fontWeight: '700',
-  },
-  undoProgress: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    height: 3,
-    borderBottomLeftRadius: radius.md,
-    opacity: 0.55,
-  },
-});

@@ -5,7 +5,6 @@ import { Plus, Trash2, X } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   BackHandler,
   Pressable,
   SectionList,
@@ -23,6 +22,7 @@ import EventsHeader, {
   WITHOUT_LOCATION_FILTER_ID,
 } from '@/components/EventsHeader';
 import { closeOpenSwipe } from '@/components/ui/SwipeReveal';
+import { useAppToast } from '@/components/ui/AppToastProvider';
 import {
   type EventListQueryInput,
   useEventCountQuery,
@@ -114,6 +114,7 @@ function groupEventsByDate(items: EventListItem[]) {
 
 export default function Index() {
   const { colors } = useTheme();
+  const { showToast } = useAppToast();
   const eventsHeaderRef = useRef<EventsHeaderHandle>(null);
   const [filters, setFilters] = useState<TimelineFilters>(INITIAL_FILTERS);
   const [selectedEventIds, setSelectedEventIds] = useState<Set<UUID>>(
@@ -201,13 +202,19 @@ export default function Index() {
       void deleteEvents(selectedEvents)
         .then(exitSelectionMode)
         .catch(() => {
-          Alert.alert(
-            'Could not delete events',
-            'The selected events were not deleted. Please try again.'
-          );
+          showToast({
+            message: 'The selected events were not deleted. Please try again.',
+            kind: 'error',
+          });
         });
     });
-  }, [deleteEvents, eventsQuery.data, exitSelectionMode, selectedEventIds]);
+  }, [
+    deleteEvents,
+    eventsQuery.data,
+    exitSelectionMode,
+    selectedEventIds,
+    showToast,
+  ]);
 
   useEffect(() => {
     if (!selectionMode) return;
