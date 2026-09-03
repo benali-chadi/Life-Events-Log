@@ -49,7 +49,7 @@ type AppToastContextValue = {
 };
 
 const AppToastContext = createContext<AppToastContextValue | null>(null);
-const DEFAULT_TOAST_DURATION_MS = 5000;
+const DEFAULT_TOAST_DURATION_MS = 3000;
 
 export default function AppToastProvider({
   children,

@@ -2,7 +2,6 @@ import { radius, spacing, typography } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
   Linking,
   Pressable,
   StyleSheet,
@@ -12,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import Markdown from 'react-native-markdown-display';
+import { useAppToast } from '@/components/ui/AppToastProvider';
 import EventNotesToolbar from './EventNotesToolbar';
 import { getAllowedLink } from './linkValidation';
 import type {
@@ -36,6 +36,7 @@ export default function EventNotes({
   onCancel,
 }: EventNotesProps) {
   const { colors } = useTheme();
+  const { showToast } = useAppToast();
   const { height: windowHeight } = useWindowDimensions();
   const inputRef = useRef<TextInput>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -134,20 +135,29 @@ export default function EventNotes({
     requestAnimationFrame(() => inputRef.current?.focus());
   };
 
-  const openLink = useCallback((value: string) => {
-    const allowedLink = getAllowedLink(value);
+  const openLink = useCallback(
+    (value: string) => {
+      const allowedLink = getAllowedLink(value);
 
-    if (!allowedLink) {
-      Alert.alert('Unsupported link', 'Links must use http, https, or mailto.');
+      if (!allowedLink) {
+        showToast({
+          message: 'Links must use http, https, or mailto.',
+          kind: 'error',
+        });
+        return false;
+      }
+
+      void Linking.openURL(allowedLink).catch(() => {
+        showToast({
+          message: 'This link could not be opened.',
+          kind: 'error',
+        });
+      });
+
       return false;
-    }
-
-    void Linking.openURL(allowedLink).catch(() => {
-      Alert.alert('Unable to open link', 'This link could not be opened.');
-    });
-
-    return false;
-  }, []);
+    },
+    [showToast]
+  );
 
   const save = async () => {
     if (isSaving) return;
