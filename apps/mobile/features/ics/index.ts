@@ -9,6 +9,7 @@ export {
   type IcsRecurrenceExpansionErrorCode,
 } from './parsing/expandIcsRecurrences';
 export { mapIcsImport } from './mapping/mapIcsImport';
+export { serializeEventsToIcs } from './exporting/serializeEventsToIcs';
 export { default as IcsImportPreview } from './components/IcsImportPreview';
 export {
   buildIcsImportCommitInput,
