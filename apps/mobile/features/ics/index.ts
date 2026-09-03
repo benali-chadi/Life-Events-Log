@@ -10,6 +10,11 @@ export {
 } from './parsing/expandIcsRecurrences';
 export { mapIcsImport } from './mapping/mapIcsImport';
 export { serializeEventsToIcs } from './exporting/serializeEventsToIcs';
+export {
+  shareEventsAsIcs,
+  type IcsExportCoordinatorDependencies,
+  type IcsExportResult,
+} from './exporting/shareEventsAsIcs';
 export { default as IcsImportPreview } from './components/IcsImportPreview';
 export {
   buildIcsImportCommitInput,

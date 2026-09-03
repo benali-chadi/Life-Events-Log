@@ -1,6 +1,7 @@
 export * from './InMemoryAttachmentRepository';
 export * from './InMemoryCategoryRepository';
 export * from './InMemoryEventRepository';
+export * from './InMemoryEventExportRepository';
 export * from './InMemoryEventImportRepository';
 export * from './InMemoryLocationRepository';
 export * from './InMemoryPersonRepository';

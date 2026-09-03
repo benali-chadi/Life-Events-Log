@@ -1,10 +1,10 @@
-import type { EventDetails } from '@/models';
+import type { EventExportItem } from '@/data/repositories';
 
 const PRODUCT_ID = '-//Life Events Log//iCalendar Export//EN';
 const UID_DOMAIN = 'lifeeventslog.local';
 
 export function serializeEventsToIcs(
-  events: readonly EventDetails[],
+  events: readonly EventExportItem[],
   exportedAt: Date
 ): string {
   const timestamp = utcDateTime(exportedAt);
@@ -23,7 +23,7 @@ export function serializeEventsToIcs(
   return `${lines.map(foldIcsLine).join('\r\n')}\r\n`;
 }
 
-function eventLines(details: EventDetails, timestamp: string): string[] {
+function eventLines(details: EventExportItem, timestamp: string): string[] {
   const { event } = details;
   const lines = [
     'BEGIN:VEVENT',

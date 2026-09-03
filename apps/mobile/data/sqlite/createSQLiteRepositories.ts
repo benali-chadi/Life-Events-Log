@@ -4,6 +4,7 @@ import {
   SQLiteAttachmentRepository,
   SQLiteCategoryRepository,
   SQLiteEventRepository,
+  SQLiteEventExportRepository,
   SQLiteEventImportRepository,
   SQLiteLocationRepository,
   SQLitePersonRepository,
@@ -14,8 +15,10 @@ export function createSQLiteRepositories(
   database: AppDatabase,
   dependencies: RepositoryDependencies
 ): Repositories {
+  const events = new SQLiteEventRepository(database, dependencies);
   return {
-    events: new SQLiteEventRepository(database, dependencies),
+    events,
+    eventExports: new SQLiteEventExportRepository(database, events),
     eventImports: new SQLiteEventImportRepository(database, dependencies),
     attachments: new SQLiteAttachmentRepository(database, dependencies),
     tags: new SQLiteTagRepository(database, dependencies),
