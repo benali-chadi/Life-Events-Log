@@ -26,6 +26,22 @@ describe('buildIcsImportCommitInput', () => {
     ]);
     expect(result.newMetadata.people).toEqual([]);
   });
+
+  it('preserves candidate categories when there is no override', () => {
+    const mapping = mappingResult();
+    mapping.candidates[0]!.category = {
+      kind: 'new',
+      category: { name: 'Imported category', color: 'teal' },
+    };
+
+    const result = buildIcsImportCommitInput(mapping, new Set(['first']), null);
+
+    expect(result.events[0]?.category).toEqual({
+      kind: 'new',
+      name: 'Imported category',
+      color: 'teal',
+    });
+  });
 });
 
 function mappingResult(): IcsImportMappingResult {
@@ -55,6 +71,7 @@ function mappingResult(): IcsImportMappingResult {
         ],
         people: [],
         location: null,
+        category: null,
         source,
         warnings: [],
       },
@@ -69,6 +86,7 @@ function mappingResult(): IcsImportMappingResult {
           },
         ],
         location: null,
+        category: null,
         source: { ...source, sourceIndex: 1 },
         warnings: [],
       },

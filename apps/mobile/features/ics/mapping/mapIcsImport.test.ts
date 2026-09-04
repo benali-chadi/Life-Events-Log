@@ -1,4 +1,4 @@
-import type { Location, Person, Tag } from '@/models';
+import type { Category, Location, Person, Tag } from '@/models';
 import { describe, expect, it } from 'vitest';
 import { mapIcsImport } from './mapIcsImport';
 import type { ExpandedIcsEvent } from '../parsing/types';
@@ -49,6 +49,8 @@ function expandedEvent(
       },
     ],
     status: 'CONFIRMED',
+    lelCategory: null,
+    lelSignificance: null,
     series: null,
     ...overrides,
   };
@@ -64,6 +66,7 @@ describe('mapIcsImport', () => {
       tags: [friends],
       people: [youssef],
       locations: [rabat],
+      categories: [],
     });
 
     expect(result.candidates).toHaveLength(1);
@@ -96,6 +99,56 @@ describe('mapIcsImport', () => {
       locations: [],
     });
     expect(result.skipped).toEqual([]);
+  });
+
+  it('maps LEL significance and resolves imported categories by name', () => {
+    const dining: Category = {
+      id: 'category-1',
+      name: 'Dining',
+      color: 'amber',
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      deletedAt: null,
+    };
+    const result = mapIcsImport(
+      [
+        expandedEvent({
+          lelCategory: { name: ' dining ', color: 'teal' },
+          lelSignificance: 'NOTABLE',
+        }),
+      ],
+      { tags: [], people: [], locations: [], categories: [dining] }
+    );
+
+    expect(result.candidates[0]).toMatchObject({
+      event: { significance: 'notable' },
+      category: { kind: 'existing', entity: { id: 'category-1' } },
+      warnings: [],
+    });
+  });
+
+  it('proposes imported categories and safely defaults invalid LEL values', () => {
+    const result = mapIcsImport(
+      [
+        expandedEvent({
+          lelCategory: { name: 'Work', color: 'ultraviolet' },
+          lelSignificance: 'critical',
+        }),
+      ],
+      { tags: [], people: [], locations: [], categories: [] }
+    );
+
+    expect(result.candidates[0]).toMatchObject({
+      event: { significance: 'ordinary' },
+      category: {
+        kind: 'new',
+        category: { name: 'Work', color: 'blue' },
+      },
+      warnings: [
+        { code: 'invalid-significance' },
+        { code: 'invalid-category-color' },
+      ],
+    });
   });
 
   it('proposes each missing metadata value once and reuses its reference', () => {
@@ -132,6 +185,7 @@ describe('mapIcsImport', () => {
       tags: [],
       people: [],
       locations: [],
+      categories: [],
     });
 
     expect(result.newMetadata).toEqual({
@@ -173,7 +227,7 @@ describe('mapIcsImport', () => {
           },
         }),
       ],
-      { tags: [], people: [], locations: [] }
+      { tags: [], people: [], locations: [], categories: [] }
     );
 
     expect(result.candidates[0]).toMatchObject({
@@ -188,7 +242,7 @@ describe('mapIcsImport', () => {
         expandedEvent({ title: '   ' }),
         expandedEvent({ sourceIndex: 1, title: 'x'.repeat(101) }),
       ],
-      { tags: [], people: [], locations: [] }
+      { tags: [], people: [], locations: [], categories: [] }
     );
 
     expect(result.candidates[0]).toMatchObject({
@@ -215,7 +269,7 @@ describe('mapIcsImport', () => {
           },
         }),
       ],
-      { tags: [], people: [], locations: [] }
+      { tags: [], people: [], locations: [], categories: [] }
     );
 
     expect(result.candidates).toEqual([]);
@@ -241,7 +295,7 @@ describe('mapIcsImport', () => {
           ],
         }),
       ],
-      { tags: [], people: [], locations: [] }
+      { tags: [], people: [], locations: [], categories: [] }
     );
 
     expect(result.candidates[0]).toMatchObject({

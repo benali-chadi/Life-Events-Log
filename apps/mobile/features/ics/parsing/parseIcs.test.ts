@@ -16,6 +16,8 @@ LOCATION:Rabat\\, Morocco\r
 CATEGORIES:Friends,Food\r
 ATTENDEE;CN=Youssef Alaoui;ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:youssef@example.com\r
 STATUS:CONFIRMED\r
+X-LEL-CATEGORY;COLOR=teal:Dining\r
+X-LEL-SIGNIFICANCE:notable\r
 END:VEVENT\r
 END:VCALENDAR\r
 `);
@@ -41,6 +43,8 @@ END:VCALENDAR\r
       location: 'Rabat, Morocco',
       categories: ['Friends', 'Food'],
       status: 'CONFIRMED',
+      lelCategory: { name: 'Dining', color: 'teal' },
+      lelSignificance: 'notable',
       attendees: [
         {
           uri: 'mailto:youssef@example.com',
@@ -70,6 +74,8 @@ END:VCALENDAR`).events;
       location: null,
       categories: [],
       attendees: [],
+      lelCategory: null,
+      lelSignificance: null,
     });
   });
 

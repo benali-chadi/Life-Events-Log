@@ -55,11 +55,17 @@ export class InMemoryEventImportRepository implements EventImportRepository {
       input.newMetadata.locations
     );
     const categoryInput = validateEventImportCategory(input.category);
-    const { category, created: categoryCreated } = this.resolveCategory(
-      staged.categories,
-      categoryInput,
-      timestamp
-    );
+    let categoryCreatedCount = 0;
+    let overrideCategory: Category | null = null;
+    if (categoryInput) {
+      const resolved = this.resolveCategory(
+        staged.categories,
+        categoryInput,
+        timestamp
+      );
+      overrideCategory = resolved.category;
+      if (resolved.created) categoryCreatedCount += 1;
+    }
     const createdTags: Tag[] = [];
     const createdPeople: Person[] = [];
     const createdLocations: Location[] = [];
@@ -86,6 +92,16 @@ export class InMemoryEventImportRepository implements EventImportRepository {
     );
 
     for (const values of eventValues) {
+      let category = overrideCategory;
+      if (!categoryInput && values.category) {
+        const resolved = this.resolveCategory(
+          staged.categories,
+          values.category,
+          timestamp
+        );
+        category = resolved.category;
+        if (resolved.created) categoryCreatedCount += 1;
+      }
       const tagEntities = this.resolveReferences(
         values.tags,
         staged.tags,
@@ -145,7 +161,7 @@ export class InMemoryEventImportRepository implements EventImportRepository {
     return {
       eventCount: eventValues.length,
       createdMetadata: {
-        categoryCount: categoryCreated ? 1 : 0,
+        categoryCount: categoryCreatedCount,
         tagCount: createdTags.length,
         peopleCount: createdPeople.length,
         locationCount: createdLocations.length,

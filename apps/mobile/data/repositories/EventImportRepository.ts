@@ -17,12 +17,14 @@ export type EventImportEventInput = Omit<
   CreateEventInput,
   'categoryId' | 'locationId' | 'tagIds' | 'peopleIds'
 > & {
+  category: EventImportCategory | null;
   tags: readonly EventImportMetadataReference[];
   people: readonly EventImportMetadataReference[];
   location: EventImportMetadataReference | null;
 };
 
 export type CommitEventImportInput = {
+  /** When present, replaces the category carried by every event. */
   category: EventImportCategory | null;
   events: readonly EventImportEventInput[];
   newMetadata: {

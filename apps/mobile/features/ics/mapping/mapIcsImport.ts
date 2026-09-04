@@ -3,12 +3,17 @@ import {
   normalizeMetadataName,
 } from '@/data/repositories/metadataName';
 import {
+  CATEGORY_COLOR_VALUES,
+  EVENT_SIGNIFICANCE_VALUES,
   EVENT_TITLE_MAX_LENGTH,
+  type CategoryColor,
+  type EventSignificance,
   type LocalDate,
   type LocalTime,
 } from '@/models';
 import type {
   IcsImportCandidate,
+  IcsImportCategoryReference,
   IcsImportMappingResult,
   IcsImportMetadataReference,
   IcsImportMetadataSnapshot,
@@ -26,6 +31,7 @@ export function mapIcsImport(
   const tags = new MetadataResolver('tag', metadata.tags);
   const people = new MetadataResolver('person', metadata.people);
   const locations = new MetadataResolver('location', metadata.locations);
+  const categories = new CategoryResolver(metadata.categories);
   const candidates: IcsImportCandidate[] = [];
   const skipped: SkippedIcsImportEvent[] = [];
 
@@ -62,11 +68,12 @@ export function mapIcsImport(
           ? null
           : (event.start!.value.slice(11, 16) as LocalTime),
         notes: event.description ?? '',
-        significance: 'ordinary',
+        significance: mappedSignificance(event.lelSignificance, warnings),
       },
       tags: tags.resolveMany(event.categories),
       people: people.resolveMany(attendeeNames),
       location: event.location ? locations.resolve(event.location) : null,
+      category: categories.resolve(event.lelCategory, warnings),
       source: {
         sourceIndex: event.sourceIndex,
         uid: event.uid,
@@ -86,6 +93,74 @@ export function mapIcsImport(
     },
     skipped,
   };
+}
+
+class CategoryResolver {
+  private readonly existingByName = new Map<
+    string,
+    IcsImportCategoryReference
+  >();
+
+  constructor(existing: IcsImportMetadataSnapshot['categories']) {
+    for (const category of existing) {
+      const name = comparableMetadataName(category.name);
+      if (!this.existingByName.has(name)) {
+        this.existingByName.set(name, { kind: 'existing', entity: category });
+      }
+    }
+  }
+
+  resolve(
+    source: ExpandedIcsEvent['lelCategory'],
+    warnings: IcsImportWarning[]
+  ): IcsImportCategoryReference | null {
+    if (!source) return null;
+    const name = normalizeMetadataName(source.name);
+    if (!name) return null;
+    const comparable = comparableMetadataName(name);
+    const existing = this.existingByName.get(comparable);
+    if (existing) return existing;
+
+    const color = mappedCategoryColor(source.color, warnings);
+    const proposed: IcsImportCategoryReference = {
+      kind: 'new',
+      category: { name, color },
+    };
+    this.existingByName.set(comparable, proposed);
+    return proposed;
+  }
+}
+
+function mappedCategoryColor(
+  source: string | null,
+  warnings: IcsImportWarning[]
+): CategoryColor {
+  const normalized = source?.toLowerCase();
+  if (
+    normalized &&
+    CATEGORY_COLOR_VALUES.includes(normalized as CategoryColor)
+  ) {
+    return normalized as CategoryColor;
+  }
+  warnings.push({
+    code: 'invalid-category-color',
+    message: 'This imported category has no valid color and will use blue.',
+  });
+  return 'blue';
+}
+
+function mappedSignificance(
+  source: string | null,
+  warnings: IcsImportWarning[]
+): EventSignificance {
+  if (!source) return 'ordinary';
+  const normalized = source.toLowerCase() as EventSignificance;
+  if (EVENT_SIGNIFICANCE_VALUES.includes(normalized)) return normalized;
+  warnings.push({
+    code: 'invalid-significance',
+    message: 'This event has an invalid significance and will use ordinary.',
+  });
+  return 'ordinary';
 }
 
 class MetadataResolver<TEntity extends { id: string; name: string }> {

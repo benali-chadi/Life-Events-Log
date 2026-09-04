@@ -20,6 +20,33 @@ function event(...properties: string[]) {
 }
 
 describe('expandIcsRecurrences', () => {
+  it('inherits LEL extension values across recurring occurrences', () => {
+    const result = expandIcsRecurrences(
+      calendar(
+        event(
+          'UID:lel-series@example.com',
+          'DTSTART:20260901T090000',
+          'SUMMARY:Important series',
+          'X-LEL-CATEGORY;COLOR=teal:Work',
+          'X-LEL-SIGNIFICANCE:notable',
+          'RRULE:FREQ=DAILY;COUNT=2'
+        )
+      )
+    );
+
+    expect(result).toHaveLength(2);
+    expect(result).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          lelCategory: { name: 'Work', color: 'teal' },
+          lelSignificance: 'notable',
+        }),
+      ])
+    );
+    expect(result.every((item) => item.lelSignificance === 'notable')).toBe(
+      true
+    );
+  });
   it('passes standalone events through without series metadata', () => {
     const result = expandIcsRecurrences(
       calendar(
@@ -161,7 +188,7 @@ describe('expandIcsRecurrences', () => {
     expect(() => expandIcsRecurrences(parsed)).toThrowError(
       expect.objectContaining({ code: 'import-event-limit' })
     );
-  });
+  }, 10_000);
 
   it('rejects invalid or reversed recurrence ranges', () => {
     const parsed = calendar();

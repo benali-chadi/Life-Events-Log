@@ -167,6 +167,8 @@ function occurrenceEvent(
     categories: effective.categories,
     attendees: effective.attendees,
     status: effective.status,
+    lelCategory: effective.lelCategory,
+    lelSignificance: effective.lelSignificance,
     series: {
       uid: master.uid,
       recurrenceId: parsedTime(recurrenceId, master.start?.timezone),
@@ -211,6 +213,12 @@ function mergeOverride(
     status: effectiveComponent.hasProperty('status')
       ? effective.status
       : master.status,
+    lelCategory: effectiveComponent.hasProperty('x-lel-category')
+      ? effective.lelCategory
+      : master.lelCategory,
+    lelSignificance: effectiveComponent.hasProperty('x-lel-significance')
+      ? effective.lelSignificance
+      : master.lelSignificance,
   };
 }
 

@@ -58,7 +58,16 @@ export class SQLiteEventImportRepository implements EventImportRepository {
       input.newMetadata.locations
     );
     const categoryInput = validateEventImportCategory(input.category);
-    const referenceIds = collectExistingReferenceIds(eventValues);
+    const referenceIds = collectExistingReferenceIds(
+      eventValues,
+      categoryInput !== null
+    );
+    if (
+      categoryInput?.kind === 'existing' &&
+      !referenceIds.categories.includes(categoryInput.id)
+    ) {
+      referenceIds.categories.push(categoryInput.id);
+    }
 
     return this.database.transaction((transaction) => {
       const timestamp = this.dependencies.now();
@@ -74,34 +83,10 @@ export class SQLiteEventImportRepository implements EventImportRepository {
         transaction,
         referenceIds.locations
       );
-      let category: Category | null = null;
-      let categoryCreated = false;
-      if (categoryInput?.kind === 'existing') {
-        category = selectActiveCategory(transaction, categoryInput.id);
-        if (!category) {
-          throw new EntityNotFoundError('Category', categoryInput.id);
-        }
-      } else if (categoryInput?.kind === 'new') {
-        category = selectActiveCategoryByName(transaction, categoryInput.name);
-        if (!category) {
-          category = {
-            id: this.uniqueCategoryId(transaction),
-            name: categoryInput.name,
-            color: categoryInput.color,
-            createdAt: timestamp,
-            updatedAt: timestamp,
-            deletedAt: null,
-          };
-          transaction
-            .insert(categories)
-            .values({
-              ...category,
-              normalizedName: comparableMetadataName(category.name),
-            })
-            .run();
-          categoryCreated = true;
-        }
-      }
+      const existingCategories = selectActiveCategoriesByIds(
+        transaction,
+        referenceIds.categories
+      );
       assertExistingReferences(referenceIds.tags, existingTags, 'Tag');
       assertExistingReferences(referenceIds.people, existingPeople, 'Person');
       assertExistingReferences(
@@ -109,6 +94,49 @@ export class SQLiteEventImportRepository implements EventImportRepository {
         existingLocations,
         'Location'
       );
+      assertExistingReferences(
+        referenceIds.categories,
+        existingCategories,
+        'Category'
+      );
+
+      const categoryByName = entitiesByName(existingCategories.values());
+      const createdCategories: Category[] = [];
+      const resolveCategory = (
+        category: CommitEventImportInput['category']
+      ): Category | null => {
+        if (!category) return null;
+        if (category.kind === 'existing') {
+          return existingCategories.get(category.id)!;
+        }
+        const comparable = comparableMetadataName(category.name);
+        let entity = categoryByName.get(comparable);
+        if (!entity) {
+          entity =
+            selectActiveCategoryByName(transaction, category.name) ?? undefined;
+        }
+        if (!entity) {
+          entity = {
+            id: this.uniqueCategoryId(transaction),
+            name: category.name,
+            color: category.color,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+            deletedAt: null,
+          };
+          transaction
+            .insert(categories)
+            .values({
+              ...entity,
+              normalizedName: comparable,
+            })
+            .run();
+          createdCategories.push(entity);
+        }
+        categoryByName.set(comparable, entity);
+        return entity;
+      };
+      const overrideCategory = resolveCategory(categoryInput);
 
       const tagResolution = resolveDefinitions(
         tagDefinitions,
@@ -182,6 +210,7 @@ export class SQLiteEventImportRepository implements EventImportRepository {
         }
       );
       for (const values of eventValues) {
+        const category = overrideCategory ?? resolveCategory(values.category);
         const tagEntities = resolveReferences(
           values.tags,
           existingTags,
@@ -255,7 +284,7 @@ export class SQLiteEventImportRepository implements EventImportRepository {
       return {
         eventCount: eventValues.length,
         createdMetadata: {
-          categoryCount: categoryCreated ? 1 : 0,
+          categoryCount: createdCategories.length,
           tagCount: tagResolution.created.length,
           peopleCount: personResolution.created.length,
           locationCount: locationResolution.created.length,
@@ -310,11 +339,13 @@ export class SQLiteEventImportRepository implements EventImportRepository {
 }
 
 function collectExistingReferenceIds(
-  eventsToImport: readonly CommitEventImportInput['events'][number][]
+  eventsToImport: readonly CommitEventImportInput['events'][number][],
+  categoriesAreOverridden: boolean
 ) {
   const tags = new Set<UUID>();
   const people = new Set<UUID>();
   const locations = new Set<UUID>();
+  const categories = new Set<UUID>();
   for (const event of eventsToImport) {
     for (const reference of event.tags) {
       if (reference.kind === 'existing') tags.add(reference.id);
@@ -325,11 +356,15 @@ function collectExistingReferenceIds(
     if (event.location?.kind === 'existing') {
       locations.add(event.location.id);
     }
+    if (!categoriesAreOverridden && event.category?.kind === 'existing') {
+      categories.add(event.category.id);
+    }
   }
   return {
     tags: [...tags],
     people: [...people],
     locations: [...locations],
+    categories: [...categories],
   };
 }
 
@@ -439,17 +474,18 @@ function selectActiveLocationsByIds(
   );
 }
 
-function selectActiveCategory(
+function selectActiveCategoriesByIds(
   database: ReadDatabase,
-  id: UUID | null
-): Category | null {
-  if (!id) return null;
-  return (
+  ids: readonly UUID[]
+) {
+  if (ids.length === 0) return new Map<UUID, Category>();
+  return new Map(
     database
       .select(categoryModelColumns)
       .from(categories)
-      .where(and(isNull(categories.deletedAt), eq(categories.id, id)))
-      .get() ?? null
+      .where(and(isNull(categories.deletedAt), inArray(categories.id, ids)))
+      .all()
+      .map((category) => [category.id, category])
   );
 }
 
@@ -535,7 +571,7 @@ function selectActiveLocationsByNames(
   return byName;
 }
 
-function entitiesByName<TEntity extends NamedEntity>(
+function entitiesByName<TEntity extends NamedEntity | Category>(
   entities: Iterable<TEntity>
 ) {
   const byName = new Map<string, TEntity>();

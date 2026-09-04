@@ -110,6 +110,38 @@ export function eventImportRepositoryContract(
       ).toBe(true);
     });
 
+    it('preserves different event categories when there is no override', async () => {
+      const repositories = await createRepositories();
+      const existing = await repositories.categories.create({
+        name: 'Existing',
+        color: 'amber',
+      });
+      const result = await repositories.eventImports.commit({
+        category: null,
+        newMetadata: { tags: [], people: [], locations: [] },
+        events: [
+          importEvent({
+            category: { kind: 'existing', id: existing.id },
+          }),
+          importEvent({
+            title: 'New category event',
+            category: { kind: 'new', name: 'From calendar', color: 'teal' },
+          }),
+        ],
+      });
+
+      expect(result.createdMetadata.categoryCount).toBe(1);
+      const imported = await repositories.events.list({ limit: 10 });
+      expect(
+        imported.items.find(({ event }) => event.title === 'Imported event')
+          ?.category
+      ).toMatchObject({ id: existing.id });
+      expect(
+        imported.items.find(({ event }) => event.title === 'New category event')
+          ?.category
+      ).toMatchObject({ name: 'From calendar', color: 'teal' });
+    });
+
     it('rolls back metadata and events when a temporary reference is invalid', async () => {
       const repositories = await createRepositories();
       const input: CommitEventImportInput = {
@@ -177,6 +209,7 @@ function importEvent(
     date: '2026-09-01',
     time: '09:30',
     significance: 'ordinary',
+    category: null,
     notes: 'Imported notes',
     tags: [],
     people: [],

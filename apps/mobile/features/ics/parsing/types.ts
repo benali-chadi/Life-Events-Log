@@ -32,6 +32,8 @@ export type ParsedIcsEvent = {
   categories: string[];
   attendees: ParsedIcsAttendee[];
   status: string | null;
+  lelCategory: { name: string; color: string | null } | null;
+  lelSignificance: string | null;
   recurrence: ParsedIcsRecurrence;
   /** Kept for recurrence expansion without leaking mutable ICAL.js objects. */
   rawComponent: string;

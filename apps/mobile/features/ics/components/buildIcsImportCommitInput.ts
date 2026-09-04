@@ -25,6 +25,7 @@ export function buildIcsImportCommitInput(
 
   const events = selected.map((candidate) => ({
     ...candidate.event,
+    category: category ?? commitCategory(candidate.category),
     tags: candidate.tags.map((reference) =>
       commitReference(reference, referencedTemporaryIds.tags)
     ),
@@ -51,6 +52,15 @@ export function buildIcsImportCommitInput(
       ),
     },
   };
+}
+
+function commitCategory(
+  category: IcsImportCandidate['category']
+): EventImportCategory | null {
+  if (!category) return null;
+  return category.kind === 'existing'
+    ? { kind: 'existing', id: category.entity.id }
+    : { kind: 'new', ...category.category };
 }
 
 function commitReference<TEntity extends { id: string }>(

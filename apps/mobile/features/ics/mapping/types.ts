@@ -2,12 +2,13 @@ import type {
   CreateEventInput,
   NewEventImportMetadata,
 } from '@/data/repositories';
-import type { Location, Person, Tag } from '@/models';
+import type { Category, CategoryColor, Location, Person, Tag } from '@/models';
 
 export type IcsImportMetadataSnapshot = {
   tags: readonly Tag[];
   people: readonly Person[];
   locations: readonly Location[];
+  categories: readonly Category[];
 };
 
 export type NewIcsImportMetadata = NewEventImportMetadata;
@@ -16,8 +17,19 @@ export type IcsImportMetadataReference<TEntity> =
   | { kind: 'existing'; entity: TEntity }
   | { kind: 'new'; metadata: NewIcsImportMetadata };
 
+export type IcsImportCategoryReference =
+  | { kind: 'existing'; entity: Category }
+  | {
+      kind: 'new';
+      category: { name: string; color: CategoryColor };
+    };
+
 export type IcsImportWarningCode =
-  'missing-title' | 'title-truncated' | 'attendee-name-missing';
+  | 'missing-title'
+  | 'title-truncated'
+  | 'attendee-name-missing'
+  | 'invalid-category-color'
+  | 'invalid-significance';
 
 export type IcsImportWarning = {
   code: IcsImportWarningCode;
@@ -43,6 +55,7 @@ export type IcsImportCandidate = {
   tags: IcsImportMetadataReference<Tag>[];
   people: IcsImportMetadataReference<Person>[];
   location: IcsImportMetadataReference<Location> | null;
+  category: IcsImportCategoryReference | null;
   source: {
     sourceIndex: number;
     uid: string | null;

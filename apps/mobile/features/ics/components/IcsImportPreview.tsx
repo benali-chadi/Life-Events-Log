@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   CalendarDays,
   Check,
+  Folder,
   MapPin,
   Users,
 } from 'lucide-react-native';
@@ -201,11 +202,11 @@ export default function IcsImportPreview({
 
       <View style={[styles.categorySection, { borderColor: colors.border }]}>
         <Text style={[styles.sectionLabel, { color: colors.text }]}>
-          Category
+          Category override
         </Text>
         <Text style={[styles.sectionHelp, { color: colors.textMuted }]}>
-          Optional. Applied to every selected event and created only when you
-          confirm.
+          Optional. Leave empty to keep categories from the file. Selecting one
+          replaces the category on every selected event.
         </Text>
         <SingleSelect
           clearable
@@ -216,7 +217,7 @@ export default function IcsImportPreview({
           }}
           onCreateRequest={setCategoryCreationName}
           options={categoryOptions}
-          placeholder="No category"
+          placeholder="Keep categories from file"
           searchPlaceholder="Search or create a category..."
           value={categoryOption}
         />
@@ -323,7 +324,7 @@ function CandidateRow({
   selected: boolean;
   onToggle: () => void;
 }) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const metadata = candidateMetadata(candidate);
   return (
     <Pressable
@@ -364,6 +365,24 @@ function CandidateRow({
             {candidate.event.time ? ` · ${candidate.event.time}` : ' · All day'}
           </Text>
         </View>
+        {candidate.category && (
+          <View style={styles.eventDetail}>
+            <Folder
+              color={
+                eventColors[categoryColor(candidate.category)][
+                  isDark ? 'dark' : 'light'
+                ]
+              }
+              size={14}
+            />
+            <Text
+              numberOfLines={1}
+              style={[styles.eventMetadata, { color: colors.textSecondary }]}
+            >
+              {categoryName(candidate.category)}
+            </Text>
+          </View>
+        )}
         {metadata.people && (
           <View style={styles.eventDetail}>
             <Users color={colors.textMuted} size={14} />
@@ -397,6 +416,19 @@ function CandidateRow({
       </View>
     </Pressable>
   );
+}
+
+function categoryName(category: IcsImportCandidate['category']) {
+  if (!category) return '';
+  return category.kind === 'existing'
+    ? category.entity.name
+    : category.category.name;
+}
+
+function categoryColor(category: NonNullable<IcsImportCandidate['category']>) {
+  return category.kind === 'existing'
+    ? category.entity.color
+    : category.category.color;
 }
 
 function selectedCategory(

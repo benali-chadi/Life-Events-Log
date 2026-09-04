@@ -5,7 +5,12 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useAppToast } from '@/components/ui/AppToastProvider';
-import { useLocationsQuery, usePeopleQuery, useTagsQuery } from '@/data/query';
+import {
+  useCategoriesQuery,
+  useLocationsQuery,
+  usePeopleQuery,
+  useTagsQuery,
+} from '@/data/query';
 import {
   expandIcsRecurrences,
   IcsImportPreview,
@@ -21,11 +26,13 @@ export default function ImportIcsScreen() {
   const tags = useTagsQuery();
   const people = usePeopleQuery();
   const locations = useLocationsQuery();
+  const categories = useCategoriesQuery();
   const [mapping, setMapping] = useState<IcsImportMappingResult | null>(null);
   const preparationStarted = useRef(false);
 
   useEffect(() => {
-    const queryError = tags.error ?? people.error ?? locations.error;
+    const queryError =
+      tags.error ?? people.error ?? locations.error ?? categories.error;
     if (!queryError || preparationStarted.current) return;
     preparationStarted.current = true;
     showToast({
@@ -36,14 +43,15 @@ export default function ImportIcsScreen() {
       kind: 'error',
     });
     router.back();
-  }, [locations.error, people.error, showToast, tags.error]);
+  }, [categories.error, locations.error, people.error, showToast, tags.error]);
 
   useEffect(() => {
     if (
       preparationStarted.current ||
       tags.data === undefined ||
       people.data === undefined ||
-      locations.data === undefined
+      locations.data === undefined ||
+      categories.data === undefined
     ) {
       return;
     }
@@ -60,6 +68,7 @@ export default function ImportIcsScreen() {
           tags: tags.data,
           people: people.data,
           locations: locations.data,
+          categories: categories.data,
         });
         if (active) setMapping(prepared);
       } catch (error) {
@@ -77,6 +86,7 @@ export default function ImportIcsScreen() {
       active = false;
     };
   }, [
+    categories.data,
     locations.data,
     params.name,
     params.uri,

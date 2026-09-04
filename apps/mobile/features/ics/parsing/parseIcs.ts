@@ -52,6 +52,7 @@ export function parseIcsEventComponent(
   sourceIndex: number
 ): ParsedIcsEvent {
   const recurrenceIdProperty = component.getFirstProperty('recurrence-id');
+  const lelCategoryProperty = component.getFirstProperty('x-lel-category');
 
   return {
     sourceIndex,
@@ -70,6 +71,15 @@ export function parseIcsEventComponent(
       .map(parseAttendee)
       .filter((attendee): attendee is ParsedIcsAttendee => attendee !== null),
     status: stringValue(component, 'status'),
+    lelCategory: stringPropertyValue(lelCategoryProperty)
+      ? {
+          name: stringPropertyValue(lelCategoryProperty)!,
+          color: lelCategoryProperty
+            ? optionalParameter(lelCategoryProperty, 'color')
+            : null,
+        }
+      : null,
+    lelSignificance: stringValue(component, 'x-lel-significance'),
     recurrence: {
       rules: rawProperties(component, 'rrule'),
       dates: rawProperties(component, 'rdate'),
@@ -79,6 +89,11 @@ export function parseIcsEventComponent(
     },
     rawComponent: component.toString(),
   };
+}
+
+function stringPropertyValue(property: IcalProperty | null): string | null {
+  const value = property?.getFirstValue();
+  return typeof value === 'string' ? value : null;
 }
 
 function parseAttendee(property: IcalProperty): ParsedIcsAttendee | null {

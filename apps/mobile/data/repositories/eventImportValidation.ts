@@ -35,7 +35,11 @@ export function validateEventImportValues(
       `Invalid event significance “${input.significance}”.`
     );
   }
-  return { ...input, title };
+  return {
+    ...input,
+    title,
+    category: validateEventImportCategory(input.category),
+  };
 }
 
 export function validateNewMetadataDefinitions(

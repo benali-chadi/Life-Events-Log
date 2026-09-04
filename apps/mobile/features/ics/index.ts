@@ -24,6 +24,7 @@ export {
 } from './components/buildIcsImportCommitInput';
 export type {
   IcsImportCandidate,
+  IcsImportCategoryReference,
   IcsImportMappingResult,
   IcsImportMetadataReference,
   IcsImportMetadataSnapshot,
