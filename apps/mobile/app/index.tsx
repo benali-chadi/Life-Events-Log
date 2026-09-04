@@ -1,8 +1,15 @@
 import { radius, spacing, typography } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
-import { router } from 'expo-router';
-import { Plus, Trash2, X } from 'lucide-react-native';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { router, useNavigation } from 'expo-router';
+import { Download, Plus, Trash2, X } from 'lucide-react-native';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   ActivityIndicator,
   BackHandler,
@@ -21,6 +28,7 @@ import EventsHeader, {
   UNCATEGORIZED_FILTER_ID,
   WITHOUT_LOCATION_FILTER_ID,
 } from '@/components/EventsHeader';
+import TimelineOverflowMenu from '@/components/TimelineOverflowMenu';
 import { closeOpenSwipe } from '@/components/ui/SwipeReveal';
 import { useAppToast } from '@/components/ui/AppToastProvider';
 import {
@@ -28,7 +36,9 @@ import {
   useEventCountQuery,
   useInfiniteEventListQuery,
 } from '@/data/query';
-import type { EventListItem } from '@/data/repositories';
+import type { EventListItem, EventExportQuery } from '@/data/repositories';
+import { useEventExportRepository } from '@/data/RepositoryProvider';
+import { exportEventsAsIcs, type IcsExportSource } from '@/features/ics';
 import type { LocalDate, UUID } from '@/models';
 
 const PAGE_SIZE = 10;
@@ -114,12 +124,15 @@ function groupEventsByDate(items: EventListItem[]) {
 
 export default function Index() {
   const { colors } = useTheme();
+  const navigation = useNavigation();
   const { showToast } = useAppToast();
+  const eventExportRepository = useEventExportRepository();
   const eventsHeaderRef = useRef<EventsHeaderHandle>(null);
   const [filters, setFilters] = useState<TimelineFilters>(INITIAL_FILTERS);
   const [selectedEventIds, setSelectedEventIds] = useState<Set<UUID>>(
     () => new Set()
   );
+  const [isExporting, setIsExporting] = useState(false);
   const { deleteEvents, isDeletingEvents, pendingEventIds } =
     useEventDeletion();
   const selectionMode = selectedEventIds.size > 0;
@@ -157,6 +170,10 @@ export default function Index() {
       timeTo: filters.timeRange.to,
     };
   }, [debouncedSearch, filters]);
+  const eventExportQuery = useMemo<EventExportQuery>(() => {
+    const { limit: _limit, ...query } = eventListQuery;
+    return query;
+  }, [eventListQuery]);
   const hasSearch = debouncedSearch.trim().length > 0;
   const hasTimelineFilters =
     filters.categoryIds.length > 0 ||
@@ -166,6 +183,7 @@ export default function Index() {
     filters.locationIds.length > 0 ||
     Boolean(filters.dateRange.from || filters.dateRange.to) ||
     Boolean(filters.timeRange.from || filters.timeRange.to);
+  const hasActiveExportFilters = hasSearch || hasTimelineFilters;
   const eventsQuery = useInfiniteEventListQuery(eventListQuery);
   const eventCountQuery = useEventCountQuery(eventListQuery);
   const sections = useMemo(
@@ -181,6 +199,48 @@ export default function Index() {
   const exitSelectionMode = useCallback(() => {
     setSelectedEventIds(new Set());
   }, []);
+
+  const exportEvents = useCallback(
+    async (source: IcsExportSource) => {
+      if (isExporting) return;
+      setIsExporting(true);
+      try {
+        await exportEventsAsIcs(source, eventExportRepository);
+      } catch (error) {
+        showToast({
+          message:
+            error instanceof Error
+              ? error.message
+              : 'The events could not be exported.',
+          kind: 'error',
+        });
+      } finally {
+        setIsExporting(false);
+      }
+    },
+    [eventExportRepository, isExporting, showToast]
+  );
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TimelineOverflowMenu
+          exportDisabled={isExporting}
+          onExportAll={() => void exportEvents({ kind: 'query', query: {} })}
+          onExportFiltered={() =>
+            void exportEvents({ kind: 'query', query: eventExportQuery })
+          }
+          showFilteredExport={hasActiveExportFilters}
+        />
+      ),
+    });
+  }, [
+    eventExportQuery,
+    exportEvents,
+    hasActiveExportFilters,
+    isExporting,
+    navigation,
+  ]);
 
   const toggleEventSelection = useCallback((id: UUID) => {
     closeOpenSwipe();
@@ -302,14 +362,41 @@ export default function Index() {
             {selectedEventIds.size} selected
           </Text>
           <Pressable
+            accessibilityLabel={`Export ${selectedEventIds.size} selected ${selectedEventIds.size === 1 ? 'event' : 'events'} to an ICS calendar file`}
+            accessibilityRole="button"
+            disabled={isExporting || isDeletingEvents}
+            onPress={() =>
+              void exportEvents({
+                kind: 'selected',
+                ids: [...selectedEventIds],
+              })
+            }
+            style={({ pressed }) => [
+              styles.selectionActionButton,
+              pressed && { backgroundColor: colors.interactivePressed },
+              (isExporting || isDeletingEvents) && styles.disabledAction,
+            ]}
+          >
+            {isExporting ? (
+              <ActivityIndicator color={colors.primary} size="small" />
+            ) : (
+              <Download color={colors.primary} size={19} strokeWidth={2} />
+            )}
+            <Text
+              style={[styles.selectionActionText, { color: colors.primary }]}
+            >
+              Export ICS
+            </Text>
+          </Pressable>
+          <Pressable
             accessibilityLabel={`Delete ${selectedEventIds.size} selected ${selectedEventIds.size === 1 ? 'event' : 'events'}`}
             accessibilityRole="button"
-            disabled={isDeletingEvents}
+            disabled={isDeletingEvents || isExporting}
             onPress={deleteSelectedEvents}
             style={({ pressed }) => [
               styles.deleteSelectedButton,
               pressed && { backgroundColor: colors.destructiveMuted },
-              isDeletingEvents && styles.disabledAction,
+              (isDeletingEvents || isExporting) && styles.disabledAction,
             ]}
           >
             {isDeletingEvents ? (
@@ -609,6 +696,18 @@ const styles = StyleSheet.create({
     gap: spacing[2],
     borderRadius: radius.sm,
     paddingHorizontal: spacing[3],
+  },
+  selectionActionButton: {
+    minHeight: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing[3],
+  },
+  selectionActionText: {
+    ...typography.small,
+    fontWeight: '700',
   },
   deleteSelectedText: {
     ...typography.small,

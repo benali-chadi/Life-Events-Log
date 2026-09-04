@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { EventDetails } from '@/models';
 
 import {
+  exportEventsAsIcs,
   shareEventsAsIcs,
   type IcsExportCoordinatorDependencies,
 } from './shareEventsAsIcs';
@@ -62,6 +63,54 @@ describe('shareEventsAsIcs', () => {
       'Sharing is not available on this device.'
     );
     expect(dependencies.writeTemporaryFile).not.toHaveBeenCalled();
+  });
+});
+
+describe('exportEventsAsIcs', () => {
+  it('loads selected events before sharing them', async () => {
+    const events = [eventDetails()];
+    const repository = {
+      getByIds: vi.fn().mockResolvedValue(events),
+      list: vi.fn(),
+    };
+
+    await exportEventsAsIcs(
+      { kind: 'selected', ids: ['event-1'] },
+      repository,
+      coordinatorDependencies()
+    );
+
+    expect(repository.getByIds).toHaveBeenCalledWith(['event-1']);
+    expect(repository.list).not.toHaveBeenCalled();
+  });
+
+  it('loads matching events for a query export', async () => {
+    const repository = {
+      getByIds: vi.fn(),
+      list: vi.fn().mockResolvedValue([eventDetails()]),
+    };
+
+    await exportEventsAsIcs(
+      { kind: 'query', query: { search: 'trip' } },
+      repository,
+      coordinatorDependencies()
+    );
+
+    expect(repository.list).toHaveBeenCalledWith({ search: 'trip' });
+    expect(repository.getByIds).not.toHaveBeenCalled();
+  });
+
+  it('does not open sharing when no events match', async () => {
+    const dependencies = coordinatorDependencies();
+    const repository = {
+      getByIds: vi.fn().mockResolvedValue([]),
+      list: vi.fn(),
+    };
+
+    await expect(
+      exportEventsAsIcs({ kind: 'selected', ids: [] }, repository, dependencies)
+    ).rejects.toThrow('There are no events to export.');
+    expect(dependencies.isSharingAvailable).not.toHaveBeenCalled();
   });
 });
 

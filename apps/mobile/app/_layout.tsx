@@ -9,7 +9,6 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { SQLiteProvider, useSQLiteContext } from 'expo-sqlite';
 import EventDeletionProvider from '@/components/event-deletion/EventDeletionProvider';
 import AppToastProvider from '@/components/ui/AppToastProvider';
-import TimelineOverflowMenu from '@/components/TimelineOverflowMenu';
 import { createAppRepositories } from '@/data/appRepositories';
 import { appQueryClient } from '@/data/query';
 import { RepositoryProvider } from '@/data/RepositoryProvider';
@@ -66,7 +65,6 @@ function AppLayout() {
                         style={styles.timelineLockup}
                       />
                     ),
-                    headerRight: () => <TimelineOverflowMenu />,
                   }}
                 />
                 <Stack.Screen

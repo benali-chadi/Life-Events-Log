@@ -11,9 +11,11 @@ export {
 export { mapIcsImport } from './mapping/mapIcsImport';
 export { serializeEventsToIcs } from './exporting/serializeEventsToIcs';
 export {
+  exportEventsAsIcs,
   shareEventsAsIcs,
   type IcsExportCoordinatorDependencies,
   type IcsExportResult,
+  type IcsExportSource,
 } from './exporting/shareEventsAsIcs';
 export { default as IcsImportPreview } from './components/IcsImportPreview';
 export {

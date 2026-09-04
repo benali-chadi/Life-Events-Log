@@ -1,7 +1,12 @@
 import { randomUUID } from 'expo-crypto';
 import { Directory, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import type { EventExportItem } from '@/data/repositories';
+import type {
+  EventExportItem,
+  EventExportQuery,
+  EventExportRepository,
+} from '@/data/repositories';
+import type { UUID } from '@/models';
 import { serializeEventsToIcs } from './serializeEventsToIcs';
 
 const EXPORT_CLEANUP_DELAY_MS = 60_000;
@@ -23,6 +28,25 @@ export type IcsExportResult = {
   eventCount: number;
   filename: string;
 };
+
+export type IcsExportSource =
+  | { kind: 'selected'; ids: readonly UUID[] }
+  | { kind: 'query'; query: EventExportQuery };
+
+export async function exportEventsAsIcs(
+  source: IcsExportSource,
+  repository: EventExportRepository,
+  dependencies: IcsExportCoordinatorDependencies = nativeDependencies
+): Promise<IcsExportResult> {
+  const events =
+    source.kind === 'selected'
+      ? await repository.getByIds(source.ids)
+      : await repository.list(source.query);
+  if (events.length === 0) {
+    throw new Error('There are no events to export.');
+  }
+  return shareEventsAsIcs(events, dependencies);
+}
 
 export async function shareEventsAsIcs(
   events: readonly EventExportItem[],
