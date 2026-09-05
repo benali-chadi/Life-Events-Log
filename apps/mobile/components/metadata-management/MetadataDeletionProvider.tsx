@@ -1,5 +1,3 @@
-import { radius, spacing, typography } from '@lel/design';
-import { useTheme } from '@lel/design/useTheme';
 import { useNavigation } from 'expo-router';
 import {
   createContext,
@@ -10,23 +8,22 @@ import {
   useRef,
   useState,
 } from 'react';
-import {
-  AccessibilityInfo,
-  Alert,
-  Animated,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { useAppToast } from '@/components/ui/AppToastProvider';
 import {
   useDeleteCategoryMutation,
   useDeleteLocationMutation,
+  useDeleteManyCategoriesMutation,
+  useDeleteManyLocationsMutation,
+  useDeleteManyPeopleMutation,
+  useDeleteManyTagsMutation,
   useDeletePersonMutation,
   useDeleteTagMutation,
 } from '@/data/query';
 import type { UUID } from '@/models';
-import { confirmMetadataDeletion } from './confirmMetadataDeletion';
+import {
+  confirmManyMetadataDeletion,
+  confirmMetadataDeletion,
+} from './confirmMetadataDeletion';
 
 export type MetadataDeletionKind = 'category' | 'tag' | 'person' | 'location';
 
@@ -37,10 +34,25 @@ export type PendingMetadataDeletion = {
   eventCount: number;
 };
 
+type PendingMetadataOperation =
+  | { type: 'single'; item: PendingMetadataDeletion }
+  | {
+      type: 'many';
+      kind: MetadataDeletionKind;
+      ids: readonly UUID[];
+      label: string;
+    };
+
 type MetadataDeletionContextValue = {
-  pending: PendingMetadataDeletion | null;
+  pendingKind: MetadataDeletionKind | null;
+  pendingIds: ReadonlySet<UUID>;
   requestDeletion: (
     metadata: PendingMetadataDeletion,
+    onConfirmed?: () => void
+  ) => void;
+  requestManyDeletions: (
+    metadata: readonly PendingMetadataDeletion[],
+    label: string,
     onConfirmed?: () => void
   ) => void;
   finalizePending: () => Promise<boolean>;
@@ -56,145 +68,177 @@ export default function MetadataDeletionProvider({
 }: {
   children: ReactNode;
 }) {
-  const { colors } = useTheme();
+  const { dismissToast, showToast } = useAppToast();
   const navigation = useNavigation();
   const deleteCategory = useDeleteCategoryMutation();
   const deleteTag = useDeleteTagMutation();
   const deletePerson = useDeletePersonMutation();
   const deleteLocation = useDeleteLocationMutation();
-  const [pending, setPending] = useState<PendingMetadataDeletion | null>(null);
-  const [isFinalizing, setIsFinalizing] = useState(false);
-  const [reduceMotion, setReduceMotion] = useState(false);
-  const pendingRef = useRef<PendingMetadataDeletion | null>(null);
+  const deleteCategories = useDeleteManyCategoriesMutation();
+  const deleteTags = useDeleteManyTagsMutation();
+  const deletePeople = useDeleteManyPeopleMutation();
+  const deleteLocations = useDeleteManyLocationsMutation();
+  const [pending, setPending] = useState<PendingMetadataOperation | null>(null);
+  const pendingRef = useRef<PendingMetadataOperation | null>(null);
   const finalizingRef = useRef<Promise<boolean> | null>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toastIdRef = useRef<number | null>(null);
   const allowNavigationRef = useRef(false);
-  const progress = useRef(new Animated.Value(1)).current;
 
-  const clearTimer = useCallback(() => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = null;
-    progress.stopAnimation();
-  }, [progress]);
-
-  const setPendingMetadata = useCallback(
-    (metadata: PendingMetadataDeletion | null) => {
-      pendingRef.current = metadata;
-      setPending(metadata);
+  const updatePending = useCallback(
+    (operation: PendingMetadataOperation | null) => {
+      pendingRef.current = operation;
+      setPending(operation);
     },
     []
   );
 
-  const deleteMetadata = useCallback(
-    (metadata: PendingMetadataDeletion) => {
-      switch (metadata.kind) {
+  const deleteOperation = useCallback(
+    (operation: PendingMetadataOperation) => {
+      if (operation.type === 'many') {
+        switch (operation.kind) {
+          case 'category':
+            return deleteCategories.mutateAsync(operation.ids);
+          case 'tag':
+            return deleteTags.mutateAsync(operation.ids);
+          case 'person':
+            return deletePeople.mutateAsync(operation.ids);
+          case 'location':
+            return deleteLocations.mutateAsync(operation.ids);
+        }
+      }
+
+      switch (operation.item.kind) {
         case 'category':
-          return deleteCategory.mutateAsync(metadata.id);
+          return deleteCategory.mutateAsync(operation.item.id);
         case 'tag':
-          return deleteTag.mutateAsync(metadata.id);
+          return deleteTag.mutateAsync(operation.item.id);
         case 'person':
-          return deletePerson.mutateAsync(metadata.id);
+          return deletePerson.mutateAsync(operation.item.id);
         case 'location':
-          return deleteLocation.mutateAsync(metadata.id);
+          return deleteLocation.mutateAsync(operation.item.id);
       }
     },
-    [deleteCategory, deleteLocation, deletePerson, deleteTag]
+    [
+      deleteCategories,
+      deleteCategory,
+      deleteLocations,
+      deleteLocation,
+      deletePeople,
+      deletePerson,
+      deleteTags,
+      deleteTag,
+    ]
   );
 
   const finalizePending = useCallback(() => {
     if (finalizingRef.current) return finalizingRef.current;
 
-    const metadata = pendingRef.current;
-    if (!metadata) return Promise.resolve(true);
+    const operation = pendingRef.current;
+    if (!operation) return Promise.resolve(true);
 
-    clearTimer();
-    setIsFinalizing(true);
+    if (toastIdRef.current !== null) {
+      dismissToast(toastIdRef.current);
+      toastIdRef.current = null;
+    }
 
-    const operation = deleteMetadata(metadata)
+    const deletion = deleteOperation(operation)
       .then(() => {
-        if (
-          pendingRef.current?.kind === metadata.kind &&
-          pendingRef.current.id === metadata.id
-        ) {
-          setPendingMetadata(null);
-        }
+        if (pendingRef.current === operation) updatePending(null);
         return true;
       })
       .catch(() => {
-        setPendingMetadata(null);
-        Alert.alert(
-          `Could not delete ${metadata.kind}`,
-          `“${metadata.name}” was not deleted. Please try again.`
-        );
+        if (pendingRef.current === operation) updatePending(null);
+        showToast({
+          message: deletionFailureMessage(operation),
+          kind: 'error',
+        });
         return false;
       })
       .finally(() => {
         finalizingRef.current = null;
-        setIsFinalizing(false);
       });
 
-    finalizingRef.current = operation;
-    return operation;
-  }, [clearTimer, deleteMetadata, setPendingMetadata]);
+    finalizingRef.current = deletion;
+    return deletion;
+  }, [deleteOperation, dismissToast, showToast, updatePending]);
 
   const startDelay = useCallback(
-    (metadata: PendingMetadataDeletion) => {
-      setPendingMetadata(metadata);
-      progress.setValue(1);
-
-      if (!reduceMotion) {
-        Animated.timing(progress, {
-          toValue: 0,
-          duration: DELETE_DELAY_MS,
-          useNativeDriver: false,
-        }).start();
-      }
-
-      timerRef.current = setTimeout(() => {
-        timerRef.current = null;
-        void finalizePending();
-      }, DELETE_DELAY_MS);
+    (operation: PendingMetadataOperation) => {
+      updatePending(operation);
+      toastIdRef.current = showToast({
+        message: deletionPrompt(operation),
+        duration: DELETE_DELAY_MS,
+        showProgress: true,
+        actions: [
+          {
+            label: 'Undo',
+            onPress: () => updatePending(null),
+          },
+          {
+            label: 'Delete now',
+            tone: 'destructive',
+            onPress: () => finalizePending(),
+          },
+        ],
+        onDismiss: (reason) => {
+          toastIdRef.current = null;
+          if (reason === 'timeout' || reason === 'replaced') {
+            void finalizePending();
+          }
+        },
+      });
     },
-    [finalizePending, progress, reduceMotion, setPendingMetadata]
+    [finalizePending, showToast, updatePending]
+  );
+
+  const queueOperation = useCallback(
+    (operation: PendingMetadataOperation, onConfirmed?: () => void) => {
+      onConfirmed?.();
+      void (async () => {
+        if (pendingRef.current) {
+          const finalized = await finalizePending();
+          if (!finalized) return;
+        }
+        startDelay(operation);
+      })();
+    },
+    [finalizePending, startDelay]
   );
 
   const requestDeletion = useCallback(
     (metadata: PendingMetadataDeletion, onConfirmed?: () => void) => {
       confirmMetadataDeletion(metadata, () => {
-        onConfirmed?.();
-        void (async () => {
-          if (pendingRef.current) await finalizePending();
-          startDelay(metadata);
-        })();
+        queueOperation({ type: 'single', item: metadata }, onConfirmed);
       });
     },
-    [finalizePending, startDelay]
+    [queueOperation]
   );
 
-  const undo = () => {
-    if (isFinalizing) return;
-    clearTimer();
-    setPendingMetadata(null);
-  };
-
-  useEffect(() => {
-    let mounted = true;
-
-    void AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
-      if (mounted) setReduceMotion(enabled);
-    });
-    const subscription = AccessibilityInfo.addEventListener(
-      'reduceMotionChanged',
-      setReduceMotion
-    );
-
-    return () => {
-      mounted = false;
-      subscription.remove();
-    };
-  }, []);
-
-  useEffect(() => clearTimer, [clearTimer]);
+  const requestManyDeletions = useCallback(
+    (
+      metadata: readonly PendingMetadataDeletion[],
+      label: string,
+      onConfirmed?: () => void
+    ) => {
+      if (metadata.length === 0) return;
+      const eventCount = metadata.reduce(
+        (total, item) => total + item.eventCount,
+        0
+      );
+      confirmManyMetadataDeletion(metadata.length, label, eventCount, () => {
+        queueOperation(
+          {
+            type: 'many',
+            kind: metadata[0]!.kind,
+            ids: metadata.map((item) => item.id),
+            label,
+          },
+          onConfirmed
+        );
+      });
+    },
+    [queueOperation]
+  );
 
   useEffect(
     () =>
@@ -211,71 +255,26 @@ export default function MetadataDeletionProvider({
     [finalizePending, navigation]
   );
 
+  const pendingIds = new Set(
+    pending ? (pending.type === 'single' ? [pending.item.id] : pending.ids) : []
+  );
+  const pendingKind = pending
+    ? pending.type === 'single'
+      ? pending.item.kind
+      : pending.kind
+    : null;
+
   return (
     <MetadataDeletionContext.Provider
-      value={{ pending, requestDeletion, finalizePending }}
+      value={{
+        pendingKind,
+        pendingIds,
+        requestDeletion,
+        requestManyDeletions,
+        finalizePending,
+      }}
     >
-      <View style={styles.providerRoot}>
-        {children}
-
-        {pending && (
-          <View
-            accessibilityLiveRegion="polite"
-            style={[
-              styles.toast,
-              { backgroundColor: colors.bg, shadowColor: colors.text },
-            ]}
-          >
-            <Text
-              numberOfLines={1}
-              style={[styles.toastText, { color: colors.text }]}
-            >
-              {isFinalizing ? 'Deleting…' : `Delete “${pending.name}”?`}
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              disabled={isFinalizing}
-              onPress={undo}
-              style={({ pressed }) => [
-                styles.toastButton,
-                pressed && styles.pressedButton,
-              ]}
-            >
-              <Text style={[styles.toastAction, { color: colors.text }]}>
-                Undo
-              </Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              disabled={isFinalizing}
-              onPress={() => void finalizePending()}
-              style={({ pressed }) => [
-                styles.toastButton,
-                pressed && styles.pressedButton,
-              ]}
-            >
-              <Text style={[styles.toastAction, { color: colors.destructive }]}>
-                Delete now
-              </Text>
-            </Pressable>
-            {!reduceMotion && !isFinalizing && (
-              <Animated.View
-                pointerEvents="none"
-                style={[
-                  styles.progress,
-                  {
-                    backgroundColor: colors.destructive,
-                    width: progress.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: ['0%', '100%'],
-                    }),
-                  },
-                ]}
-              />
-            )}
-          </View>
-        )}
-      </View>
+      {children}
     </MetadataDeletionContext.Provider>
   );
 }
@@ -292,38 +291,14 @@ export function useMetadataDeletion() {
   return context;
 }
 
-const styles = StyleSheet.create({
-  providerRoot: { flex: 1 },
-  toast: {
-    position: 'absolute',
-    right: spacing[4],
-    bottom: spacing[6],
-    left: spacing[4],
-    minHeight: 56,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: radius.md,
-    paddingLeft: spacing[4],
-    paddingRight: spacing[2],
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
-  },
-  toastText: { ...typography.small, flex: 1, fontWeight: '600' },
-  toastButton: {
-    minHeight: 44,
-    justifyContent: 'center',
-    paddingHorizontal: spacing[2],
-  },
-  toastAction: { ...typography.caption, fontWeight: '700' },
-  pressedButton: { opacity: 0.65 },
-  progress: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    height: 3,
-    borderBottomLeftRadius: radius.md,
-    opacity: 0.65,
-  },
-});
+function deletionPrompt(operation: PendingMetadataOperation) {
+  return operation.type === 'single'
+    ? `Delete “${operation.item.name}”?`
+    : `Delete ${operation.ids.length} ${operation.label.toLowerCase()}?`;
+}
+
+function deletionFailureMessage(operation: PendingMetadataOperation) {
+  return operation.type === 'single'
+    ? `“${operation.item.name}” was not deleted. Please try again.`
+    : `The selected ${operation.label.toLowerCase()} were not deleted. Please try again.`;
+}

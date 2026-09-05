@@ -7,11 +7,13 @@ import type { SelectOption } from '../ui/select';
 type TagsMetadataProps = {
   value?: SelectOption[];
   onChange?: (value: SelectOption[]) => void;
+  maxVisibleValues?: number;
 };
 
 export default function TagsMetadata({
   value,
   onChange,
+  maxVisibleValues,
 }: TagsMetadataProps = {}) {
   const tagsQuery = useTagsQuery();
   const createTag = useCreateTagMutation();
@@ -30,6 +32,7 @@ export default function TagsMetadata({
       searchPlaceholder="Search or create a tag..."
       options={options}
       values={selectedTags}
+      maxVisibleValues={maxVisibleValues}
       onChange={setSelectedTags}
       onCreate={async (label) => {
         const tag = await createTag.mutateAsync({ name: label });

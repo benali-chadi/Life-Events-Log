@@ -13,7 +13,6 @@ import {
 import { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Platform,
   Pressable,
@@ -28,10 +27,6 @@ import {
   useCreateLocationMutation,
   useCreatePersonMutation,
   useCreateTagMutation,
-  useDeleteManyCategoriesMutation,
-  useDeleteManyLocationsMutation,
-  useDeleteManyPeopleMutation,
-  useDeleteManyTagsMutation,
   useLocationsWithUsageQuery,
   usePeopleWithUsageQuery,
   useTagsWithUsageQuery,
@@ -53,7 +48,6 @@ import {
 } from './MetadataDeletionProvider';
 import type { MetadataSectionId } from './MetadataTabs';
 import NamedMetadataEditSheet from './NamedMetadataEditSheet';
-import { confirmManyMetadataDeletion } from './confirmMetadataDeletion';
 
 export type MetadataUsageOrder = 'most' | 'least';
 
@@ -108,11 +102,8 @@ function MetadataUsageList<TEntity extends UsageEntity>({
   onEdit,
 }: MetadataUsageListProps<TEntity>) {
   const { colors, isDark } = useTheme();
-  const { finalizePending, pending, requestDeletion } = useMetadataDeletion();
-  const deleteCategories = useDeleteManyCategoriesMutation();
-  const deleteTags = useDeleteManyTagsMutation();
-  const deletePeople = useDeleteManyPeopleMutation();
-  const deleteLocations = useDeleteManyLocationsMutation();
+  const { pendingKind, pendingIds, requestDeletion, requestManyDeletions } =
+    useMetadataDeletion();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const suppressEditRef = useRef<string | null>(null);
   const selectionMode = selectedIds.size > 0;
@@ -159,34 +150,17 @@ function MetadataUsageList<TEntity extends UsageEntity>({
   const unusedIds = data
     .filter((item) => item.eventCount === 0)
     .map((item) => item.metadata.id);
-  const bulkMutation =
-    kind === 'category'
-      ? deleteCategories
-      : kind === 'tag'
-        ? deleteTags
-        : kind === 'person'
-          ? deletePeople
-          : deleteLocations;
   const deleteSelected = () => {
-    const ids = selectedItems.map((item) => item.metadata.id);
-    const usageCount = selectedItems.reduce(
-      (total, item) => total + item.eventCount,
-      0
+    requestManyDeletions(
+      selectedItems.map((item) => ({
+        kind,
+        id: item.metadata.id,
+        name: item.metadata.name,
+        eventCount: item.eventCount,
+      })),
+      label,
+      () => setSelectedIds(new Set())
     );
-    confirmManyMetadataDeletion(ids.length, label, usageCount, () => {
-      void finalizePending().then((ready) => {
-        if (!ready) return;
-        bulkMutation
-          .mutateAsync(ids)
-          .then(() => setSelectedIds(new Set()))
-          .catch(() =>
-            Alert.alert(
-              `Could not delete ${label.toLowerCase()}`,
-              'The selected items were not deleted. Please try again.'
-            )
-          );
-      });
-    });
   };
 
   return (
@@ -222,15 +196,10 @@ function MetadataUsageList<TEntity extends UsageEntity>({
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            disabled={bulkMutation.isPending}
             onPress={deleteSelected}
             style={styles.selectionDeleteButton}
           >
-            {bulkMutation.isPending ? (
-              <ActivityIndicator color={colors.destructive} size="small" />
-            ) : (
-              <Trash2 color={colors.destructive} size={18} />
-            )}
+            <Trash2 color={colors.destructive} size={18} />
             <Text
               style={[
                 styles.selectionDeleteText,
@@ -403,7 +372,7 @@ function MetadataUsageList<TEntity extends UsageEntity>({
             const color = getColor?.(item.metadata);
             const count = usageLabel(item.eventCount);
             const isPendingDeletion =
-              pending?.kind === kind && pending.id === item.metadata.id;
+              pendingKind === kind && pendingIds.has(item.metadata.id);
             const deletion = {
               kind,
               id: item.metadata.id,

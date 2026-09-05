@@ -16,6 +16,9 @@ export type ColorsTheme = {
   primaryPressed: string;
   onPrimary: string;
 
+  warning: string;
+  warningMuted: string;
+
   destructive: string;
   destructiveSurface: string;
   destructiveSurfacePressed: string;
@@ -41,6 +44,9 @@ export const lightTheme = {
   primaryPressed: '#3A3A3A',
   onPrimary: '#FFFFFF',
 
+  warning: '#9A6700',
+  warningMuted: '#FFF4CC',
+
   destructive: '#B42318',
   destructiveSurface: '#B42318',
   destructiveSurfacePressed: '#912018',
@@ -65,6 +71,9 @@ export const darkTheme = {
   primary: '#F4F4F2',
   primaryPressed: '#D8D8D5',
   onPrimary: '#171717',
+
+  warning: '#E5B95C',
+  warningMuted: '#3A301C',
 
   destructive: '#F97066',
   destructiveSurface: '#B42318',

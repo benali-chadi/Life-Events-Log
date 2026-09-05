@@ -2,10 +2,11 @@ import { useTheme } from '@lel/design/useTheme';
 import { useRouter } from 'expo-router';
 import { Check, Trash2 } from 'lucide-react-native';
 import { useCallback, useRef, useState } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { useEventDeletion } from '../event-deletion/EventDeletionProvider';
 import { confirmEventDeletion } from '../event-deletion/confirmEventDeletion';
 import SwipeReveal, { closeOpenSwipe } from '../ui/SwipeReveal';
+import { useAppToast } from '../ui/AppToastProvider';
 import EventCardContent from './EventCardContent';
 import { eventCardStyles as styles } from './eventCardStyles';
 import type { EventListItem } from '@/data/repositories';
@@ -26,6 +27,7 @@ export default function EventCard({
   const router = useRouter();
   const { colors, isDark } = useTheme();
   const { deleteEvent } = useEventDeletion();
+  const { showToast } = useAppToast();
   const suppressNextOpenRef = useRef(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [hasTitleOverflow, setHasTitleOverflow] = useState(false);
@@ -104,10 +106,10 @@ export default function EventCard({
                 onPress={() =>
                   confirmEventDeletion(event.event.title, () => {
                     void deleteEvent(event.event).catch(() => {
-                      Alert.alert(
-                        'Could not delete event',
-                        'The event was not deleted. Please try again.'
-                      );
+                      showToast({
+                        message: 'The event was not deleted. Please try again.',
+                        kind: 'error',
+                      });
                     });
                   })
                 }
