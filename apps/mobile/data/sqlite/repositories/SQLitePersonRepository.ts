@@ -183,18 +183,6 @@ export class SQLitePersonRepository implements PersonRepository {
         .set({ updatedAt: timestamp, deletedAt: timestamp })
         .where(and(eq(people.id, id), isNull(people.deletedAt)))
         .run();
-      transaction
-        .update(eventPeople)
-        .set({ updatedAt: timestamp, deletedAt: timestamp })
-        .where(and(eq(eventPeople.personId, id), isNull(eventPeople.deletedAt)))
-        .run();
-      if (affectedEventIds.length > 0) {
-        transaction
-          .update(events)
-          .set({ updatedAt: timestamp })
-          .where(inArray(events.id, affectedEventIds))
-          .run();
-      }
 
       return { affectedEventIds };
     });

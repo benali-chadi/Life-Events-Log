@@ -172,18 +172,6 @@ export class SQLiteTagRepository implements TagRepository {
         .set({ updatedAt: timestamp, deletedAt: timestamp })
         .where(and(eq(tags.id, id), isNull(tags.deletedAt)))
         .run();
-      transaction
-        .update(eventTags)
-        .set({ updatedAt: timestamp, deletedAt: timestamp })
-        .where(and(eq(eventTags.tagId, id), isNull(eventTags.deletedAt)))
-        .run();
-      if (affectedEventIds.length > 0) {
-        transaction
-          .update(events)
-          .set({ updatedAt: timestamp })
-          .where(inArray(events.id, affectedEventIds))
-          .run();
-      }
 
       return { affectedEventIds };
     });
