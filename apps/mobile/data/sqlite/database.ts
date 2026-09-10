@@ -12,6 +12,9 @@ export function createDrizzleDatabase(sqlite: SQLiteDatabase) {
 }
 
 export type AppDatabase = ReturnType<typeof createDrizzleDatabase>;
+export type SyncTransaction = Parameters<
+  Parameters<AppDatabase['transaction']>[0]
+>[0];
 
 export async function initializeDatabase(sqlite: SQLiteDatabase) {
   await sqlite.execAsync('PRAGMA journal_mode = WAL;');

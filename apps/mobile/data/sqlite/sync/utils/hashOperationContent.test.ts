@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { expect, it } from 'vitest';
 import { hashOperationContent } from './hashOperationContent';
-import type { OperationContent, JsonObject } from './types';
+import type { OperationContent, JsonObject } from '../types';
 
 const operation: OperationContent = {
   originDeviceId: 'a',

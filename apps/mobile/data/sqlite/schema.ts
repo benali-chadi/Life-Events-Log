@@ -7,7 +7,7 @@ import type {
   OperationType,
   SyncEntityType,
   SyncFieldName,
-} from '../sync';
+} from './sync/types';
 import {
   check,
   index,

@@ -1,7 +1,7 @@
 import canonicalize from 'canonicalize';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js';
-import type { OperationContent } from './types';
+import type { OperationContent } from '../types';
 
 /** RFC 8785 JSON, encoded as UTF-8 and hashed with SHA-256. */
 export function hashOperationContent(operation: OperationContent): string {
