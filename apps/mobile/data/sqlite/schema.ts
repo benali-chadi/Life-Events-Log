@@ -1,4 +1,13 @@
 import { sql } from 'drizzle-orm';
+import type {
+  CausalContext,
+  ConflictStatus,
+  DomainFieldName,
+  JsonObject,
+  OperationType,
+  SyncEntityType,
+  SyncFieldName,
+} from '../sync';
 import {
   check,
   index,
@@ -263,3 +272,113 @@ export type PersonRow = typeof people.$inferSelect;
 export type LocationRow = typeof locations.$inferSelect;
 export type EventTagRow = typeof eventTags.$inferSelect;
 export type EventPersonRow = typeof eventPeople.$inferSelect;
+
+// A constant-expression unique index enforces a singleton without an extra column.
+export const syncLocalState = sqliteTable(
+  'sync_local_state',
+  {
+    deviceId: text('device_id').primaryKey(),
+    observedLamport: integer('observed_lamport').notNull(),
+  },
+  (table) => [
+    uniqueIndex('sync_local_state_singleton').on(sql`(1)`),
+    check('sync_local_state_lamport_check', sql`${table.observedLamport} >= 0`),
+  ]
+);
+
+export const syncFrontiers = sqliteTable(
+  'sync_frontiers',
+  {
+    originDeviceId: text('origin_device_id').primaryKey(),
+    processedSequence: integer('processed_sequence').notNull(),
+  },
+  (table) => [
+    check(
+      'sync_frontiers_sequence_check',
+      sql`${table.processedSequence} >= 0`
+    ),
+  ]
+);
+
+export const syncOperations = sqliteTable(
+  'sync_operations',
+  {
+    originDeviceId: text('origin_device_id').notNull(),
+    originSequence: integer('origin_sequence').notNull(),
+    lamport: integer('lamport').notNull(),
+    causalContext: text('causal_context', { mode: 'json' })
+      .$type<CausalContext>()
+      .notNull(),
+    operationType: text('operation_type').$type<OperationType>().notNull(),
+    entityType: text('entity_type').$type<SyncEntityType>().notNull(),
+    entityId: text('entity_id').notNull(),
+    payload: text('payload', { mode: 'json' }).$type<JsonObject>().notNull(),
+    operationHash: text('operation_hash').notNull(),
+    receivedAt: text('received_at').notNull(),
+    appliedAt: text('applied_at').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.originDeviceId, table.originSequence] }),
+    check('sync_operations_sequence_check', sql`${table.originSequence} > 0`),
+    check('sync_operations_lamport_check', sql`${table.lamport} > 0`),
+  ]
+);
+
+export const syncFieldVersions = sqliteTable(
+  'sync_field_versions',
+  {
+    entityType: text('entity_type').$type<SyncEntityType>().notNull(),
+    entityId: text('entity_id').notNull(),
+    fieldName: text('field_name').$type<SyncFieldName>().notNull(),
+    winnerDeviceId: text('winner_device_id').notNull(),
+    winnerSequence: integer('winner_sequence').notNull(),
+    winnerLamport: integer('winner_lamport').notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.entityType, table.entityId, table.fieldName],
+    }),
+    check(
+      'sync_field_versions_sequence_check',
+      sql`${table.winnerSequence} > 0`
+    ),
+    check('sync_field_versions_lamport_check', sql`${table.winnerLamport} > 0`),
+  ]
+);
+
+export const syncConflicts = sqliteTable(
+  'sync_conflicts',
+  {
+    conflictId: text('conflict_id').primaryKey(),
+    entityType: text('entity_type').$type<SyncEntityType>().notNull(),
+    entityId: text('entity_id').notNull(),
+    fieldName: text('field_name').$type<DomainFieldName>().notNull(),
+    winningDeviceId: text('winning_device_id').notNull(),
+    winningSequence: integer('winning_sequence').notNull(),
+    losingDeviceId: text('losing_device_id').notNull(),
+    losingSequence: integer('losing_sequence').notNull(),
+    status: text('status').$type<ConflictStatus>().notNull(),
+    resolutionDeviceId: text('resolution_device_id'),
+    resolutionSequence: integer('resolution_sequence'),
+  },
+  (table) => [
+    check(
+      'sync_conflicts_status_check',
+      sql`${table.status} IN ('pending', 'resolved')`
+    ),
+    check(
+      'sync_conflicts_resolution_check',
+      sql`(${table.resolutionDeviceId} IS NULL AND ${table.resolutionSequence} IS NULL) OR (${table.resolutionDeviceId} IS NOT NULL AND ${table.resolutionSequence} > 0 AND ${table.resolutionSequence} IS NOT NULL)`
+    ),
+    check(
+      'sync_conflicts_sequences_check',
+      sql`${table.winningSequence} > 0 AND ${table.losingSequence} > 0`
+    ),
+  ]
+);
+
+export type SyncLocalState = typeof syncLocalState.$inferSelect;
+export type SyncFrontier = typeof syncFrontiers.$inferSelect;
+export type SyncOperationRow = typeof syncOperations.$inferSelect;
+export type SyncFieldVersion = typeof syncFieldVersions.$inferSelect;
+export type SyncConflict = typeof syncConflicts.$inferSelect;
