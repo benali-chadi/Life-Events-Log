@@ -91,6 +91,11 @@ export type StoredOperation<TPayload extends JsonObject = JsonObject> =
     appliedAt: Timestamp;
   };
 
+export type OperationContent<TPayload extends JsonObject = JsonObject> = Omit<
+  Operation<TPayload>,
+  'operationHash'
+>;
+
 export type CreateOperationInput<TPayload extends JsonObject = JsonObject> =
   Pick<
     Operation<TPayload>,

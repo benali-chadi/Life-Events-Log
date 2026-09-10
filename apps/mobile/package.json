@@ -15,6 +15,8 @@
     "db:generate": "drizzle-kit generate --config drizzle.config.ts"
   },
   "dependencies": {
+    "@noble/hashes": "^2.0.0",
+    "canonicalize": "^2.0.0",
     "@expo/vector-icons": "^15.0.3",
     "@lel/design": "workspace:*",
     "@react-native-community/datetimepicker": "8.4.4",
