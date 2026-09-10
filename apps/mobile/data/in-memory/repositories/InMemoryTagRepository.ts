@@ -13,6 +13,15 @@ export class InMemoryTagRepository extends InMemoryNamedMetadataRepository<Tag> 
       entityName: 'Tag',
       createEntity: (tag) => tag,
       getUsageCounts: () => countActiveTagUsage(database),
+      getAffectedEventIds: (tagId) =>
+        [...database.eventTags.values()]
+          .filter(
+            (relation) =>
+              relation.tagId === tagId &&
+              relation.deletedAt === null &&
+              database.events.has(relation.eventId)
+          )
+          .map((relation) => relation.eventId),
     });
   }
 }

@@ -13,6 +13,15 @@ export class InMemoryPersonRepository extends InMemoryNamedMetadataRepository<Pe
       entityName: 'Person',
       createEntity: (person) => person,
       getUsageCounts: () => countActivePersonUsage(database),
+      getAffectedEventIds: (personId) =>
+        [...database.eventPeople.values()]
+          .filter(
+            (relation) =>
+              relation.personId === personId &&
+              relation.deletedAt === null &&
+              database.events.has(relation.eventId)
+          )
+          .map((relation) => relation.eventId),
     });
   }
 }

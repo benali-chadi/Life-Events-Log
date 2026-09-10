@@ -31,10 +31,7 @@ type NamedMetadataRepositoryOptions<TEntity extends NamedMetadataEntity> = {
   entityName: string;
   createEntity: (entity: NamedMetadataEntity) => TEntity;
   getUsageCounts: () => ReadonlyMap<UUID, number>;
-  softDeleteReferences?: (
-    id: UUID,
-    timestamp: Timestamp
-  ) => SoftDeleteMetadataResult;
+  getAffectedEventIds?: (metadataId: UUID) => readonly UUID[];
 };
 
 export class InMemoryNamedMetadataRepository<
@@ -145,19 +142,13 @@ export class InMemoryNamedMetadataRepository<
     );
     if (activeEntities.length === 0) return { affectedEventIds: [] };
 
-    if (!this.options.softDeleteReferences) {
-      throw new RepositoryError(
-        `${this.options.entityName} soft deletion is not implemented yet.`
-      );
-    }
-
     const timestamp = this.dependencies.now();
     const affectedEventIds = new Set<UUID>();
+
     activeEntities.forEach((entity) => {
-      const result = this.options.softDeleteReferences!(entity.id, timestamp);
-      result.affectedEventIds.forEach((eventId) =>
-        affectedEventIds.add(eventId)
-      );
+      this.options
+        .getAffectedEventIds?.(entity.id)
+        .forEach((eventId) => affectedEventIds.add(eventId));
       this.table.set(entity.id, {
         ...entity,
         updatedAt: timestamp,

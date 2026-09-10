@@ -64,7 +64,7 @@ describe('InMemoryPersonRepository', () => {
     );
   });
 
-  it('tombstones a person and its event relationships', async () => {
+  it('tombstones a person while preserving relationships and events', async () => {
     const database = createInMemoryDatabase(DEVELOPMENT_SEED);
     const repository = new InMemoryPersonRepository(database, dependencies);
     const personId = DEVELOPMENT_SEED.people[1].id;
@@ -73,6 +73,10 @@ describe('InMemoryPersonRepository', () => {
       .map((relationship) => relationship.eventId)
       .sort();
 
+    const relationsBefore = structuredClone([
+      ...database.eventPeople.entries(),
+    ]);
+    const eventsBefore = structuredClone([...database.events.entries()]);
     const result = await repository.softDelete(personId);
 
     expect(result.affectedEventIds).toEqual(affectedIds);
@@ -80,19 +84,12 @@ describe('InMemoryPersonRepository', () => {
       updatedAt: '2026-07-30T10:00:00.000Z',
       deletedAt: '2026-07-30T10:00:00.000Z',
     });
-    expect(
-      [...database.eventPeople.values()]
-        .filter((relationship) => relationship.personId === personId)
-        .every(
-          (relationship) =>
-            relationship.deletedAt === '2026-07-30T10:00:00.000Z'
-        )
-    ).toBe(true);
-    for (const eventId of affectedIds) {
-      expect(database.events.get(eventId)?.updatedAt).toBe(
-        '2026-07-30T10:00:00.000Z'
-      );
-    }
+    expect([...database.eventPeople.entries()]).toEqual(relationsBefore);
+    expect([...database.events.entries()]).toEqual(eventsBefore);
+    await expect(repository.getById(personId)).resolves.toBeNull();
+    await expect(repository.softDelete(personId)).resolves.toEqual({
+      affectedEventIds: [],
+    });
   });
 });
 
