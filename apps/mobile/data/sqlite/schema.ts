@@ -147,7 +147,7 @@ export const eventAttachments = sqliteTable(
     eventId: text('event_id')
       .notNull()
       .references(() => events.id),
-    relativePath: text('relative_path').notNull(),
+    contentHash: text('content_hash').notNull(),
     filename: text('filename').notNull(),
     mimeType: text('mime_type'),
     width: integer('width'),
@@ -176,6 +176,10 @@ export const eventAttachments = sqliteTable(
       sql`${table.fileSize} IS NULL OR ${table.fileSize} >= 0`
     ),
     check('event_attachments_sort_order_check', sql`${table.sortOrder} >= 0`),
+    check(
+      'event_attachments_content_hash_check',
+      sql`length(${table.contentHash}) = 64 AND ${table.contentHash} NOT GLOB '*[^0-9a-f]*'`
+    ),
   ]
 );
 

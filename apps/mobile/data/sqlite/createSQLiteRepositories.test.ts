@@ -52,7 +52,7 @@ describe('createSQLiteRepositories', () => {
     });
     const attachment = await repositories.attachments.create({
       eventId: details.event.id,
-      relativePath: 'attachments/photo.jpg',
+      contentHash: 'a'.repeat(64),
       filename: 'photo.jpg',
       mimeType: 'image/jpeg',
       width: 100,

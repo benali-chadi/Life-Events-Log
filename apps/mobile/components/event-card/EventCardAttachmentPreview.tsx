@@ -17,7 +17,7 @@ export default function EventCardAttachmentPreview({
   attachmentCount,
   colors,
 }: EventCardAttachmentPreviewProps) {
-  const file = resolveAttachmentFile(attachment.relativePath);
+  const file = resolveAttachmentFile(attachment.contentHash);
 
   return (
     <View

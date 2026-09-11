@@ -187,13 +187,13 @@ export class InMemoryAttachmentRepository implements AttachmentRepository {
   }
 
   private validatedInput(input: CreateAttachmentInput) {
-    const relativePath = input.relativePath.trim();
+    const contentHash = input.contentHash.trim();
     const filename = input.filename.trim();
     const mimeType = input.mimeType?.trim().toLowerCase() || null;
 
-    if (!relativePath) {
+    if (!/^[0-9a-f]{64}$/.test(contentHash)) {
       throw new ModelValidationError(
-        'Attachment relative path cannot be empty.'
+        'Attachment content hash must be a lowercase SHA-256 digest.'
       );
     }
 
@@ -206,7 +206,7 @@ export class InMemoryAttachmentRepository implements AttachmentRepository {
     this.assertOptionalNonNegativeInteger(input.fileSize, 'file size');
 
     return {
-      relativePath,
+      contentHash,
       filename,
       mimeType,
       width: input.width,

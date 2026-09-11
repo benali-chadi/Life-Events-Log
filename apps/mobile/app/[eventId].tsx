@@ -210,7 +210,7 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
   const [draftNotes, setDraftNotes] = useState(event.notes);
   const attachments: AttachmentPreview[] = details.attachments.map(
     (attachment) => {
-      const file = resolveAttachmentFile(attachment.relativePath);
+      const file = resolveAttachmentFile(attachment.contentHash);
 
       return {
         id: attachment.id,

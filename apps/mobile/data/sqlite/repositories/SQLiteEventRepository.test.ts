@@ -218,7 +218,7 @@ describe('SQLiteEventRepository', () => {
       .values({
         id: 'attachment-1',
         eventId: EVENT_ID,
-        relativePath: 'attachments/a.jpg',
+        contentHash: 'a'.repeat(64),
         filename: 'a.jpg',
         mimeType: 'image/jpeg',
         width: 100,

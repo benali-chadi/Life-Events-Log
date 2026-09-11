@@ -8,13 +8,22 @@ import type { AppDatabase } from '../database';
 import { runDataMigrations } from '../dataMigrations';
 import * as schema from '../schema';
 
-function applyMigrations(database: Database, includeSeedData: boolean) {
+function applyMigrations(
+  database: Database,
+  includeSeedData: boolean,
+  throughMigration?: number
+) {
   const migrationsDirectory = resolve(
     dirname(fileURLToPath(import.meta.url)),
     '../../../drizzle'
   );
   const migrations = readdirSync(migrationsDirectory)
     .filter((filename) => filename.endsWith('.sql'))
+    .filter(
+      (filename) =>
+        throughMigration === undefined ||
+        Number(filename.slice(0, 4)) <= throughMigration
+    )
     .filter(
       (filename) => includeSeedData || !filename.endsWith('_seed_defaults.sql')
     )
@@ -36,11 +45,16 @@ export async function createTestDatabase(options?: {
   includeSeedData?: boolean;
   runDataMigrations?: boolean;
   logger?: Logger;
+  throughMigration?: number;
 }) {
   const SQL = await initSqlJs();
   const sqlite = new SQL.Database();
   sqlite.run('PRAGMA foreign_keys = ON');
-  applyMigrations(sqlite, options?.includeSeedData ?? false);
+  applyMigrations(
+    sqlite,
+    options?.includeSeedData ?? false,
+    options?.throughMigration
+  );
 
   const database = drizzle(sqlite, {
     schema,

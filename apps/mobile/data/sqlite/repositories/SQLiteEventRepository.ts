@@ -154,7 +154,7 @@ export class SQLiteEventRepository implements EventRepository {
           SELECT json_object(
             'id', ${eventAttachments.id},
             'eventId', ${eventAttachments.eventId},
-            'relativePath', ${eventAttachments.relativePath},
+            'contentHash', ${eventAttachments.contentHash},
             'filename', ${eventAttachments.filename},
             'mimeType', ${eventAttachments.mimeType},
             'width', ${eventAttachments.width},

@@ -6,10 +6,7 @@ import {
 import type { CreateAttachmentInput } from '@/data/repositories';
 import type { UUID } from '@/models';
 import { useAttachmentRepository } from '@/data/RepositoryProvider';
-import {
-  copyAttachmentIntoStorage,
-  removeImportedAttachment,
-} from '@/data/attachments';
+import { copyAttachmentIntoStorage } from '@/data/attachments';
 import { invalidateEventDetails, invalidateEventLists } from './invalidation';
 import { attachmentKeys } from './queryKeys';
 
@@ -57,22 +54,17 @@ export function useImportAttachmentMutation() {
     mutationFn: async ({
       sourceUri,
       ...input
-    }: Omit<CreateAttachmentInput, 'relativePath'> & { sourceUri: string }) => {
-      const storedFile = copyAttachmentIntoStorage({
+    }: Omit<CreateAttachmentInput, 'contentHash'> & { sourceUri: string }) => {
+      const storedFile = await copyAttachmentIntoStorage({
         sourceUri,
         filename: input.filename,
         mimeType: input.mimeType,
       });
 
-      try {
-        return await repository.create({
-          ...input,
-          relativePath: storedFile.relativePath,
-        });
-      } catch (error) {
-        removeImportedAttachment(storedFile.relativePath);
-        throw error;
-      }
+      return await repository.create({
+        ...input,
+        contentHash: storedFile.contentHash,
+      });
     },
     onSuccess: async (attachment) => {
       queryClient.setQueryData(
