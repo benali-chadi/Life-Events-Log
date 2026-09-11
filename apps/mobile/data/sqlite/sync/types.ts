@@ -40,7 +40,7 @@ export type JsonValue =
   string | number | boolean | null | JsonValue[] | JsonObject;
 export type JsonObject = { [key: string]: JsonValue };
 
-/** Source properties only: normalized search columns are derived. */
+/** Independently versioned properties; creation/update timestamps are payload metadata. */
 export type DomainFieldNamesByEntity = {
   event:
     | 'title'
@@ -50,13 +50,11 @@ export type DomainFieldNamesByEntity = {
     | 'category_id'
     | 'location_id'
     | 'notes'
-    | 'created_at'
-    | 'updated_at'
     | 'deleted_at';
-  category: 'name' | 'color' | 'created_at' | 'updated_at' | 'deleted_at';
-  tag: 'name' | 'created_at' | 'updated_at' | 'deleted_at';
-  person: 'name' | 'created_at' | 'updated_at' | 'deleted_at';
-  location: 'name' | 'created_at' | 'updated_at' | 'deleted_at';
+  category: 'name' | 'color' | 'deleted_at';
+  tag: 'name' | 'deleted_at';
+  person: 'name' | 'deleted_at';
+  location: 'name' | 'deleted_at';
   attachment:
     | 'event_id'
     | 'filename'
@@ -64,11 +62,9 @@ export type DomainFieldNamesByEntity = {
     | 'width'
     | 'height'
     | 'file_size'
-    | 'created_at'
-    | 'updated_at'
     | 'deleted_at';
-  event_tag: 'created_at' | 'updated_at' | 'deleted_at';
-  event_person: 'created_at' | 'updated_at' | 'deleted_at';
+  event_tag: 'deleted_at';
+  event_person: 'deleted_at';
 };
 export type DomainFieldName = DomainFieldNamesByEntity[SyncEntityType];
 export type SyncFieldName = DomainFieldName | 'attachment_order';
