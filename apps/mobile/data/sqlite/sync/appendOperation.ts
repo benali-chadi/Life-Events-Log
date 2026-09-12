@@ -45,6 +45,7 @@ export function appendOperation(
   tx.insert(syncOperations)
     .values({
       ...operation,
+      // This might change later: received and applied timestamps might differ
       receivedAt: timestamp,
       appliedAt: timestamp,
     })
