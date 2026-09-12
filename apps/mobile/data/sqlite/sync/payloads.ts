@@ -8,7 +8,6 @@ import type {
   Person,
   Tag,
 } from '@/models';
-import type { Operation } from './types';
 
 /** The envelope supplies the ID; creation implies deletedAt = null. */
 export type EventCreatePayload = Omit<LELEvent, 'id' | 'deletedAt'>;
@@ -99,19 +98,3 @@ export type OperationPayloadMap = {
   'attachment.delete': { attachment: EntityDeletePayload };
   'event.attachment.reorder': { event: AttachmentReorderPayload };
 };
-
-/** Validated domain operations for the future applyOperation dispatcher.
- * The generic Operation remains the transport/storage envelope until validation.
- */
-export type DomainOperation = {
-  [TType in keyof OperationPayloadMap]: {
-    [TEntity in keyof OperationPayloadMap[TType]]: Omit<
-      Operation,
-      'operationType' | 'entityType' | 'payload'
-    > & {
-      operationType: TType;
-      entityType: TEntity;
-      payload: OperationPayloadMap[TType][TEntity];
-    };
-  }[keyof OperationPayloadMap[TType]];
-}[keyof OperationPayloadMap];

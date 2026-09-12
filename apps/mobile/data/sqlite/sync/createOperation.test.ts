@@ -1,7 +1,7 @@
 import type { Database } from 'sql.js';
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import { hashOperationContent } from './utils/hashOperationContent';
-import type { CreateOperationInput, JsonObject } from './types';
+import type { CreateOperationInput } from './types';
 import type { AppDatabase } from '../database';
 import {
   syncFrontiers,
@@ -18,7 +18,17 @@ const input: CreateOperationInput = {
   operationType: 'entity.create',
   entityType: 'event',
   entityId: 'caller-id',
-  payload: { title: 'Travel', nested: { ids: ['a', 'b'] } },
+  payload: {
+    title: 'Travel',
+    date: '2026-09-12',
+    time: null,
+    significance: 'ordinary',
+    categoryId: null,
+    locationId: null,
+    notes: '',
+    createdAt: '2026-09-12T00:00:00.000Z',
+    updatedAt: '2026-09-12T00:00:00.000Z',
+  },
 };
 beforeEach(async () => {
   ({ sqlite, database } = await createTestDatabase());
@@ -82,12 +92,26 @@ it('isolates nested payloads from subsequent caller mutations', () => {
     .insert(syncLocalState)
     .values({ deviceId: 'local', observedLamport: 0 })
     .run();
-  const payload = { nested: { ids: ['a'] } };
+  const payload = {
+    changes: { title: 'Before' },
+    updatedAt: '2026-09-12T00:00:00.000Z',
+  };
   const result = database.transaction((tx) =>
-    createOperation({ ...input, payload }, tx)
+    createOperation(
+      {
+        operationType: 'entity.patch',
+        entityType: 'event',
+        entityId: input.entityId,
+        payload,
+      },
+      tx
+    )
   );
-  payload.nested.ids.push('b');
-  expect(result.payload.nested.ids).toEqual(['a']);
+  payload.changes.title = 'After';
+  expect(result.payload).toEqual({
+    changes: { title: 'Before' },
+    updatedAt: payload.updatedAt,
+  });
   expect(result.operationHash).toBe(hashOperationContent(result));
 });
 
@@ -99,7 +123,10 @@ it('rejects invalid payloads before serialization can discard them', () => {
   expect(() =>
     database.transaction((tx) =>
       createOperation(
-        { ...input, payload: { value: undefined } as unknown as JsonObject },
+        {
+          ...input,
+          payload: { value: undefined },
+        } as unknown as CreateOperationInput,
         tx
       )
     )

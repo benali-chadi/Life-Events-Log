@@ -5,7 +5,7 @@ import type { OperationContent } from '../types';
 
 /** RFC 8785 JSON, encoded as UTF-8 and hashed with SHA-256. */
 export function hashOperationContent(operation: OperationContent): string {
-  const content: OperationContent = {
+  const content = {
     originDeviceId: operation.originDeviceId,
     originSequence: operation.originSequence,
     lamport: operation.lamport,

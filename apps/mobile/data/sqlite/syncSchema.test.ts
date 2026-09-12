@@ -39,7 +39,12 @@ it('round trips JSON and supports composite relation identities', () => {
     operationType: 'relation.add' as const,
     entityType: 'event_tag' as const,
     entityId,
-    payload: { eventId: 'event-a', tagId: 'tag-a' },
+    payload: {
+      eventId: 'event-a',
+      tagId: 'tag-a',
+      createdAt: '2026-09-10T00:00:00.000Z',
+      updatedAt: '2026-09-10T00:00:00.000Z',
+    },
     operationHash: 'hash',
     receivedAt: '2026-09-10T00:00:00.000Z',
     appliedAt: '2026-09-10T00:00:00.000Z',

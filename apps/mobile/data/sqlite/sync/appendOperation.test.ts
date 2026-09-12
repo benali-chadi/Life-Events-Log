@@ -22,7 +22,10 @@ const input = {
   operationType: 'entity.patch' as const,
   entityType: 'event' as const,
   entityId: 'event',
-  payload: { changes: { title: 'Title', notes: 'Notes' } },
+  payload: {
+    changes: { title: 'Title', notes: 'Notes' },
+    updatedAt: timestamp,
+  },
 };
 beforeEach(async () => {
   ({ sqlite, database } = await createTestDatabase());

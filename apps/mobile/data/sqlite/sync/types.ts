@@ -1,3 +1,5 @@
+import type { OperationPayloadMap } from './payloads';
+
 /** Stable replica identity. It must not be shared by independently writing replicas. */
 export type DeviceId = string;
 /** UUID or a canonical composite relationship key. */
@@ -36,9 +38,6 @@ export type OperationId = {
 
 /** Complete processed prefixes; an absent origin means zero. */
 export type CausalContext = Record<DeviceId, number>;
-export type JsonValue =
-  string | number | boolean | null | JsonValue[] | JsonObject;
-export type JsonObject = { [key: string]: JsonValue };
 
 /** Independently versioned properties; creation/update timestamps are payload metadata. */
 export type DomainFieldNamesByEntity = {
@@ -70,32 +69,40 @@ export type DomainFieldName = DomainFieldNamesByEntity[SyncEntityType];
 export type SyncFieldName = DomainFieldName | 'attachment_order';
 
 /** Immutable replicated content; receipt/application timestamps are local. */
-export type Operation<TPayload extends JsonObject = JsonObject> =
-  OperationId & {
-    lamport: number;
-    causalContext: CausalContext;
-    operationType: OperationType;
-    entityType: SyncEntityType;
-    entityId: SyncEntityId;
-    payload: TPayload;
-    operationHash: string;
-  };
+type OperationEnvelope = OperationId & {
+  lamport: number;
+  causalContext: CausalContext;
+  entityId: SyncEntityId;
+  operationHash: string;
+};
 
-export type StoredOperation<TPayload extends JsonObject = JsonObject> =
-  Operation<TPayload> & {
-    receivedAt: Timestamp;
-    appliedAt: Timestamp;
-  };
+/* Maps operation type and and entity type to a specific payload type:
+ * for example: operation type = 'entity.patch', entity type = tag,
+ * this will map to the payload type: NamedMetadataCreatePayload
+ */
+export type Operation = {
+  [TType in keyof OperationPayloadMap]: {
+    [TEntity in keyof OperationPayloadMap[TType]]: OperationEnvelope & {
+      operationType: TType;
+      entityType: TEntity;
+      payload: OperationPayloadMap[TType][TEntity];
+    };
+  }[keyof OperationPayloadMap[TType]];
+}[keyof OperationPayloadMap];
 
-export type OperationContent<TPayload extends JsonObject = JsonObject> = Omit<
-  Operation<TPayload>,
-  'operationHash'
->;
+export type OperationPayload = Operation['payload'];
 
-export type CreateOperationInput<TPayload extends JsonObject = JsonObject> =
-  Pick<
-    Operation<TPayload>,
-    'operationType' | 'entityType' | 'entityId' | 'payload'
-  >;
+export type StoredOperation = Operation & {
+  receivedAt: Timestamp;
+  appliedAt: Timestamp;
+};
+
+// Distribute over union members to preserve discriminator/payload correlations.
+type ContentOf<T> = T extends Operation ? Omit<T, 'operationHash'> : never;
+type InputOf<T> = T extends Operation
+  ? Pick<T, 'operationType' | 'entityType' | 'entityId' | 'payload'>
+  : never;
+export type OperationContent = ContentOf<Operation>;
+export type CreateOperationInput = InputOf<Operation>;
 
 export type ConflictStatus = 'pending' | 'resolved';

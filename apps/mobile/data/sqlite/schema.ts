@@ -3,7 +3,7 @@ import type {
   CausalContext,
   ConflictStatus,
   DomainFieldName,
-  JsonObject,
+  OperationPayload,
   OperationType,
   SyncEntityType,
   SyncFieldName,
@@ -316,7 +316,9 @@ export const syncOperations = sqliteTable(
     operationType: text('operation_type').$type<OperationType>().notNull(),
     entityType: text('entity_type').$type<SyncEntityType>().notNull(),
     entityId: text('entity_id').notNull(),
-    payload: text('payload', { mode: 'json' }).$type<JsonObject>().notNull(),
+    payload: text('payload', { mode: 'json' })
+      .$type<OperationPayload>()
+      .notNull(),
     operationHash: text('operation_hash').notNull(),
     receivedAt: text('received_at').notNull(),
     appliedAt: text('applied_at').notNull(),

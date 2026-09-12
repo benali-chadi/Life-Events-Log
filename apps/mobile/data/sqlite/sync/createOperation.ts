@@ -2,7 +2,6 @@ import { hashOperationContent } from './utils/hashOperationContent';
 import type {
   CausalContext,
   CreateOperationInput,
-  JsonObject,
   Operation,
   OperationContent,
 } from './types';
@@ -14,10 +13,10 @@ import { syncFrontiers, syncLocalState } from '../schema';
  * Apply it before creating the next operation, within the same transaction.
  * The caller supplies the entity ID, including for entity creation.
  */
-export function createOperation<TPayload extends JsonObject>(
-  input: CreateOperationInput<TPayload>,
+export function createOperation(
+  input: CreateOperationInput,
   tx: SyncTransaction
-): Operation<TPayload> {
+): Operation {
   const localState = tx.select().from(syncLocalState).get();
   if (!localState) {
     throw new Error('Local sync state has not been initialized.');
@@ -41,24 +40,21 @@ export function createOperation<TPayload extends JsonObject>(
   assertCounter(originSequence);
   assertCounter(lamport);
 
-  const content: OperationContent<TPayload> = {
+  const content: OperationContent = {
+    ...input,
     originDeviceId: localState.deviceId,
     originSequence,
     lamport,
     causalContext,
-    operationType: input.operationType,
-    entityType: input.entityType,
-    entityId: input.entityId,
-    payload: input.payload,
   };
 
   // Hashing validates JSON before cloning, so invalid values cannot be
   // silently dropped/coerced by JSON.stringify. No structuredClone dependency
   // is needed in the mobile runtime.
   const operationHash = hashOperationContent(content);
-  const payload = JSON.parse(JSON.stringify(content.payload)) as TPayload;
-
-  return { ...content, payload, operationHash };
+  // Clone the union member together to retain its discriminator correlation.
+  const clonedContent = JSON.parse(JSON.stringify(content)) as OperationContent;
+  return { ...clonedContent, operationHash };
 }
 
 function assertCounter(value: number): void {
