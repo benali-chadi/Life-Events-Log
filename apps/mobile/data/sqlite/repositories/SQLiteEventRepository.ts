@@ -62,6 +62,7 @@ import {
   tags,
   tagModelColumns,
 } from '../schema';
+import { isValidLocalDate, isValidLocalTime } from '@/models/validation';
 
 type Values = Omit<CreateEventInput, 'tagIds' | 'peopleIds'> & {
   tagIds: UUID[];
@@ -84,8 +85,6 @@ type EventListProjection = {
   attachmentCount: number;
   attachmentPreviewJson: string | null;
 };
-const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 const NOTES_PREVIEW_LENGTH = 160;
 
 export class SQLiteEventRepository implements EventRepository {
@@ -826,23 +825,13 @@ export class SQLiteEventRepository implements EventRepository {
   }
 
   private validDate(date: LocalDate) {
-    if (!DATE_PATTERN.test(date))
+    if (!isValidLocalDate(date))
       throw new ModelValidationError(
         `Invalid event date “${date}”. Expected YYYY-MM-DD.`
       );
-    const year = +date.slice(0, 4),
-      month = +date.slice(5, 7),
-      day = +date.slice(8, 10);
-    const parsed = new Date(Date.UTC(year, month - 1, day));
-    if (
-      parsed.getUTCFullYear() !== year ||
-      parsed.getUTCMonth() !== month - 1 ||
-      parsed.getUTCDate() !== day
-    )
-      throw new ModelValidationError(`Invalid event date “${date}”.`);
   }
   private validTime(time: LocalTime | null) {
-    if (time !== null && !TIME_PATTERN.test(time))
+    if (time !== null && !isValidLocalTime(time))
       throw new ModelValidationError(
         `Invalid event time “${time}”. Expected HH:mm.`
       );

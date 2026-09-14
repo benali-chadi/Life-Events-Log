@@ -30,6 +30,8 @@ import {
   normalizeMetadataName,
 } from '@/data/repositories/metadataName';
 
+import { isValidLocalDate, isValidLocalTime } from '@/models/validation';
+
 type ValidatedEventValues = Omit<CreateEventInput, 'tagIds' | 'peopleIds'> & {
   tagIds: UUID[];
   peopleIds: UUID[];
@@ -48,9 +50,6 @@ const VALIDATE_ALL_REFERENCES: ReferenceValidation = {
   tags: true,
   people: true,
 };
-
-const LOCAL_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const LOCAL_TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 const NOTES_PREVIEW_LENGTH = 160;
 
 type EventCursor = {
@@ -546,28 +545,15 @@ export class InMemoryEventRepository implements EventRepository {
   }
 
   private assertValidDate(date: LocalDate) {
-    if (!LOCAL_DATE_PATTERN.test(date)) {
+    if (!isValidLocalDate(date)) {
       throw new ModelValidationError(
         `Invalid event date “${date}”. Expected YYYY-MM-DD.`
       );
     }
-
-    const year = Number(date.slice(0, 4));
-    const month = Number(date.slice(5, 7));
-    const day = Number(date.slice(8, 10));
-    const parsed = new Date(Date.UTC(year, month - 1, day));
-
-    if (
-      parsed.getUTCFullYear() !== year ||
-      parsed.getUTCMonth() !== month - 1 ||
-      parsed.getUTCDate() !== day
-    ) {
-      throw new ModelValidationError(`Invalid event date “${date}”.`);
-    }
   }
 
   private assertValidTime(time: LocalTime | null) {
-    if (time !== null && !LOCAL_TIME_PATTERN.test(time)) {
+    if (time !== null && !isValidLocalTime(time)) {
       throw new ModelValidationError(
         `Invalid event time “${time}”. Expected HH:mm.`
       );
