@@ -56,7 +56,9 @@ describe('SQLiteCategoryRepository', () => {
   let repository: SQLiteCategoryRepository;
 
   beforeEach(async () => {
-    ({ sqlite, database } = await createTestDatabase());
+    ({ sqlite, database } = await createTestDatabase({
+      initializeSyncState: true,
+    }));
     repository = new SQLiteCategoryRepository(database, dependencies);
 
     database

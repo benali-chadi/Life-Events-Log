@@ -47,6 +47,8 @@ import {
   normalizeSearchText,
 } from '@/data/repositories/metadataName';
 import type { AppDatabase } from '../database';
+import { createOperation } from '../sync/createOperation';
+import { applyOperation } from '../sync/applyOperation';
 import {
   categories,
   categoryModelColumns,
@@ -245,12 +247,17 @@ export class SQLiteEventRepository implements EventRepository {
       deletedAt: null,
     };
     this.database.transaction((tx) => {
-      tx.insert(events)
-        .values({
-          ...event,
-          normalizedTitle: normalizeSearchText(event.title),
-        })
-        .run();
+      const { id: entityId, deletedAt: _deletedAt, ...payload } = event;
+      const operation = createOperation(
+        {
+          operationType: 'entity.create',
+          entityType: 'event',
+          entityId,
+          payload,
+        },
+        tx
+      );
+      applyOperation(operation, tx, this.dependencies);
       this.replaceTags(id, values.tagIds, timestamp, tx);
       this.replacePeople(id, values.peopleIds, timestamp, tx);
     });

@@ -18,6 +18,9 @@ import {
   locations,
   people,
   tags,
+  syncOperations,
+  syncFieldVersions,
+  syncFrontiers,
 } from '../schema';
 import { createTestDatabase } from '../testing/createTestDatabase';
 import { SQLiteEventRepository } from './SQLiteEventRepository';
@@ -58,9 +61,32 @@ describe('SQLiteEventRepository', () => {
   let repository: SQLiteEventRepository;
   let queries: string[];
 
+  it('records event creation while retaining the existing relation writes', async () => {
+    await repository.create(validInput());
+    const operations = database.select().from(syncOperations).all();
+    expect(operations).toHaveLength(1);
+    expect(operations[0]).toMatchObject({
+      operationType: 'entity.create',
+      entityType: 'event',
+      entityId: EVENT_ID,
+      originDeviceId: 'test-device',
+      originSequence: 1,
+      receivedAt: NOW,
+      appliedAt: NOW,
+      payload: { title: 'Family trip' },
+    });
+    expect(database.select().from(syncFieldVersions).all()).toHaveLength(8);
+    expect(database.select().from(syncFrontiers).get()?.processedSequence).toBe(
+      1
+    );
+    expect(database.select().from(eventTags).all()).toHaveLength(1);
+    expect(database.select().from(eventPeople).all()).toHaveLength(1);
+  });
+
   beforeEach(async () => {
     queries = [];
     ({ sqlite, database } = await createTestDatabase({
+      initializeSyncState: true,
       logger: {
         logQuery: (query) => queries.push(query),
       },

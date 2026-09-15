@@ -12,6 +12,6 @@ function dependencies(): RepositoryDependencies {
 }
 
 eventImportRepositoryContract('SQLite', async () => {
-  const { database } = await createTestDatabase();
+  const { database } = await createTestDatabase({ initializeSyncState: true });
   return createSQLiteRepositories(database, dependencies());
 });

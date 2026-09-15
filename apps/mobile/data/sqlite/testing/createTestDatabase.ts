@@ -6,6 +6,7 @@ import type { Logger } from 'drizzle-orm';
 import initSqlJs, { type Database } from 'sql.js';
 import type { AppDatabase } from '../database';
 import { runDataMigrations } from '../dataMigrations';
+import { initializeSyncLocalState } from '../sync/initializeSyncLocalState';
 import * as schema from '../schema';
 
 function applyMigrations(
@@ -43,6 +44,7 @@ function applyMigrations(
 
 export async function createTestDatabase(options?: {
   includeSeedData?: boolean;
+  initializeSyncState?: boolean;
   runDataMigrations?: boolean;
   logger?: Logger;
   throughMigration?: number;
@@ -61,6 +63,8 @@ export async function createTestDatabase(options?: {
     logger: options?.logger,
   }) as unknown as AppDatabase;
   if (options?.runDataMigrations ?? true) runDataMigrations(database);
+  if (options?.initializeSyncState)
+    initializeSyncLocalState(database, () => 'test-device');
 
   return {
     sqlite,

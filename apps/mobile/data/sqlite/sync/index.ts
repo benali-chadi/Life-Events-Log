@@ -1,4 +1,7 @@
 export * from './createOperation';
+export * from './initializeSyncLocalState';
+export * from './applyOperation';
+export * from './applyDomainMutation';
 export * from './appendOperation';
 export * from './validateOperation';
 export * from './validatePayload';

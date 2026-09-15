@@ -70,7 +70,9 @@ describe('SQLitePersonRepository', () => {
   let repository: SQLitePersonRepository;
 
   beforeEach(async () => {
-    ({ sqlite, database } = await createTestDatabase());
+    ({ sqlite, database } = await createTestDatabase({
+      initializeSyncState: true,
+    }));
     repository = new SQLitePersonRepository(database, dependencies);
     database
       .insert(people)

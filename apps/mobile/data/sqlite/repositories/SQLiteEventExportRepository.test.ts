@@ -21,7 +21,9 @@ describe('SQLiteEventExportRepository', () => {
   let repository: SQLiteEventExportRepository;
 
   beforeEach(async () => {
-    ({ sqlite, database } = await createTestDatabase());
+    ({ sqlite, database } = await createTestDatabase({
+      initializeSyncState: true,
+    }));
     const generatedIds: UUID[] = [FIRST_ID, SECOND_ID];
     const dependencies: RepositoryDependencies = {
       createId: () => generatedIds.shift()!,

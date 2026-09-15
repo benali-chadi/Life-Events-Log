@@ -70,7 +70,9 @@ describe('SQLiteTagRepository', () => {
   let repository: SQLiteTagRepository;
 
   beforeEach(async () => {
-    ({ sqlite, database } = await createTestDatabase());
+    ({ sqlite, database } = await createTestDatabase({
+      initializeSyncState: true,
+    }));
     repository = new SQLiteTagRepository(database, dependencies);
     database
       .insert(tags)

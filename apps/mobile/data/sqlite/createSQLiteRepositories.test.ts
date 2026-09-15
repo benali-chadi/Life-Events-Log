@@ -20,7 +20,9 @@ describe('createSQLiteRepositories', () => {
   let database: AppDatabase;
 
   beforeEach(async () => {
-    ({ sqlite, database } = await createTestDatabase());
+    ({ sqlite, database } = await createTestDatabase({
+      initializeSyncState: true,
+    }));
   });
 
   afterEach(() => sqlite.close());

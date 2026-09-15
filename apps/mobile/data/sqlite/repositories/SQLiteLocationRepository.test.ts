@@ -54,7 +54,9 @@ describe('SQLiteLocationRepository', () => {
   let repository: SQLiteLocationRepository;
 
   beforeEach(async () => {
-    ({ sqlite, database } = await createTestDatabase());
+    ({ sqlite, database } = await createTestDatabase({
+      initializeSyncState: true,
+    }));
     repository = new SQLiteLocationRepository(database, dependencies);
 
     database

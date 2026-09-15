@@ -1,4 +1,6 @@
 import { drizzle } from 'drizzle-orm/expo-sqlite';
+import { randomUUID } from 'expo-crypto';
+import { initializeSyncLocalState } from './sync/initializeSyncLocalState';
 import { migrate } from 'drizzle-orm/expo-sqlite/migrator';
 import type { SQLiteDatabase } from 'expo-sqlite';
 import migrations from '../../drizzle/migrations';
@@ -48,4 +50,5 @@ export async function initializeDatabase(sqlite: SQLiteDatabase) {
     );
   await migrate(database, migrations);
   runDataMigrations(database);
+  initializeSyncLocalState(database, randomUUID);
 }

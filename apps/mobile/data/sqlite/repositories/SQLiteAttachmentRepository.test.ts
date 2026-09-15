@@ -91,7 +91,9 @@ describe('SQLiteAttachmentRepository', () => {
   let repository: SQLiteAttachmentRepository;
 
   beforeEach(async () => {
-    ({ sqlite, database } = await createTestDatabase());
+    ({ sqlite, database } = await createTestDatabase({
+      initializeSyncState: true,
+    }));
     insertEvent(database, EVENT_ID);
     insertEvent(database, OTHER_EVENT_ID);
     repository = new SQLiteAttachmentRepository(database, dependencies);
