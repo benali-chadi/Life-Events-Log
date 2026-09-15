@@ -1,5 +1,6 @@
 export * from './createOperation';
 export * from './initializeSyncLocalState';
+export * from './bootstrapDefaults';
 export * from './applyOperation';
 export * from './applyDomainMutation';
 export * from './appendOperation';
