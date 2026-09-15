@@ -321,13 +321,42 @@ export class SQLiteEventRepository implements EventRepository {
       updatedAt: this.dependencies.now(),
     };
     this.database.transaction((tx) => {
-      tx.update(events)
-        .set({
-          ...updated,
-          normalizedTitle: normalizeSearchText(updated.title),
-        })
-        .where(eq(events.id, id))
-        .run();
+      if (eventChanged) {
+        const changes = {
+          ...(updated.title !== existing.title ? { title: updated.title } : {}),
+          ...(updated.date !== existing.date ? { date: updated.date } : {}),
+          ...(updated.time !== existing.time ? { time: updated.time } : {}),
+          ...(updated.significance !== existing.significance
+            ? { significance: updated.significance }
+            : {}),
+          ...(updated.categoryId !== existing.categoryId
+            ? { categoryId: updated.categoryId }
+            : {}),
+          ...(updated.locationId !== existing.locationId
+            ? { locationId: updated.locationId }
+            : {}),
+          ...(updated.notes !== existing.notes ? { notes: updated.notes } : {}),
+        };
+        applyOperation(
+          createOperation(
+            {
+              operationType: 'entity.patch',
+              entityType: 'event',
+              entityId: id,
+              payload: { changes, updatedAt: updated.updatedAt },
+            },
+            tx
+          ),
+          tx,
+          this.dependencies
+        );
+      } else {
+        // Relation operations will own this timestamp change once implemented.
+        tx.update(events)
+          .set({ updatedAt: updated.updatedAt })
+          .where(eq(events.id, id))
+          .run();
+      }
       if (tagsChanged)
         this.replaceTags(id, values.tagIds, updated.updatedAt, tx);
       if (peopleChanged)
@@ -364,11 +393,21 @@ export class SQLiteEventRepository implements EventRepository {
       if (activeIds.length === 0) return;
 
       const timestamp = this.dependencies.now();
-      transaction
-        .update(events)
-        .set({ updatedAt: timestamp, deletedAt: timestamp })
-        .where(and(inArray(events.id, activeIds), isNull(events.deletedAt)))
-        .run();
+      for (const id of activeIds) {
+        applyOperation(
+          createOperation(
+            {
+              operationType: 'entity.delete',
+              entityType: 'event',
+              entityId: id,
+              payload: { deletedAt: timestamp },
+            },
+            transaction
+          ),
+          transaction,
+          this.dependencies
+        );
+      }
     });
   }
 

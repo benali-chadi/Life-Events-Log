@@ -28,6 +28,8 @@ import {
 } from '@/data/repositories/metadataName';
 import type { Tag, UUID } from '@/models';
 import type { AppDatabase } from '../database';
+import { createOperation } from '../sync/createOperation';
+import { applyOperation } from '../sync/applyOperation';
 import { events, eventTags, tagModelColumns, tags } from '../schema';
 
 export class SQLiteTagRepository implements TagRepository {
@@ -115,10 +117,22 @@ export class SQLiteTagRepository implements TagRepository {
       deletedAt: null,
     };
 
-    this.database
-      .insert(tags)
-      .values({ ...tag, normalizedName: comparableMetadataName(tag.name) })
-      .run();
+    this.database.transaction((tx) => {
+      const { id: entityId, deletedAt: _deletedAt, ...payload } = tag;
+      applyOperation(
+        createOperation(
+          {
+            operationType: 'entity.create',
+            entityType: 'tag',
+            entityId,
+            payload,
+          },
+          tx
+        ),
+        tx,
+        this.dependencies
+      );
+    });
 
     return tag;
   }
@@ -134,15 +148,24 @@ export class SQLiteTagRepository implements TagRepository {
       updatedAt: this.dependencies.now(),
     };
 
-    this.database
-      .update(tags)
-      .set({
-        name: updated.name,
-        normalizedName: comparableMetadataName(updated.name),
-        updatedAt: updated.updatedAt,
-      })
-      .where(eq(tags.id, id))
-      .run();
+    this.database.transaction((tx) => {
+      applyOperation(
+        createOperation(
+          {
+            operationType: 'entity.patch',
+            entityType: 'tag',
+            entityId: id,
+            payload: {
+              changes: { name: updated.name },
+              updatedAt: updated.updatedAt,
+            },
+          },
+          tx
+        ),
+        tx,
+        this.dependencies
+      );
+    });
 
     return updated;
   }
@@ -167,11 +190,19 @@ export class SQLiteTagRepository implements TagRepository {
         .sort();
       const timestamp = this.dependencies.now();
 
-      transaction
-        .update(tags)
-        .set({ updatedAt: timestamp, deletedAt: timestamp })
-        .where(and(eq(tags.id, id), isNull(tags.deletedAt)))
-        .run();
+      applyOperation(
+        createOperation(
+          {
+            operationType: 'entity.delete',
+            entityType: 'tag',
+            entityId: id,
+            payload: { deletedAt: timestamp },
+          },
+          transaction
+        ),
+        transaction,
+        this.dependencies
+      );
 
       return { affectedEventIds };
     });

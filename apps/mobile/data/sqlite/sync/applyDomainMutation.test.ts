@@ -127,8 +127,8 @@ it('rejects unimplemented operation/entity combinations explicitly', () => {
       applyDomainMutation(
         {
           ...operation,
-          entityType: 'tag',
-          payload: { name: 'Tag', createdAt: at, updatedAt: at },
+          operationType: 'event.attachment.reorder',
+          payload: { orderedAttachmentIds: [], updatedAt: at },
         },
         [],
         tx
@@ -140,7 +140,8 @@ it('rejects unimplemented operation/entity combinations explicitly', () => {
       applyDomainMutation(
         {
           ...operation,
-          operationType: 'entity.delete',
+          operationType: 'attachment.delete',
+          entityType: 'attachment',
           payload: { deletedAt: at },
         },
         [],

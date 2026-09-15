@@ -1,10 +1,10 @@
 import type { SyncTransaction } from '../database';
 import type { Operation, SyncFieldName } from './types';
-import { createEvent } from './mutations/createEvent';
+import { createEntity, patchEntity, deleteEntity } from './mutations/entities';
 
 /** Dispatches prepared operations; does not validate, arbitrate, or record them.
- * Event creation inserts a complete initial row, so field filtering does not
- * apply to it. Other handlers will consume winningFields as they are added.
+ * Creation inserts a complete initial row. Patch/delete handlers apply only
+ * the selected winning fields.
  */
 export function applyDomainMutation(
   operation: Operation,
@@ -13,11 +13,11 @@ export function applyDomainMutation(
 ): void {
   switch (operation.operationType) {
     case 'entity.create':
-      if (operation.entityType === 'event') {
-        createEvent(operation, tx);
-        return;
-      }
-      break;
+      return createEntity(operation, tx);
+    case 'entity.patch':
+      return patchEntity(operation, winningFields, tx);
+    case 'entity.delete':
+      return deleteEntity(operation, winningFields, tx);
   }
   throw new Error(
     `Domain mutation not implemented: ${operation.operationType}/${operation.entityType}.`

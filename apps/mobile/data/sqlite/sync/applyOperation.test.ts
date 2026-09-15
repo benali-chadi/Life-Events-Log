@@ -124,8 +124,8 @@ it('does not append unsupported mutations', () => {
       applyOperation(
         createOperation(
           {
-            operationType: 'entity.delete',
-            entityType: 'event',
+            operationType: 'attachment.delete',
+            entityType: 'attachment',
             entityId: 'event',
             payload: { deletedAt: at },
           },
