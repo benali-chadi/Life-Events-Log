@@ -43,6 +43,8 @@ export function winningFieldsFor(
       return Object.keys(operation.payload.changes).map((key) => mapping[key]!);
     }
     case 'entity.delete':
+    case 'relation.add':
+    case 'relation.remove':
       return ['deleted_at'];
     default:
       throw new Error(

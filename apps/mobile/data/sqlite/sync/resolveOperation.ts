@@ -20,6 +20,9 @@ import type {
 import { entityFields, winningFieldsFor } from './entityFields';
 import { OperationValidationError } from './OperationValidationError';
 import { conflictId } from './utils/conflictId';
+import { resolveRelation } from './relations';
+
+import { hasSeen, compareOperations } from './utils/operationOrder';
 
 type EntityOperation = Extract<
   Operation,
@@ -39,31 +42,7 @@ const reviewFields: Record<EntityOperation['entityType'], readonly string[]> = {
   person: ['name'],
   location: ['name'],
 };
-
-export function hasSeen(
-  operation: Pick<Operation, 'causalContext'>,
-  other: OperationId
-): boolean {
-  return (
-    Object.hasOwn(operation.causalContext, other.originDeviceId) &&
-    operation.causalContext[other.originDeviceId]! >= other.originSequence
-  );
-}
-
-/** Fixed, locale-independent ordering. Wall-clock time never picks a winner. */
-export function compareOperations(
-  a: Pick<Operation, 'lamport' | 'originDeviceId' | 'originSequence'>,
-  b: Pick<Operation, 'lamport' | 'originDeviceId' | 'originSequence'>
-): number {
-  if (a.lamport !== b.lamport) return a.lamport > b.lamport ? 1 : -1;
-  if (a.originDeviceId !== b.originDeviceId)
-    return a.originDeviceId > b.originDeviceId ? 1 : -1;
-  return a.originSequence === b.originSequence
-    ? 0
-    : a.originSequence > b.originSequence
-      ? 1
-      : -1;
-}
+export { hasSeen, compareOperations } from './utils/operationOrder';
 
 function storedOperation(id: OperationId, tx: SyncTransaction): Operation {
   const row = tx
@@ -117,6 +96,11 @@ export function resolveOperation(
   tx: SyncTransaction
 ): readonly SyncFieldName[] {
   const fields = winningFieldsFor(operation); // Reject unsupported mutation families.
+  if (
+    operation.operationType === 'relation.add' ||
+    operation.operationType === 'relation.remove'
+  )
+    return resolveRelation(operation, tx);
   if (
     operation.operationType !== 'entity.create' &&
     operation.operationType !== 'entity.patch' &&

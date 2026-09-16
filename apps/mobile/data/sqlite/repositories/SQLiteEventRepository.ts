@@ -46,7 +46,7 @@ import {
   normalizeMetadataName,
   normalizeSearchText,
 } from '@/data/repositories/metadataName';
-import type { AppDatabase } from '../database';
+import type { AppDatabase, SyncTransaction } from '../database';
 import { createOperation } from '../sync/createOperation';
 import { applyOperation } from '../sync/applyOperation';
 import {
@@ -70,7 +70,6 @@ type Values = Omit<CreateEventInput, 'tagIds' | 'peopleIds'> & {
   tagIds: UUID[];
   peopleIds: UUID[];
 };
-type WritableDatabase = Pick<AppDatabase, 'select' | 'insert' | 'update'>;
 type Cursor = {
   version: 1;
   date: LocalDate;
@@ -350,12 +349,6 @@ export class SQLiteEventRepository implements EventRepository {
           tx,
           this.dependencies
         );
-      } else {
-        // Relation operations will own this timestamp change once implemented.
-        tx.update(events)
-          .set({ updatedAt: updated.updatedAt })
-          .where(eq(events.id, id))
-          .run();
       }
       if (tagsChanged)
         this.replaceTags(id, values.tagIds, updated.updatedAt, tx);
@@ -558,9 +551,9 @@ export class SQLiteEventRepository implements EventRepository {
     eventId: UUID,
     ids: readonly UUID[],
     at: string,
-    db: WritableDatabase
+    tx: SyncTransaction
   ) {
-    const existing = db
+    const existing = tx
       .select()
       .from(eventTags)
       .where(eq(eventTags.eventId, eventId))
@@ -568,36 +561,43 @@ export class SQLiteEventRepository implements EventRepository {
     const desired = new Set(ids);
     for (const relation of existing) {
       if (relation.deletedAt === null && !desired.has(relation.tagId)) {
-        db.update(eventTags)
-          .set({ updatedAt: at, deletedAt: at })
-          .where(
-            and(
-              eq(eventTags.eventId, eventId),
-              eq(eventTags.tagId, relation.tagId)
-            )
-          )
-          .run();
+        applyOperation(
+          createOperation(
+            {
+              operationType: 'relation.remove',
+              entityType: 'event_tag',
+              entityId: JSON.stringify([eventId, relation.tagId]),
+              payload: { eventId, tagId: relation.tagId, deletedAt: at },
+            },
+            tx
+          ),
+          tx,
+          this.dependencies
+        );
       }
     }
-    for (const tagId of ids) {
-      if (existing.some((relation) => relation.tagId === tagId)) {
-        db.update(eventTags)
-          .set({ updatedAt: at, deletedAt: null })
-          .where(
-            and(eq(eventTags.eventId, eventId), eq(eventTags.tagId, tagId))
-          )
-          .run();
-      } else {
-        db.insert(eventTags)
-          .values({
-            eventId,
-            tagId,
-            createdAt: at,
-            updatedAt: at,
-            deletedAt: null,
-          })
-          .run();
-      }
+    for (const tagId of desired) {
+      const previous = existing.find((relation) => relation.tagId === tagId);
+      // Skip only an already-active link. A tombstone has a non-null timestamp.
+      if (previous?.deletedAt === null) continue;
+      applyOperation(
+        createOperation(
+          {
+            operationType: 'relation.add',
+            entityType: 'event_tag',
+            entityId: JSON.stringify([eventId, tagId]),
+            payload: {
+              eventId,
+              tagId,
+              createdAt: previous?.createdAt ?? at,
+              updatedAt: at,
+            },
+          },
+          tx
+        ),
+        tx,
+        this.dependencies
+      );
     }
   }
 
@@ -605,9 +605,9 @@ export class SQLiteEventRepository implements EventRepository {
     eventId: UUID,
     ids: readonly UUID[],
     at: string,
-    db: WritableDatabase
+    tx: SyncTransaction
   ) {
-    const existing = db
+    const existing = tx
       .select()
       .from(eventPeople)
       .where(eq(eventPeople.eventId, eventId))
@@ -615,39 +615,45 @@ export class SQLiteEventRepository implements EventRepository {
     const desired = new Set(ids);
     for (const relation of existing) {
       if (relation.deletedAt === null && !desired.has(relation.personId)) {
-        db.update(eventPeople)
-          .set({ updatedAt: at, deletedAt: at })
-          .where(
-            and(
-              eq(eventPeople.eventId, eventId),
-              eq(eventPeople.personId, relation.personId)
-            )
-          )
-          .run();
+        applyOperation(
+          createOperation(
+            {
+              operationType: 'relation.remove',
+              entityType: 'event_person',
+              entityId: JSON.stringify([eventId, relation.personId]),
+              payload: { eventId, personId: relation.personId, deletedAt: at },
+            },
+            tx
+          ),
+          tx,
+          this.dependencies
+        );
       }
     }
-    for (const personId of ids) {
-      if (existing.some((relation) => relation.personId === personId)) {
-        db.update(eventPeople)
-          .set({ updatedAt: at, deletedAt: null })
-          .where(
-            and(
-              eq(eventPeople.eventId, eventId),
-              eq(eventPeople.personId, personId)
-            )
-          )
-          .run();
-      } else {
-        db.insert(eventPeople)
-          .values({
-            eventId,
-            personId,
-            createdAt: at,
-            updatedAt: at,
-            deletedAt: null,
-          })
-          .run();
-      }
+    for (const personId of desired) {
+      const previous = existing.find(
+        (relation) => relation.personId === personId
+      );
+      // Missing rows and tombstones both need an addition/reactivation operation.
+      if (previous?.deletedAt === null) continue;
+      applyOperation(
+        createOperation(
+          {
+            operationType: 'relation.add',
+            entityType: 'event_person',
+            entityId: JSON.stringify([eventId, personId]),
+            payload: {
+              eventId,
+              personId,
+              createdAt: previous?.createdAt ?? at,
+              updatedAt: at,
+            },
+          },
+          tx
+        ),
+        tx,
+        this.dependencies
+      );
     }
   }
 

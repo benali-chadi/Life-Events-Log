@@ -1,6 +1,7 @@
 import type { SyncTransaction } from '../database';
 import type { Operation, SyncFieldName } from './types';
 import { createEntity, patchEntity, deleteEntity } from './mutations/entities';
+import { mutateRelation } from './mutations/relations';
 
 /** Dispatches prepared operations; does not validate, arbitrate, or record them.
  * Creation inserts a complete initial row. Patch/delete handlers apply only
@@ -12,6 +13,9 @@ export function applyDomainMutation(
   tx: SyncTransaction
 ): void {
   switch (operation.operationType) {
+    case 'relation.add':
+    case 'relation.remove':
+      return mutateRelation(operation, winningFields, tx);
     case 'entity.create':
       return createEntity(operation, tx);
     case 'entity.patch':
