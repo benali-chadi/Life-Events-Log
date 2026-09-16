@@ -25,7 +25,9 @@ export const entityFields = {
   >;
 };
 
-/** All affected fields win for now; arbitration will later select a subset. */
+/** Fields affected by the payload; resolveOperation selects the winning subset.
+ * Also used by bootstrap when adopting mutations already present in domain rows.
+ */
 export function winningFieldsFor(
   operation: Operation
 ): readonly SyncFieldName[] {

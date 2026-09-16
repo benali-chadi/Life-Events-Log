@@ -2,6 +2,7 @@ export * from './createOperation';
 export * from './initializeSyncLocalState';
 export * from './bootstrapDefaults';
 export * from './applyOperation';
+export * from './resolveOperation';
 export * from './applyDomainMutation';
 export * from './appendOperation';
 export * from './validateOperation';

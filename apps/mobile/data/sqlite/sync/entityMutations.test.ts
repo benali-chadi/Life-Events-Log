@@ -170,7 +170,7 @@ it.each(['category', 'tag', 'person', 'location'] as const)(
   }
 );
 
-it('writes only winning patch fields, and does nothing for a losing patch/delete', () => {
+it('writes only winning fields while losing operations still contribute timestamps', () => {
   apply({
     operationType: 'entity.create',
     entityType: 'category',
@@ -190,7 +190,7 @@ it('writes only winning patch fields, and does nothing for a losing patch/delete
     applyDomainMutation(operation, [], tx);
     expect(tx.select().from(categories).get()).toMatchObject({
       name: 'Original',
-      updatedAt: at,
+      updatedAt: later,
     });
     applyDomainMutation(operation, ['color'], tx);
     applyDomainMutation(
