@@ -1,9 +1,9 @@
 import { expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { createTestDatabase } from '../testing/createTestDatabase';
-import { applyOperation } from './applyOperation';
-import { createOperation } from './createOperation';
-import { hashOperationContent } from './utils/hashOperationContent';
+import { createTestDatabase } from '../../testing/createTestDatabase';
+import { applyOperation } from '../applyOperation';
+import { createOperation } from '../createOperation';
+import { hashOperationContent } from '../utils/hashOperationContent';
 import {
   eventTags,
   eventPeople,
@@ -12,8 +12,8 @@ import {
   syncConflicts,
   syncFieldVersions,
   tags,
-} from '../schema';
-import type { CreateOperationInput, Operation, CausalContext } from './types';
+} from '../../schema';
+import type { CreateOperationInput, Operation, CausalContext } from '../types';
 
 const at = '2026-09-16T00:00:00.000Z';
 const later = '2026-09-17T00:00:00.000Z';

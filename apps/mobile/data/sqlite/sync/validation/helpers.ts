@@ -1,4 +1,4 @@
-import { OperationValidationError } from '../OperationValidationError';
+import { OperationValidationError } from './OperationValidationError';
 
 export function validationError(path: string, message: string): never {
   throw new OperationValidationError(`${path}: ${message}`);

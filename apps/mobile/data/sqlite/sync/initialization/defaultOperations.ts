@@ -1,5 +1,5 @@
-import type { CreateOperationInput, Operation } from './types';
-import { hashOperationContent } from './utils/hashOperationContent';
+import type { CreateOperationInput, Operation } from '../types';
+import { hashOperationContent } from '../utils/hashOperationContent';
 
 export const DEFAULTS_ORIGIN = 'LEL-defaults';
 const timestamp = '2026-08-19T00:00:00.000Z';

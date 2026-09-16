@@ -1,16 +1,21 @@
 import { and, eq } from 'drizzle-orm';
-import type { AppDatabase } from '../database';
-import { categories, tags, syncFieldVersions, syncLocalState } from '../schema';
+import type { AppDatabase } from '../../database';
+import {
+  categories,
+  tags,
+  syncFieldVersions,
+  syncLocalState,
+} from '../../schema';
 import { defaultOperations, DEFAULTS_ORIGIN } from './defaultOperations';
-import { validateOperation } from './validateOperation';
-import { applyDomainMutation } from './applyDomainMutation';
+import { validateOperation } from '../validation/validateOperation';
+import { applyDomainMutation } from '../applyDomainMutation';
 import {
   appendOperation,
   type AppendOperationDependencies,
-} from './appendOperation';
-import { createOperation } from './createOperation';
-import type { CreateOperationInput, SyncFieldName } from './types';
-import { winningFieldsFor } from './entityFields';
+} from '../recording/appendOperation';
+import { createOperation } from '../createOperation';
+import type { CreateOperationInput, SyncFieldName } from '../types';
+import { winningFieldsFor } from '../entityFields';
 
 /** Adopt historical SQL seeds without overwriting edits or resurrecting rows.
  * All history/version changes and any missing seed inserts are atomic.

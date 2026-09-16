@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import type { SyncTransaction } from '../database';
+import type { SyncTransaction } from '../../database';
 import {
   events,
   tags,
@@ -9,10 +9,10 @@ import {
   syncOperations,
   syncFieldVersions,
   syncLocalState,
-} from '../schema';
-import type { Operation, SyncFieldName } from './types';
-import { hasSeen, compareOperations } from './utils/operationOrder';
-import { OperationValidationError } from './OperationValidationError';
+} from '../../schema';
+import type { Operation, SyncFieldName } from '../types';
+import { hasSeen, compareOperations } from './operationOrder';
+import { OperationValidationError } from '../validation/OperationValidationError';
 
 export type RelationOperation = Extract<
   Operation,

@@ -6,7 +6,7 @@ import type { Logger } from 'drizzle-orm';
 import initSqlJs, { type Database } from 'sql.js';
 import type { AppDatabase } from '../database';
 import { runDataMigrations } from '../dataMigrations';
-import { initializeSyncLocalState } from '../sync/initializeSyncLocalState';
+import { initializeSyncLocalState } from '../sync/initialization/initializeSyncLocalState';
 import * as schema from '../schema';
 
 function applyMigrations(

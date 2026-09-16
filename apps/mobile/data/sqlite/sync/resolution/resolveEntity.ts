@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import type { SyncTransaction } from '../database';
+import type { SyncTransaction } from '../../database';
 import {
   categories,
   events,
@@ -10,19 +10,17 @@ import {
   syncFieldVersions,
   syncConflicts,
   syncLocalState,
-} from '../schema';
+} from '../../schema';
 import type {
   Operation,
   OperationId,
   DomainFieldName,
   SyncFieldName,
-} from './types';
-import { entityFields, winningFieldsFor } from './entityFields';
-import { OperationValidationError } from './OperationValidationError';
-import { conflictId } from './utils/conflictId';
-import { resolveRelation } from './relations';
-
-import { hasSeen, compareOperations } from './utils/operationOrder';
+} from '../types';
+import { entityFields, winningFieldsFor } from '../entityFields';
+import { OperationValidationError } from '../validation/OperationValidationError';
+import { conflictId } from './conflictId';
+import { hasSeen, compareOperations } from './operationOrder';
 
 type EntityOperation = Extract<
   Operation,
@@ -42,7 +40,6 @@ const reviewFields: Record<EntityOperation['entityType'], readonly string[]> = {
   person: ['name'],
   location: ['name'],
 };
-export { hasSeen, compareOperations } from './utils/operationOrder';
 
 function storedOperation(id: OperationId, tx: SyncTransaction): Operation {
   const row = tx
@@ -91,22 +88,11 @@ function valueAt(operation: Operation, field: SyncFieldName): unknown {
 /** Resolves supported entity operations and local best-effort conflict UI state.
  * Name collisions across different identities remain a constraint error.
  */
-export function resolveOperation(
-  operation: Operation,
+export function resolveEntity(
+  operation: EntityOperation,
   tx: SyncTransaction
 ): readonly SyncFieldName[] {
   const fields = winningFieldsFor(operation); // Reject unsupported mutation families.
-  if (
-    operation.operationType === 'relation.add' ||
-    operation.operationType === 'relation.remove'
-  )
-    return resolveRelation(operation, tx);
-  if (
-    operation.operationType !== 'entity.create' &&
-    operation.operationType !== 'entity.patch' &&
-    operation.operationType !== 'entity.delete'
-  )
-    throw new Error('Resolution not implemented for this operation.');
   const table = tables[operation.entityType];
   const existing = tx
     .select()

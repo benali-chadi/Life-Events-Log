@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { validatePayload } from './validatePayload';
 import { OperationValidationError } from './OperationValidationError';
-import type { Operation, OperationType, SyncEntityType } from './types';
+import type { Operation, OperationType, SyncEntityType } from '../types';
 
 const at = '2026-09-14T00:00:00.000Z';
 const timestamps = { createdAt: at, updatedAt: at };

@@ -1,18 +1,18 @@
 import type { Database } from 'sql.js';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type { AppDatabase } from '../database';
+import type { AppDatabase } from '../../database';
 import {
   syncFieldVersions,
   syncFrontiers,
   syncLocalState,
   syncOperations,
   events,
-} from '../schema';
-import { createTestDatabase } from '../testing/createTestDatabase';
+} from '../../schema';
+import { createTestDatabase } from '../../testing/createTestDatabase';
 import { appendOperation } from './appendOperation';
-import { createOperation } from './createOperation';
-import { hashOperationContent } from './utils/hashOperationContent';
-import type { Operation } from './types';
+import { createOperation } from '../createOperation';
+import { hashOperationContent } from '../utils/hashOperationContent';
+import type { Operation } from '../types';
 
 let sqlite: Database;
 let database: AppDatabase;

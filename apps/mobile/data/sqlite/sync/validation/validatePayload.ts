@@ -4,7 +4,7 @@ import {
   EVENT_TITLE_MAX_LENGTH,
 } from '@/models';
 import { normalizeMetadataName } from '@/data/repositories/metadataName';
-import type { Operation, OperationType, SyncEntityType } from './types';
+import type { Operation, OperationType, SyncEntityType } from '../types';
 import {
   isValidLocalDate,
   isValidLocalTime,
@@ -15,7 +15,7 @@ import {
   identifier as id,
   counter,
   validationError as fail,
-} from './utils/validation';
+} from './helpers';
 
 type Candidate = Omit<Operation, 'payload'> & { payload: unknown };
 type Rule = (value: unknown, path: string) => void;

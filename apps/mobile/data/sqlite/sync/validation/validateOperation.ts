@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm';
-import { record, identifier, counter } from './utils/validation';
-import type { SyncTransaction } from '../database';
-import { syncFrontiers, syncOperations } from '../schema';
+import { record, identifier, counter } from './helpers';
+import type { SyncTransaction } from '../../database';
+import { syncFrontiers, syncOperations } from '../../schema';
 import {
   OPERATION_TYPES,
   SYNC_ENTITY_TYPES,
@@ -9,9 +9,9 @@ import {
   type Operation,
   type OperationType,
   type SyncEntityType,
-} from './types';
-import type { OperationPayloadMap } from './payloads';
-import { hashOperationContent } from './utils/hashOperationContent';
+} from '../types';
+import type { OperationPayloadMap } from '../payloads';
+import { hashOperationContent } from '../utils/hashOperationContent';
 import { validatePayload } from './validatePayload';
 import { OperationValidationError } from './OperationValidationError';
 export { OperationValidationError } from './OperationValidationError';

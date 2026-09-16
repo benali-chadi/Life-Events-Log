@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import type { Database } from 'sql.js';
 import { eq } from 'drizzle-orm';
-import type { AppDatabase } from '../database';
+import type { AppDatabase } from '../../database';
 import {
   categories,
   tags,
@@ -9,12 +9,12 @@ import {
   syncFrontiers,
   syncFieldVersions,
   syncLocalState,
-} from '../schema';
-import { createTestDatabase } from '../testing/createTestDatabase';
+} from '../../schema';
+import { createTestDatabase } from '../../testing/createTestDatabase';
 import { bootstrapDefaults } from './bootstrapDefaults';
 import { defaultOperations, DEFAULTS_ORIGIN } from './defaultOperations';
-import { createOperation } from './createOperation';
-import { applyOperation } from './applyOperation';
+import { createOperation } from '../createOperation';
+import { applyOperation } from '../applyOperation';
 
 let sqlite: Database;
 let database: AppDatabase;

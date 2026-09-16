@@ -1,15 +1,15 @@
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import type { Database } from 'sql.js';
-import type { AppDatabase } from '../database';
-import { syncFrontiers, syncLocalState, syncOperations } from '../schema';
-import { createTestDatabase } from '../testing/createTestDatabase';
+import type { AppDatabase } from '../../database';
+import { syncFrontiers, syncLocalState, syncOperations } from '../../schema';
+import { createTestDatabase } from '../../testing/createTestDatabase';
 import {
   validateOperation,
   type EnvelopeValidatedOperation,
 } from './validateOperation';
-import { hashOperationContent } from './utils/hashOperationContent';
-import { createOperation } from './createOperation';
-import { appendOperation } from './appendOperation';
+import { hashOperationContent } from '../utils/hashOperationContent';
+import { createOperation } from '../createOperation';
+import { appendOperation } from '../recording/appendOperation';
 
 let sqlite: Database;
 let database: AppDatabase;

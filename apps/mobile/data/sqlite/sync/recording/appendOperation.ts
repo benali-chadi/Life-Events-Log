@@ -1,12 +1,12 @@
 import { eq } from 'drizzle-orm';
-import type { SyncTransaction } from '../database';
+import type { SyncTransaction } from '../../database';
 import {
   syncFieldVersions,
   syncFrontiers,
   syncLocalState,
   syncOperations,
-} from '../schema';
-import type { Operation, SyncFieldName, Timestamp } from './types';
+} from '../../schema';
+import type { Operation, SyncFieldName, Timestamp } from '../types';
 
 export type AppendOperationDependencies = { now: () => Timestamp };
 const defaultDependencies: AppendOperationDependencies = {

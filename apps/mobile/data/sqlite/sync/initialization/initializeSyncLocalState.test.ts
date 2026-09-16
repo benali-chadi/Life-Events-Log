@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest';
-import { createTestDatabase } from '../testing/createTestDatabase';
-import { syncLocalState, syncFrontiers } from '../schema';
+import { createTestDatabase } from '../../testing/createTestDatabase';
+import { syncLocalState, syncFrontiers } from '../../schema';
 import { initializeSyncLocalState } from './initializeSyncLocalState';
 
 it('initializes once and preserves the replica identity and observed clock', async () => {

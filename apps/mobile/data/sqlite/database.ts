@@ -1,7 +1,7 @@
 import { drizzle } from 'drizzle-orm/expo-sqlite';
 import { randomUUID } from 'expo-crypto';
-import { initializeSyncLocalState } from './sync/initializeSyncLocalState';
-import { bootstrapDefaults } from './sync/bootstrapDefaults';
+import { initializeSyncLocalState } from './sync/initialization/initializeSyncLocalState';
+import { bootstrapDefaults } from './sync/initialization/bootstrapDefaults';
 import { migrate } from 'drizzle-orm/expo-sqlite/migrator';
 import type { SQLiteDatabase } from 'expo-sqlite';
 import migrations from '../../drizzle/migrations';

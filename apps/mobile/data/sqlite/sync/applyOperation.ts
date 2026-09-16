@@ -1,11 +1,11 @@
 import type { SyncTransaction } from '../database';
-import { validateOperation } from './validateOperation';
+import { validateOperation } from './validation/validateOperation';
 import { applyDomainMutation } from './applyDomainMutation';
 import {
   appendOperation,
   type AppendOperationDependencies,
-} from './appendOperation';
-import { resolveOperation } from './resolveOperation';
+} from './recording/appendOperation';
+import { resolveOperation } from './resolution/resolveOperation';
 
 /** Applies and records one operation in the caller's transaction.
  * Errors must propagate out of that transaction for all-or-nothing behavior.

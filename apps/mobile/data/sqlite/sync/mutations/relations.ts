@@ -1,9 +1,12 @@
 import { sql } from 'drizzle-orm';
 import type { SyncTransaction } from '../../database';
 import { eventTags, eventPeople } from '../../schema';
-import { relationTarget, type RelationOperation } from '../relations';
+import {
+  relationTarget,
+  type RelationOperation,
+} from '../resolution/relations';
 import type { SyncFieldName } from '../types';
-import { OperationValidationError } from '../OperationValidationError';
+import { OperationValidationError } from '../validation/OperationValidationError';
 
 export function mutateRelation(
   operation: RelationOperation,

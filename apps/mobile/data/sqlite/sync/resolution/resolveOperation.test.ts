@@ -1,19 +1,19 @@
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import type { Database } from 'sql.js';
-import type { AppDatabase } from '../database';
+import type { AppDatabase } from '../../database';
 import {
   events,
   syncOperations,
   syncFieldVersions,
   syncConflicts,
   categories,
-} from '../schema';
-import { createTestDatabase } from '../testing/createTestDatabase';
-import { applyOperation } from './applyOperation';
-import { createOperation } from './createOperation';
-import { hashOperationContent } from './utils/hashOperationContent';
-import { compareOperations } from './resolveOperation';
-import type { CreateOperationInput, Operation, CausalContext } from './types';
+} from '../../schema';
+import { createTestDatabase } from '../../testing/createTestDatabase';
+import { applyOperation } from '../applyOperation';
+import { createOperation } from '../createOperation';
+import { hashOperationContent } from '../utils/hashOperationContent';
+import { compareOperations } from './operationOrder';
+import type { CreateOperationInput, Operation, CausalContext } from '../types';
 
 let sqlite: Database;
 let database: AppDatabase;

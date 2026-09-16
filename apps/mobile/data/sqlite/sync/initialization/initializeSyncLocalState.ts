@@ -1,5 +1,5 @@
-import type { AppDatabase } from '../database';
-import { syncLocalState } from '../schema';
+import type { AppDatabase } from '../../database';
+import { syncLocalState } from '../../schema';
 
 /** Initialize this database's replica once; never replace its identity or clock. */
 export function initializeSyncLocalState(
