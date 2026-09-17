@@ -32,6 +32,8 @@ export function winningFieldsFor(
   operation: Operation
 ): readonly SyncFieldName[] {
   switch (operation.operationType) {
+    case 'event.attachment.reorder':
+      return ['attachment_order'];
     case 'attachment.create':
       return [
         'event_id',
@@ -60,8 +62,6 @@ export function winningFieldsFor(
     case 'relation.remove':
       return ['deleted_at'];
     default:
-      throw new Error(
-        `Winning fields not implemented: ${operation.operationType}/${operation.entityType}.`
-      );
+      throw new Error('Unsupported operation fields.');
   }
 }

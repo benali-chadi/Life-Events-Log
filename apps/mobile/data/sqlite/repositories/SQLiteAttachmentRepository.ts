@@ -151,22 +151,20 @@ export class SQLiteAttachmentRepository implements AttachmentRepository {
 
       const timestamp = this.dependencies.now();
 
-      orderedIds.forEach((id, sortOrder) => {
-        if (attachmentsById.get(id)?.sortOrder !== sortOrder) {
+      applyOperation(
+        createOperation(
+          {
+            operationType: 'event.attachment.reorder',
+            entityType: 'event',
+            entityId: eventId,
+            payload: { orderedAttachmentIds: orderedIds, updatedAt: timestamp },
+          },
           transaction
-            .update(eventAttachments)
-            .set({ sortOrder, updatedAt: timestamp })
-            .where(eq(eventAttachments.id, id))
-            .run();
-        }
-      });
-
-      return orderedIds.map((id, sortOrder) => {
-        const attachment = attachmentsById.get(id)!;
-        return attachment.sortOrder === sortOrder
-          ? attachment
-          : { ...attachment, sortOrder, updatedAt: timestamp };
-      });
+        ),
+        transaction,
+        this.dependencies
+      );
+      return this.activeAttachmentsForEvent(eventId, transaction);
     });
   }
 

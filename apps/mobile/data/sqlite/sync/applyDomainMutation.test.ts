@@ -121,32 +121,17 @@ it('does not upsert an existing event and rolls back the caller transaction', ()
   expect(database.select().from(events).all()).toEqual([]);
 });
 
-it('rejects unimplemented operation/entity combinations explicitly', () => {
-  expect(() =>
-    database.transaction((tx) =>
-      applyDomainMutation(
-        {
-          ...operation,
-          operationType: 'event.attachment.reorder',
-          payload: { orderedAttachmentIds: [], updatedAt: at },
-        },
-        [],
-        tx
-      )
+it('a losing reorder makes no ordering changes', () => {
+  database.transaction((tx) =>
+    applyDomainMutation(
+      {
+        ...operation,
+        operationType: 'event.attachment.reorder',
+        payload: { orderedAttachmentIds: [], updatedAt: at },
+      },
+      [],
+      tx
     )
-  ).toThrow('not implemented');
-  expect(() =>
-    database.transaction((tx) =>
-      applyDomainMutation(
-        {
-          ...operation,
-          operationType: 'event.attachment.reorder',
-          entityType: 'event',
-          payload: { orderedAttachmentIds: ['attachment'], updatedAt: at },
-        },
-        [],
-        tx
-      )
-    )
-  ).toThrow('not implemented');
+  );
+  expect(database.select().from(events).all()).toEqual([]);
 });

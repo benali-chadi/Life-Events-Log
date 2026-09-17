@@ -3,6 +3,7 @@ import type { Operation, SyncFieldName } from '../types';
 import { resolveEntity } from './resolveEntity';
 import { resolveRelation } from './relations';
 import { resolveAttachment } from './attachments';
+import { resolveAttachmentReorder } from './attachmentReorder';
 
 /** Selects the resolver for an already validated operation. */
 export function resolveOperation(
@@ -10,6 +11,8 @@ export function resolveOperation(
   tx: SyncTransaction
 ): readonly SyncFieldName[] {
   switch (operation.operationType) {
+    case 'event.attachment.reorder':
+      return resolveAttachmentReorder(operation, tx);
     case 'attachment.create':
     case 'attachment.delete':
       return resolveAttachment(operation, tx);
@@ -21,8 +24,6 @@ export function resolveOperation(
     case 'relation.remove':
       return resolveRelation(operation, tx);
     default:
-      throw new Error(
-        `Resolution not implemented: ${operation.operationType}/${operation.entityType}.`
-      );
+      throw new Error('Unsupported operation for resolution.');
   }
 }

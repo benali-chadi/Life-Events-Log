@@ -17,8 +17,10 @@ export type AttachmentOperation = Extract<
   { operationType: 'attachment.create' | 'attachment.delete' }
 >;
 
-function requireCreation(
-  operation: AttachmentOperation,
+export function requireCreation(
+  operation:
+    | AttachmentOperation
+    | Extract<Operation, { operationType: 'event.attachment.reorder' }>,
   entityType: 'event' | 'attachment',
   entityId: string,
   tx: SyncTransaction

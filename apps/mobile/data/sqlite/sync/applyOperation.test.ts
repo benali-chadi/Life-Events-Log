@@ -118,7 +118,7 @@ it('rolls back domain writes if appending fails', () => {
   expect(database.select().from(syncLocalState).get()?.observedLamport).toBe(0);
 });
 
-it('does not append unsupported mutations', () => {
+it('does not append a reorder for a missing event', () => {
   expect(() =>
     database.transaction((tx) =>
       applyOperation(
@@ -134,7 +134,7 @@ it('does not append unsupported mutations', () => {
         tx
       )
     )
-  ).toThrow('not implemented');
+  ).toThrow('not found');
   expect(database.select().from(syncOperations).all()).toEqual([]);
 });
 

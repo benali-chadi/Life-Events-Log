@@ -9,7 +9,7 @@ import { resolveOperation } from './resolution/resolveOperation';
 
 /** Applies and records one operation in the caller's transaction.
  * Errors must propagate out of that transaction for all-or-nothing behavior.
- * Entity, relation, and attachment create/delete are supported. Reorder is deferred.
+ * Dispatches entity, relation, attachment, and attachment-order operations.
  */
 export function applyOperation(
   input: unknown,
