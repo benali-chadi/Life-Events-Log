@@ -2,6 +2,7 @@ import type { SyncTransaction } from '../../database';
 import type { Operation, SyncFieldName } from '../types';
 import { resolveEntity } from './resolveEntity';
 import { resolveRelation } from './relations';
+import { resolveAttachment } from './attachments';
 
 /** Selects the resolver for an already validated operation. */
 export function resolveOperation(
@@ -9,6 +10,9 @@ export function resolveOperation(
   tx: SyncTransaction
 ): readonly SyncFieldName[] {
   switch (operation.operationType) {
+    case 'attachment.create':
+    case 'attachment.delete':
+      return resolveAttachment(operation, tx);
     case 'entity.create':
     case 'entity.patch':
     case 'entity.delete':

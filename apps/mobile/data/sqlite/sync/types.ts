@@ -56,6 +56,7 @@ export type DomainFieldNamesByEntity = {
   location: 'name' | 'deleted_at';
   attachment:
     | 'event_id'
+    | 'content_hash'
     | 'filename'
     | 'mime_type'
     | 'width'

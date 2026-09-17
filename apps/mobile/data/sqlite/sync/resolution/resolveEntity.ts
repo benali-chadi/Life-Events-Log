@@ -109,6 +109,7 @@ export function resolveEntity(
         eq(syncOperations.operationType, 'entity.create')
       )
     )
+    .limit(2)
     .all();
   if (operation.operationType === 'entity.create') {
     if (existing || creations.length)

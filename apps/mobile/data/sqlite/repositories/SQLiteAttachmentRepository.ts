@@ -10,6 +10,8 @@ import {
 import type { EventAttachment, UUID } from '@/models';
 import type { AppDatabase } from '../database';
 import { eventAttachments, events } from '../schema';
+import { createOperation } from '../sync/createOperation';
+import { applyOperation } from '../sync/applyOperation';
 
 export class SQLiteAttachmentRepository implements AttachmentRepository {
   constructor(
@@ -76,7 +78,22 @@ export class SQLiteAttachmentRepository implements AttachmentRepository {
       deletedAt: null,
     };
 
-    this.database.insert(eventAttachments).values(attachment).run();
+    this.database.transaction((tx) => {
+      const { id: entityId, deletedAt: _deletedAt, ...payload } = attachment;
+      applyOperation(
+        createOperation(
+          {
+            operationType: 'attachment.create',
+            entityType: 'attachment',
+            entityId,
+            payload,
+          },
+          tx
+        ),
+        tx,
+        this.dependencies
+      );
+    });
 
     return attachment;
   }
@@ -200,16 +217,21 @@ export class SQLiteAttachmentRepository implements AttachmentRepository {
       if (activeIds.length === 0) return;
 
       const timestamp = this.dependencies.now();
-      transaction
-        .update(eventAttachments)
-        .set({ updatedAt: timestamp, deletedAt: timestamp })
-        .where(
-          and(
-            inArray(eventAttachments.id, activeIds),
-            isNull(eventAttachments.deletedAt)
-          )
-        )
-        .run();
+      for (const id of activeIds) {
+        applyOperation(
+          createOperation(
+            {
+              operationType: 'attachment.delete',
+              entityType: 'attachment',
+              entityId: id,
+              payload: { deletedAt: timestamp },
+            },
+            transaction
+          ),
+          transaction,
+          this.dependencies
+        );
+      }
     });
   }
 

@@ -32,6 +32,19 @@ export function winningFieldsFor(
   operation: Operation
 ): readonly SyncFieldName[] {
   switch (operation.operationType) {
+    case 'attachment.create':
+      return [
+        'event_id',
+        'content_hash',
+        'filename',
+        'mime_type',
+        'width',
+        'height',
+        'file_size',
+        'deleted_at',
+      ];
+    case 'attachment.delete':
+      return ['deleted_at'];
     case 'entity.create':
       return [
         ...Object.values(entityFields[operation.entityType]),

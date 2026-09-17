@@ -124,10 +124,10 @@ it('does not append unsupported mutations', () => {
       applyOperation(
         createOperation(
           {
-            operationType: 'attachment.delete',
-            entityType: 'attachment',
+            operationType: 'event.attachment.reorder',
+            entityType: 'event',
             entityId: 'event',
-            payload: { deletedAt: at },
+            payload: { orderedAttachmentIds: [], updatedAt: at },
           },
           tx
         ),
