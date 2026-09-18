@@ -43,6 +43,13 @@
       "when": 1789159593591,
       "tag": "0005_natural_omega_sentinel",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1789759340963,
+      "tag": "0006_complete_blizzard",
+      "breakpoints": true
     }
   ]
 }

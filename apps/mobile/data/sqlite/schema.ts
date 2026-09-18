@@ -325,6 +325,11 @@ export const syncOperations = sqliteTable(
   },
   (table) => [
     primaryKey({ columns: [table.originDeviceId, table.originSequence] }),
+    index('sync_operations_entity_operation_idx').on(
+      table.entityType,
+      table.entityId,
+      table.operationType
+    ),
     check('sync_operations_sequence_check', sql`${table.originSequence} > 0`),
     check('sync_operations_lamport_check', sql`${table.lamport} > 0`),
   ]

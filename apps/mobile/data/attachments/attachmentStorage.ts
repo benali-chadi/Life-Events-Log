@@ -4,6 +4,7 @@ import * as Sharing from 'expo-sharing';
 import { safeExportFilename } from './attachmentPath';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
+import * as Crypto from 'expo-crypto';
 
 const ATTACHMENTS_DIRECTORY = 'attachments';
 
@@ -56,24 +57,12 @@ export async function copyAttachmentIntoStorage({
 
 /** Incremental hashing bounds memory and yields between chunks. */
 export async function hashAttachmentFile(file: File): Promise<string> {
-  const handle = file.open();
-  const hash = sha256.create();
-  try {
-    const size = handle.size;
-    if (size === null) throw new Error('Attachment size is unavailable.');
-    let read = 0;
-    while (read < size) {
-      const bytes = handle.readBytes(Math.min(1024 * 1024, size - read));
-      if (bytes.length === 0)
-        throw new Error('Attachment read ended unexpectedly.');
-      read += bytes.length;
-      hash.update(bytes);
-      await new Promise<void>((resolve) => setTimeout(resolve, 0));
-    }
-    return bytesToHex(hash.digest());
-  } finally {
-    handle.close();
-  }
+  const bytes = await file.bytes();
+  const digest = await Crypto.digest(
+    Crypto.CryptoDigestAlgorithm.SHA256,
+    bytes
+  );
+  return bytesToHex(new Uint8Array(digest));
 }
 
 export function resolveAttachmentFile(

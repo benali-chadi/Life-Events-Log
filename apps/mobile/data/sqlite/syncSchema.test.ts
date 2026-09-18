@@ -16,6 +16,17 @@ beforeEach(async () => {
 });
 afterEach(() => sqlite.close());
 
+it('uses the entity operation index for creation-history lookups', () => {
+  const plan = sqlite.exec(`
+    EXPLAIN QUERY PLAN SELECT * FROM sync_operations
+    WHERE entity_type = 'attachment' AND entity_id = 'attachment-a'
+      AND operation_type = 'attachment.create' LIMIT 2
+  `);
+  expect(plan[0]?.values.map(row => row[3]).join('\n')).toContain(
+    'USING INDEX sync_operations_entity_operation_idx'
+  );
+});
+
 it('enforces a single local replica state', () => {
   database
     .insert(syncLocalState)
