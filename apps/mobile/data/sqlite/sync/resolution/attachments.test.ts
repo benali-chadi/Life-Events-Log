@@ -119,7 +119,7 @@ it('creates rows with shared hashes, records versions, and never updates the par
   }
 });
 
-it('converges concurrent deletions in either order, including losing timestamps', async () => {
+it('converges concurrent deletions in either order, excluding losing timestamps', async () => {
   const states: unknown[] = [];
   for (const reverse of [false, true]) {
     const s = await setup();
@@ -146,7 +146,7 @@ it('converges concurrent deletions in either order, including losing timestamps'
       });
       expect(s.database.select().from(eventAttachments).get()).toMatchObject({
         deletedAt: at,
-        updatedAt: future,
+        updatedAt: at,
       });
       expect(s.database.select().from(syncOperations).all()).toHaveLength(4);
       expect(s.apply(operations[0]!)).toBe('already-applied');

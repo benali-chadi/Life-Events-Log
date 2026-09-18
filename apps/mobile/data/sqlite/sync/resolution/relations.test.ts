@@ -132,7 +132,7 @@ it.each(['event_tag', 'event_person'] as const)(
         const row = s.database.select().from(s.table).get();
         expect(row).toMatchObject({
           deletedAt: later,
-          updatedAt: future,
+          updatedAt: later,
           createdAt: at,
         });
         states.push({
@@ -167,7 +167,7 @@ it('converges concurrent first additions with different creation times', async (
   }
   expect(rows[0]).toEqual(rows[1]);
   expect(rows[0]).toMatchObject({
-    createdAt: at,
+    createdAt: later,
     updatedAt: later,
     deletedAt: null,
   });
@@ -187,7 +187,7 @@ it('a concurrent addition can win over removal by LWW', async () => {
         s.apply(operation);
       expect(s.database.select().from(s.table).get()).toMatchObject({
         deletedAt: null,
-        updatedAt: future,
+        updatedAt: later,
       });
       expect(
         s.database

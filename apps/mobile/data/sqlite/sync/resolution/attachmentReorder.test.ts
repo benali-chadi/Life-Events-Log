@@ -267,3 +267,38 @@ it('rolls back positions and field versions if recording fails', async () => {
     s.sqlite.close();
   }
 });
+
+it('losing reorders write no domain state and superseded reorders stop contributing timestamps', async () => {
+  const s = await setup();
+  try {
+    const future = '2030-01-01T00:00:00.000Z';
+    const futureInput: CreateOperationInput = {
+      operationType: 'event.attachment.reorder',
+      entityType: 'event',
+      entityId: 'event',
+      payload: { orderedAttachmentIds: ['c', 'b', 'a'], updatedAt: future },
+    };
+    s.apply(signed(futureInput, 'a', 5, { 'test-device': 4 }));
+    expect(
+      s.database
+        .select()
+        .from(eventAttachments)
+        .all()
+        .every((row) => row.updatedAt === future)
+    ).toBe(true);
+    s.apply(signed(reorder(['a', 'b', 'c']), 'z', 5, { 'test-device': 4 }));
+    expect(
+      s.database
+        .select()
+        .from(eventAttachments)
+        .all()
+        .every((row) => row.updatedAt === later)
+    ).toBe(true);
+    const before = s.database.select().from(eventAttachments).all();
+    s.apply(signed(futureInput, 'b', 5, { 'test-device': 4 }));
+    expect(s.database.select().from(eventAttachments).all()).toEqual(before);
+    expect(s.database.select().from(events).get()?.updatedAt).toBe(at);
+  } finally {
+    s.sqlite.close();
+  }
+});

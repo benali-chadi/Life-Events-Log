@@ -175,7 +175,7 @@ export class SQLitePersonRepository implements PersonRepository {
       );
     });
 
-    return updated;
+    return (await this.getById(id))!;
   }
 
   async softDelete(id: UUID): Promise<SoftDeleteMetadataResult> {

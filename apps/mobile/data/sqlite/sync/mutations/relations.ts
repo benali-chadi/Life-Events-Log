@@ -1,4 +1,3 @@
-import { sql } from 'drizzle-orm';
 import type { SyncTransaction } from '../../database';
 import { eventTags, eventPeople } from '../../schema';
 import {
@@ -13,6 +12,7 @@ export function mutateRelation(
   winningFields: readonly SyncFieldName[],
   tx: SyncTransaction
 ): void {
+  if (!winningFields.includes('deleted_at')) return;
   const { table, where } = relationTarget(operation);
   const existing = tx.select().from(table).where(where).get();
   const wins = winningFields.includes('deleted_at');
@@ -43,10 +43,10 @@ export function mutateRelation(
         ...(wins ? { deletedAt } : {}),
         ...(operation.operationType === 'relation.add'
           ? {
-              createdAt: sql`min(${table.createdAt}, ${operation.payload.createdAt})`,
+              createdAt: operation.payload.createdAt,
             }
           : {}),
-        updatedAt: sql`max(${table.updatedAt}, ${timestamp})`,
+        updatedAt: timestamp,
       })
       .where(where)
       .run();

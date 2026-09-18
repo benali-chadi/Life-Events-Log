@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 import type { SyncTransaction } from '../../database';
 import { eventAttachments } from '../../schema';
 import type { SyncFieldName } from '../types';
@@ -10,6 +10,7 @@ export function reorderAttachments(
   winningFields: readonly SyncFieldName[],
   tx: SyncTransaction
 ): void {
+  if (!winningFields.includes('attachment_order')) return;
   const attachments = tx
     .select()
     .from(eventAttachments)
@@ -29,14 +30,13 @@ export function reorderAttachments(
     const position = positions.get(attachment.id);
     if (attachment.deletedAt !== null) continue;
     const sortOrder = wins ? (position ?? next++) : attachment.sortOrder;
-    // Listed operations contribute their time even when losing. Omitted rows
-    // are moved only by winning reorders; their local ordering is intentional.
+    // Only a winning reorder changes rows; omitted order is device-local.
     if (position === undefined && (!wins || attachment.sortOrder === sortOrder))
       continue;
     tx.update(eventAttachments)
       .set({
         ...(wins ? { sortOrder } : {}),
-        updatedAt: sql`max(${eventAttachments.updatedAt}, ${operation.payload.updatedAt})`,
+        updatedAt: operation.payload.updatedAt,
       })
       .where(
         and(

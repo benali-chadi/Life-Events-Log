@@ -174,7 +174,7 @@ export class SQLiteLocationRepository implements LocationRepository {
       );
     });
 
-    return updated;
+    return (await this.getById(id))!;
   }
 
   async softDelete(id: UUID): Promise<SoftDeleteMetadataResult> {

@@ -1,4 +1,4 @@
-import { and, eq, isNull, max, sql } from 'drizzle-orm';
+import { and, eq, isNull, max } from 'drizzle-orm';
 import type { SyncTransaction } from '../../database';
 import { eventAttachments } from '../../schema';
 import type { AttachmentOperation } from '../resolution/attachments';
@@ -11,6 +11,7 @@ export function mutateAttachment(
   winningFields: readonly SyncFieldName[],
   tx: SyncTransaction
 ): void {
+  if (!winningFields.length) return;
   if (operation.operationType === 'attachment.create') {
     // Appending is deliberately local: do not trust the origin's old position.
     const highest = tx
@@ -51,7 +52,7 @@ export function mutateAttachment(
       ...(winningFields.includes('deleted_at')
         ? { deletedAt: operation.payload.deletedAt }
         : {}),
-      updatedAt: sql`max(${eventAttachments.updatedAt}, ${operation.payload.deletedAt})`,
+      updatedAt: operation.payload.deletedAt,
     })
     .where(eq(eventAttachments.id, operation.entityId))
     .run();

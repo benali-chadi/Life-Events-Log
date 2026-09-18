@@ -167,7 +167,7 @@ export class SQLiteTagRepository implements TagRepository {
       );
     });
 
-    return updated;
+    return (await this.getById(id))!;
   }
 
   async softDelete(id: UUID): Promise<SoftDeleteMetadataResult> {

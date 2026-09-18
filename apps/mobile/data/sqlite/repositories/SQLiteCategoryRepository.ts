@@ -191,7 +191,7 @@ export class SQLiteCategoryRepository implements CategoryRepository {
       );
     });
 
-    return updated;
+    return (await this.getById(id))!;
   }
 
   async softDelete(id: UUID): Promise<SoftDeleteMetadataResult> {

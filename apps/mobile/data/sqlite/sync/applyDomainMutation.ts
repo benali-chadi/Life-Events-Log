@@ -29,7 +29,7 @@ export function applyDomainMutation(
       return patchEntity(operation, winningFields, tx);
     case 'entity.delete':
       return deleteEntity(operation, winningFields, tx);
-      default:
+    default:
       throw new Error('Unsupported domain mutation.');
   }
 }

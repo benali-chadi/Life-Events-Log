@@ -1,4 +1,4 @@
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { EntityNotFoundError } from '@/data/repositories';
 import { normalizeSearchText } from '@/data/repositories/metadataName';
 import type { SyncTransaction } from '../../database';
@@ -53,6 +53,7 @@ export function patchEntity(
     )
   );
   const table = tables[operation.entityType];
+  if (Object.keys(changes).length === 0) return;
   if (
     !tx
       .select({ id: table.id })
@@ -71,7 +72,7 @@ export function patchEntity(
     .set({
       ...changes,
       ...derived,
-      updatedAt: sql`max(${table.updatedAt}, ${operation.payload.updatedAt})`,
+      updatedAt: operation.payload.updatedAt,
     })
     .where(eq(table.id, operation.entityId))
     .run();
@@ -82,6 +83,7 @@ export function deleteEntity(
   winningFields: readonly SyncFieldName[],
   tx: SyncTransaction
 ): void {
+  if (!winningFields.includes('deleted_at')) return;
   const table = tables[operation.entityType];
   if (
     !tx
@@ -96,7 +98,7 @@ export function deleteEntity(
       ...(winningFields.includes('deleted_at')
         ? { deletedAt: operation.payload.deletedAt }
         : {}),
-      updatedAt: sql`max(${table.updatedAt}, ${operation.payload.deletedAt})`,
+      updatedAt: operation.payload.deletedAt,
     })
     .where(eq(table.id, operation.entityId))
     .run();

@@ -170,7 +170,7 @@ it.each(['category', 'tag', 'person', 'location'] as const)(
   }
 );
 
-it('writes only winning fields while losing operations still contribute timestamps', () => {
+it('writes only winning fields and ignores losing-operation timestamps', () => {
   apply({
     operationType: 'entity.create',
     entityType: 'category',
@@ -190,7 +190,7 @@ it('writes only winning fields while losing operations still contribute timestam
     applyDomainMutation(operation, [], tx);
     expect(tx.select().from(categories).get()).toMatchObject({
       name: 'Original',
-      updatedAt: later,
+      updatedAt: at,
     });
     applyDomainMutation(operation, ['color'], tx);
     applyDomainMutation(

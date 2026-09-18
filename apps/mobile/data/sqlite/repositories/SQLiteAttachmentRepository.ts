@@ -95,7 +95,7 @@ export class SQLiteAttachmentRepository implements AttachmentRepository {
       );
     });
 
-    return attachment;
+    return (await this.getById(id))!;
   }
 
   async reorder(

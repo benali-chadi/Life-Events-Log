@@ -149,7 +149,7 @@ it('converges values, versions and max timestamps for every order of three concu
       };
       if (baseline) expect(state).toEqual(baseline);
       else baseline = state;
-      expect(state.event).toMatchObject({ title: 'C', updatedAt: future });
+      expect(state.event).toMatchObject({ title: 'C', updatedAt: at });
       expect(other.database.select().from(syncConflicts).all()).toHaveLength(1);
     } finally {
       other.sqlite.close();
@@ -242,7 +242,7 @@ it('does not retain an alternative whose value has become the displayed value', 
   expect(database.select().from(syncConflicts).all()).toEqual([]);
 });
 
-it('permanent deletion suppresses concurrent and causal-later patches but records their timestamps', () => {
+it('permanent deletion suppresses concurrent and causal-later patch timestamps', () => {
   apply(patch('a', 'A'));
   apply(patch('b', 'B'));
   apply(deletion('d'));
@@ -251,7 +251,7 @@ it('permanent deletion suppresses concurrent and causal-later patches but record
   expect(database.select().from(events).get()).toMatchObject({
     title: 'B',
     deletedAt: at,
-    updatedAt: future,
+    updatedAt: at,
   });
   expect(
     database
@@ -263,7 +263,7 @@ it('permanent deletion suppresses concurrent and causal-later patches but record
   expect(database.select().from(syncOperations).all()).toHaveLength(5);
 });
 
-it('chooses a deterministic delete winner but includes losing-delete timestamps', async () => {
+it('chooses a deterministic delete winner and excludes losing-delete timestamps', async () => {
   for (const order of [
     [deletion('a', 2, future), deletion('b')],
     [deletion('b'), deletion('a', 2, future)],
@@ -274,7 +274,7 @@ it('chooses a deterministic delete winner but includes losing-delete timestamps'
       for (const operation of order) apply(operation, other.database);
       expect(other.database.select().from(events).get()).toMatchObject({
         deletedAt: at,
-        updatedAt: future,
+        updatedAt: at,
       });
       expect(
         other.database
@@ -375,6 +375,52 @@ it('uses Lamport, then fixed device ordering, then sequence', () => {
   ).toBe(1);
 });
 
+it('drops a future timestamp only when its operation loses its last winning field', () => {
+  apply(
+    op(
+      {
+        operationType: 'entity.patch',
+        entityType: 'event',
+        entityId: 'event',
+        payload: {
+          changes: { title: 'Future title', notes: 'Future notes' },
+          updatedAt: future,
+        },
+      },
+      'a',
+      2
+    )
+  );
+  apply(patch('b', 'New title', 3, { seed: 1, a: 1 }));
+  expect(database.select().from(events).get()?.updatedAt).toBe(future);
+  apply(
+    op(
+      {
+        operationType: 'entity.patch',
+        entityType: 'event',
+        entityId: 'event',
+        payload: { changes: { notes: 'New notes' }, updatedAt: at },
+      },
+      'c',
+      4,
+      { seed: 1, a: 1, b: 1 }
+    )
+  );
+  expect(database.select().from(events).get()).toMatchObject({
+    title: 'New title',
+    notes: 'New notes',
+    updatedAt: at,
+  });
+});
+
+it('records an entirely losing operation without changing any domain column', () => {
+  apply(patch('z', 'Winner', 10));
+  const before = database.select().from(events).get();
+  apply(patch('a', 'Loser', 2, { seed: 1 }, future));
+  expect(database.select().from(events).get()).toEqual(before);
+  expect(database.select().from(syncOperations).all()).toHaveLength(3);
+});
+
 it('selects a different winner independently for each field of one patch', () => {
   apply(patch('z', 'Title winner', 10));
   apply(
@@ -428,7 +474,9 @@ it('delete remains effective regardless of concurrent patch arrival order', asyn
       for (const operation of order) apply(operation, other.database);
       expect(other.database.select().from(events).get()).toMatchObject({
         deletedAt: at,
-        updatedAt: future,
+        // A patch applied before deletion still owns its retained tombstone
+        // field; a patch received after deletion wins no fields at all.
+        updatedAt: order[0]!.operationType === 'entity.patch' ? future : at,
       });
       expect(other.database.select().from(syncConflicts).all()).toEqual([]);
       expect(other.database.select().from(syncOperations).all()).toHaveLength(
