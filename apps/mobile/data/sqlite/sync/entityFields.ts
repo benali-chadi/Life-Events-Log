@@ -1,6 +1,6 @@
 import type {
   DomainFieldNamesByEntity,
-  Operation,
+  CreateOperationInput,
   SyncFieldName,
 } from './types';
 
@@ -29,7 +29,7 @@ export const entityFields = {
  * Also used by bootstrap when adopting mutations already present in domain rows.
  */
 export function winningFieldsFor(
-  operation: Operation
+  operation: CreateOperationInput
 ): readonly SyncFieldName[] {
   switch (operation.operationType) {
     case 'event.attachment.reorder':

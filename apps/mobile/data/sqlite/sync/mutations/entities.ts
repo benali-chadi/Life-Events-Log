@@ -3,7 +3,7 @@ import { EntityNotFoundError } from '@/data/repositories';
 import { normalizeSearchText } from '@/data/repositories/metadataName';
 import type { SyncTransaction } from '../../database';
 import { events, categories, tags, people, locations } from '../../schema';
-import type { Operation, SyncFieldName } from '../types';
+import type { CreateOperationInput, SyncFieldName } from '../types';
 import { entityFields } from '../entityFields';
 import { createEvent } from './createEvent';
 
@@ -14,9 +14,18 @@ const tables = {
   person: people,
   location: locations,
 };
-type EntityCreate = Extract<Operation, { operationType: 'entity.create' }>;
-type EntityPatch = Extract<Operation, { operationType: 'entity.patch' }>;
-type EntityDelete = Extract<Operation, { operationType: 'entity.delete' }>;
+type EntityCreate = Extract<
+  CreateOperationInput,
+  { operationType: 'entity.create' }
+>;
+type EntityPatch = Extract<
+  CreateOperationInput,
+  { operationType: 'entity.patch' }
+>;
+type EntityDelete = Extract<
+  CreateOperationInput,
+  { operationType: 'entity.delete' }
+>;
 
 export function createEntity(
   operation: EntityCreate,

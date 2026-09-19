@@ -1,14 +1,14 @@
 import type { SyncTransaction } from '../../database';
 import { eventTags, eventPeople } from '../../schema';
-import {
-  relationTarget,
-  type RelationOperation,
-} from '../resolution/relations';
-import type { SyncFieldName } from '../types';
+import { relationTarget } from '../resolution/relations';
+import type { CreateOperationInput, SyncFieldName } from '../types';
 import { OperationValidationError } from '../validation/OperationValidationError';
 
 export function mutateRelation(
-  operation: RelationOperation,
+  operation: Extract<
+    CreateOperationInput,
+    { operationType: 'relation.add' | 'relation.remove' }
+  >,
   winningFields: readonly SyncFieldName[],
   tx: SyncTransaction
 ): void {

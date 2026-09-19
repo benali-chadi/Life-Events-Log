@@ -4,7 +4,11 @@ import {
   EVENT_TITLE_MAX_LENGTH,
 } from '@/models';
 import { normalizeMetadataName } from '@/data/repositories/metadataName';
-import type { Operation, OperationType, SyncEntityType } from '../types';
+import type {
+  CreateOperationInput,
+  OperationType,
+  SyncEntityType,
+} from '../types';
 import {
   isValidLocalDate,
   isValidLocalTime,
@@ -17,7 +21,7 @@ import {
   validationError as fail,
 } from './helpers';
 
-type Candidate = Omit<Operation, 'payload'> & { payload: unknown };
+type Candidate = Omit<CreateOperationInput, 'payload'> & { payload: unknown };
 type Rule = (value: unknown, path: string) => void;
 type Shape = Record<string, Rule>;
 const string: Rule = (value, path) => {
@@ -98,12 +102,12 @@ function entityFields(entity: SyncEntityType): Shape {
   return fail('entityType', 'unsupported entity operation');
 }
 
-/** Validates without coercion or database/file lookups. Hash/JSON integrity is
- * checked by validateOperation before this function is called.
+/** Validates pending or sealed payloads without coercion or database/file lookups.
+ * Sealed-operation integrity checks belong to validateOperation.
  */
 export function validatePayload(
   operation: Candidate
-): asserts operation is Operation {
+): asserts operation is CreateOperationInput {
   const { payload, entityType, operationType } = operation;
   switch (operationType) {
     case 'entity.create':

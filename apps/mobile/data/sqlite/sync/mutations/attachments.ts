@@ -1,13 +1,15 @@
 import { and, eq, isNull, max } from 'drizzle-orm';
 import type { SyncTransaction } from '../../database';
 import { eventAttachments } from '../../schema';
-import type { AttachmentOperation } from '../resolution/attachments';
-import type { SyncFieldName } from '../types';
+import type { CreateOperationInput, SyncFieldName } from '../types';
 import { OperationValidationError } from '../validation/OperationValidationError';
 
 /** Row-only mutations: no blob IO, parent-event writes, or reorder side effects. */
 export function mutateAttachment(
-  operation: AttachmentOperation,
+  operation: Extract<
+    CreateOperationInput,
+    { operationType: 'attachment.create' | 'attachment.delete' }
+  >,
   winningFields: readonly SyncFieldName[],
   tx: SyncTransaction
 ): void {

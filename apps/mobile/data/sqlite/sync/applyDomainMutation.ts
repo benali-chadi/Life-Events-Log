@@ -1,5 +1,5 @@
 import type { SyncTransaction } from '../database';
-import type { Operation, SyncFieldName } from './types';
+import type { CreateOperationInput, SyncFieldName } from './types';
 import { createEntity, patchEntity, deleteEntity } from './mutations/entities';
 import { mutateRelation } from './mutations/relations';
 import { mutateAttachment } from './mutations/attachments';
@@ -10,7 +10,7 @@ import { reorderAttachments } from './mutations/attachmentReorder';
  * the selected winning fields.
  */
 export function applyDomainMutation(
-  operation: Operation,
+  operation: CreateOperationInput,
   winningFields: readonly SyncFieldName[],
   tx: SyncTransaction
 ): void {

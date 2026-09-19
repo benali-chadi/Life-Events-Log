@@ -10,7 +10,7 @@ import {
   syncFieldVersions,
   syncLocalState,
 } from '../../schema';
-import type { Operation, SyncFieldName } from '../types';
+import type { CreateOperationInput, Operation, SyncFieldName } from '../types';
 import { hasSeen, compareOperations } from './operationOrder';
 import { OperationValidationError } from '../validation/OperationValidationError';
 
@@ -19,7 +19,12 @@ export type RelationOperation = Extract<
   { operationType: 'relation.add' | 'relation.remove' }
 >;
 
-export function relationTarget(operation: RelationOperation) {
+export function relationTarget(
+  operation: Extract<
+    CreateOperationInput,
+    { operationType: 'relation.add' | 'relation.remove' }
+  >
+) {
   const table = operation.entityType === 'event_tag' ? eventTags : eventPeople;
   const metadataId =
     'tagId' in operation.payload

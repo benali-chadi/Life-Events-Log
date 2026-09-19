@@ -1,12 +1,14 @@
 import { and, desc, eq, isNull } from 'drizzle-orm';
 import type { SyncTransaction } from '../../database';
 import { eventAttachments } from '../../schema';
-import type { SyncFieldName } from '../types';
-import type { AttachmentReorderOperation } from '../resolution/attachmentReorder';
+import type { CreateOperationInput, SyncFieldName } from '../types';
 
 /** Explicit positions converge; omitted attachments preserve device-local order. */
 export function reorderAttachments(
-  operation: AttachmentReorderOperation,
+  operation: Extract<
+    CreateOperationInput,
+    { operationType: 'event.attachment.reorder' }
+  >,
   winningFields: readonly SyncFieldName[],
   tx: SyncTransaction
 ): void {
