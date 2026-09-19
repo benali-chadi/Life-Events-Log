@@ -8,10 +8,15 @@ import type {
   CreateOperationInput,
   Operation,
   OperationContent,
+  PendingOperation,
   StoredOperation,
 } from './types';
 
 it('preserves payload correlations in all derived operation types', () => {
+  expectTypeOf<PendingOperation>().toEqualTypeOf<CreateOperationInput>();
+  expectTypeOf<keyof PendingOperation>().toEqualTypeOf<
+    'operationType' | 'entityType' | 'entityId' | 'payload'
+  >();
   expectTypeOf<
     Extract<
       CreateOperationInput,

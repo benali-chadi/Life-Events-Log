@@ -335,6 +335,24 @@ export const syncOperations = sqliteTable(
   ]
 );
 
+/** Local, mutable intents. Distinct operation types may coexist for one entity. */
+export const syncPendingOperations = sqliteTable(
+  'sync_pending_operations',
+  {
+    operationType: text('operation_type').$type<OperationType>().notNull(),
+    entityType: text('entity_type').$type<SyncEntityType>().notNull(),
+    entityId: text('entity_id').notNull(),
+    payload: text('payload', { mode: 'json' })
+      .$type<OperationPayload>()
+      .notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.entityId, table.entityType, table.operationType],
+    }),
+  ]
+);
+
 export const syncFieldVersions = sqliteTable(
   'sync_field_versions',
   {
@@ -391,5 +409,6 @@ export const syncConflicts = sqliteTable(
 export type SyncLocalState = typeof syncLocalState.$inferSelect;
 export type SyncFrontier = typeof syncFrontiers.$inferSelect;
 export type SyncOperationRow = typeof syncOperations.$inferSelect;
+export type SyncPendingOperationRow = typeof syncPendingOperations.$inferSelect;
 export type SyncFieldVersion = typeof syncFieldVersions.$inferSelect;
 export type SyncConflict = typeof syncConflicts.$inferSelect;

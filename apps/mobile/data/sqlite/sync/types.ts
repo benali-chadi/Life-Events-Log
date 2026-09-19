@@ -106,4 +106,7 @@ type InputOf<T> = T extends Operation
 export type OperationContent = ContentOf<Operation>;
 export type CreateOperationInput = InputOf<Operation>;
 
+/** Mutable local intent, compacted before sealing assigns replication metadata. */
+export type PendingOperation = CreateOperationInput;
+
 export type ConflictStatus = 'pending' | 'resolved';

@@ -50,6 +50,13 @@
       "when": 1789759340963,
       "tag": "0006_complete_blizzard",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1789833157104,
+      "tag": "0007_icy_shriek",
+      "breakpoints": true
     }
   ]
 }

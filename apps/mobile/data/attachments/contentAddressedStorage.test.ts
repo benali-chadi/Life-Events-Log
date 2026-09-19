@@ -1,5 +1,6 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 import { createHash } from 'node:crypto';
+import { digest, CryptoDigestAlgorithm } from 'expo-crypto';
 
 import {
   copyAttachmentIntoStorage,
@@ -9,11 +10,16 @@ import {
 
 const state = vi.hoisted(() => ({
   files: new Map<string, Uint8Array>(),
-  closed: 0,
   nextId: 0,
 }));
 vi.mock('expo-crypto', () => ({
   randomUUID: () => `temporary-${state.nextId++}`,
+  CryptoDigestAlgorithm: { SHA256: 'SHA-256' },
+  digest: vi.fn(async (algorithm: string, bytes: Uint8Array) => {
+    if (algorithm !== 'SHA-256')
+      throw new Error('Unsupported digest algorithm');
+    return Uint8Array.from(createHash('sha256').update(bytes).digest()).buffer;
+  }),
 }));
 vi.mock('expo-sharing', () => ({
   isAvailableAsync: async () => true,
@@ -51,20 +57,10 @@ vi.mock('expo-file-system', () => {
     delete() {
       state.files.delete(this.uri);
     }
-    open() {
-      const bytes = state.files.get(this.uri)!;
-      let offset = 0;
-      return {
-        size: bytes.length,
-        readBytes(length: number) {
-          const result = bytes.slice(offset, offset + length);
-          offset += result.length;
-          return result;
-        },
-        close() {
-          state.closed++;
-        },
-      };
+    async bytes() {
+      const bytes = state.files.get(this.uri);
+      if (!bytes) throw new Error('File not found');
+      return bytes.slice();
     }
   }
   return { Directory, File, Paths: { document: 'document', cache: 'cache' } };
@@ -72,11 +68,11 @@ vi.mock('expo-file-system', () => {
 
 beforeEach(() => {
   state.files.clear();
-  state.closed = 0;
+  vi.mocked(digest).mockClear();
   state.nextId = 0;
 });
 
-it('hashes bytes across chunks and reuses the same blob regardless of filename', async () => {
+it('hashes the entire file natively and reuses the same blob regardless of filename', async () => {
   const bytes = new Uint8Array(1024 * 1024 + 7).fill(42);
   state.files.set('source', bytes);
   const expectedHash = createHash('sha256').update(bytes).digest('hex');
@@ -97,7 +93,8 @@ it('hashes bytes across chunks and reuses the same blob regardless of filename',
   expect(second).toEqual(first);
   expect(state.files.get(first.uri)).toEqual(bytes);
   expect([...state.files.keys()]).toEqual(['source', first.uri]);
-  expect(state.closed).toBe(2);
+  expect(digest).toHaveBeenCalledTimes(2);
+  expect(digest).toHaveBeenCalledWith(CryptoDigestAlgorithm.SHA256, bytes);
   expect(resolveAttachmentFile(expectedHash)).toEqual({
     uri: first.uri,
     isAvailable: true,
@@ -105,8 +102,11 @@ it('hashes bytes across chunks and reuses the same blob regardless of filename',
 });
 
 it('distinguishes different bytes and handles missing blobs without losing identity', async () => {
-  state.files.set('a', new Uint8Array([1]));
-  state.files.set('b', new Uint8Array([2]));
+  // Identical prefixes must not hide a difference at the end of the file.
+  const bytes = new Uint8Array(1024 * 1024 + 7).fill(42);
+  state.files.set('a', bytes.slice());
+  bytes[bytes.length - 1] = 43;
+  state.files.set('b', bytes);
   const a = await copyAttachmentIntoStorage({
     sourceUri: 'a',
     filename: 'same.jpg',
@@ -127,6 +127,19 @@ it('distinguishes different bytes and handles missing blobs without losing ident
     uri: '',
     isAvailable: false,
   });
+});
+
+it('cleans up staged content when native hashing fails', async () => {
+  state.files.set('source', new Uint8Array([1, 2, 3]));
+  vi.mocked(digest).mockRejectedValueOnce(new Error('Hash failed'));
+  await expect(
+    copyAttachmentIntoStorage({
+      sourceUri: 'source',
+      filename: 'image.jpg',
+      mimeType: 'image/jpeg',
+    })
+  ).rejects.toThrow('Hash failed');
+  expect([...state.files.keys()]).toEqual(['source']);
 });
 
 it('reports missing legacy files and preserves existing legacy sources until commit', async () => {

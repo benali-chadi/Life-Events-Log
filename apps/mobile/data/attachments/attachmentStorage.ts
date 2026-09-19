@@ -2,7 +2,6 @@ import { randomUUID } from 'expo-crypto';
 import { Directory, File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { safeExportFilename } from './attachmentPath';
-import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import * as Crypto from 'expo-crypto';
 
@@ -55,7 +54,7 @@ export async function copyAttachmentIntoStorage({
   }
 }
 
-/** Incremental hashing bounds memory and yields between chunks. */
+/** Native SHA-256 over the full file; holds the file bytes in memory. */
 export async function hashAttachmentFile(file: File): Promise<string> {
   const bytes = await file.bytes();
   const digest = await Crypto.digest(
