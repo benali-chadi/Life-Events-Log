@@ -9,6 +9,7 @@ import {
   events,
   syncOperations,
   syncFieldVersions,
+  syncPendingOperations,
 } from '../schema';
 import { createTestDatabase } from '../testing/createTestDatabase';
 import { createOperation } from './createOperation';
@@ -44,7 +45,7 @@ function apply(input: CreateOperationInput) {
 }
 
 it.each(['category', 'tag', 'person', 'location'] as const)(
-  'records %s repository mutations and keeps repeated deletion a no-op',
+  'compacts %s repository mutations and cancels unsealed deletion',
   async (entity) => {
     const dependencies = { createId: () => 'id', now: () => at };
     const repositories = {
@@ -57,22 +58,44 @@ it.each(['category', 'tag', 'person', 'location'] as const)(
     await repository.create({ name: 'Original', color: 'blue' });
     await repository.update('id', { name: 'Changed' });
     await repository.softDelete('id');
-    await repository.softDelete('id');
-    expect(
-      database
-        .select()
-        .from(syncOperations)
-        .all()
-        .map((row) => [row.operationType, row.originSequence])
-    ).toEqual([
-      ['entity.create', 1],
-      ['entity.patch', 2],
-      ['entity.delete', 3],
-    ]);
+    expect(database.select().from(tables[entity]).all()).toEqual([]);
+    expect(database.select().from(syncOperations).all()).toEqual([]);
+    expect(database.select().from(syncPendingOperations).all()).toEqual([]);
   }
 );
 
-it('records only changed event fields and preserves atomic batch deletion', async () => {
+it('keeps sealed history unchanged while repositories patch and delete a sealed entity', async () => {
+  apply({
+    operationType: 'entity.create',
+    entityType: 'category',
+    entityId: 'sealed',
+    payload: { name: 'Original', color: 'blue', createdAt: at, updatedAt: at },
+  });
+  const history = database.select().from(syncOperations).all();
+  const versions = database.select().from(syncFieldVersions).all();
+  const repository = new SQLiteCategoryRepository(database, {
+    createId: () => 'unused',
+    now: () => later,
+  });
+  await repository.update('sealed', { name: 'Pending' });
+  expect(database.select().from(syncPendingOperations).get()).toMatchObject({
+    operationType: 'entity.patch',
+    payload: { changes: { name: 'Pending' }, updatedAt: later },
+  });
+  await repository.softDelete('sealed');
+  await repository.softDelete('sealed');
+  expect(database.select().from(categories).get()).toMatchObject({
+    name: 'Original',
+    deletedAt: later,
+  });
+  expect(database.select().from(syncPendingOperations).all()).toMatchObject([
+    { operationType: 'entity.delete' },
+  ]);
+  expect(database.select().from(syncOperations).all()).toEqual(history);
+  expect(database.select().from(syncFieldVersions).all()).toEqual(versions);
+});
+
+it('folds event edits into pending creation and preserves atomic batch deletion', async () => {
   let id = 0;
   const repository = new SQLiteEventRepository(database, {
     createId: () => `event-${++id}`,
@@ -92,22 +115,21 @@ it('records only changed event fields and preserves atomic batch deletion', asyn
   await repository.create(values);
   await repository.create(values);
   await repository.update('event-1', { notes: 'Changed' });
-  expect(database.select().from(syncOperations).all()[2]?.payload).toEqual({
-    changes: { notes: 'Changed' },
-    updatedAt: at,
-  });
-  await expect(
-    repository.softDeleteMany(['event-1', 'missing'])
-  ).rejects.toThrow('not found');
-  expect(database.select().from(syncOperations).all()).toHaveLength(3);
-  await repository.softDeleteMany(['event-1', 'event-2']);
   expect(
     database
       .select()
-      .from(syncOperations)
+      .from(syncPendingOperations)
       .all()
-      .map((row) => row.originSequence)
-  ).toEqual([1, 2, 3, 4, 5]);
+      .find((row) => row.entityId === 'event-1')?.payload
+  ).toMatchObject({ notes: 'Changed', updatedAt: at });
+  await expect(
+    repository.softDeleteMany(['event-1', 'missing'])
+  ).rejects.toThrow('not found');
+  expect(database.select().from(syncPendingOperations).all()).toHaveLength(2);
+  await repository.softDeleteMany(['event-1', 'event-2']);
+  expect(database.select().from(syncOperations).all()).toEqual([]);
+  expect(database.select().from(syncPendingOperations).all()).toEqual([]);
+  expect(database.select().from(events).all()).toEqual([]);
 });
 
 it.each(['category', 'tag', 'person', 'location'] as const)(

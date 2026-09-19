@@ -19,6 +19,7 @@ import {
   people,
   tags,
   syncOperations,
+  syncPendingOperations,
   syncFieldVersions,
   syncFrontiers,
 } from '../schema';
@@ -67,7 +68,7 @@ describe('SQLiteEventRepository', () => {
       tagIds: [TAG_ID],
       peopleIds: [PERSON_ID],
     });
-    expect(database.select().from(syncOperations).all()).toHaveLength(3);
+    expect(database.select().from(syncPendingOperations).all()).toHaveLength(3);
     await repository.update(EVENT_ID, { tagIds: [], peopleIds: [] });
     expect(database.select().from(eventTags).get()?.deletedAt).toBe(NOW);
     expect(database.select().from(eventPeople).get()?.deletedAt).toBe(NOW);
@@ -78,18 +79,10 @@ describe('SQLiteEventRepository', () => {
     expect(
       database
         .select()
-        .from(syncOperations)
+        .from(syncPendingOperations)
         .all()
         .map((operation) => operation.operationType)
-    ).toEqual([
-      'entity.create',
-      'relation.add',
-      'relation.add',
-      'relation.remove',
-      'relation.remove',
-      'relation.add',
-      'relation.add',
-    ]);
+    ).toEqual(['entity.create', 'relation.add', 'relation.add']);
     expect(database.select().from(eventTags).get()).toMatchObject({
       createdAt: NOW,
       deletedAt: null,
@@ -102,27 +95,20 @@ describe('SQLiteEventRepository', () => {
 
   it('records event creation and dependent relation additions in the same transaction', async () => {
     await repository.create(validInput());
-    const operations = database.select().from(syncOperations).all();
+    const operations = database.select().from(syncPendingOperations).all();
     expect(operations).toHaveLength(3);
     expect(
       operations.slice(1).map((operation) => operation.operationType)
     ).toEqual(['relation.add', 'relation.add']);
-    expect(operations[1]?.causalContext).toEqual({ 'test-device': 1 });
-    expect(operations[2]?.causalContext).toEqual({ 'test-device': 2 });
     expect(operations[0]).toMatchObject({
       operationType: 'entity.create',
       entityType: 'event',
       entityId: EVENT_ID,
-      originDeviceId: 'test-device',
-      originSequence: 1,
-      receivedAt: NOW,
-      appliedAt: NOW,
       payload: { title: 'Family trip' },
     });
-    expect(database.select().from(syncFieldVersions).all()).toHaveLength(10);
-    expect(database.select().from(syncFrontiers).get()?.processedSequence).toBe(
-      3
-    );
+    expect(database.select().from(syncFieldVersions).all()).toEqual([]);
+    expect(database.select().from(syncFrontiers).all()).toEqual([]);
+    expect(database.select().from(syncOperations).all()).toEqual([]);
     expect(database.select().from(eventTags).all()).toHaveLength(1);
     expect(database.select().from(eventPeople).all()).toHaveLength(1);
   });
@@ -347,17 +333,13 @@ describe('SQLiteEventRepository', () => {
     ]);
   });
 
-  it('soft deletes and restores without deleting owned rows', async () => {
+  it('cancels an unsealed event and removes its owned rows', async () => {
     await repository.create(validInput());
     await repository.softDelete(EVENT_ID);
     await expect(repository.getById(EVENT_ID)).resolves.toBeNull();
-    expect(database.select().from(eventTags).all()).toHaveLength(1);
-
-    await repository.restore(EVENT_ID);
-    await expect(repository.getById(EVENT_ID)).resolves.toMatchObject({
-      deletedAt: null,
-      updatedAt: NOW,
-    });
+    expect(database.select().from(eventTags).all()).toEqual([]);
+    expect(database.select().from(eventPeople).all()).toEqual([]);
+    expect(database.select().from(syncPendingOperations).all()).toEqual([]);
   });
 
   it('validates values and active references before writing', async () => {

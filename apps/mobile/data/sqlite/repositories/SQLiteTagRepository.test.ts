@@ -1,3 +1,4 @@
+import { recordSealedCreation } from '../testing/recordSealedCreation';
 import type { Database } from 'sql.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
@@ -158,6 +159,7 @@ describe('SQLiteTagRepository', () => {
       tags: [expect.objectContaining({ id: TAG_ID })],
     });
 
+    recordSealedCreation(database, 'tag', TAG_ID);
     await expect(repository.softDelete(TAG_ID)).resolves.toEqual({
       affectedEventIds: ['event-1'],
     });

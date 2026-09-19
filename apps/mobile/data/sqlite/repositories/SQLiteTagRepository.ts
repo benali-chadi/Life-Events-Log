@@ -28,8 +28,7 @@ import {
 } from '@/data/repositories/metadataName';
 import type { Tag, UUID } from '@/models';
 import type { AppDatabase } from '../database';
-import { createOperation } from '../sync/createOperation';
-import { applyOperation } from '../sync/applyOperation';
+import { applyPendingOperation } from '../sync/pending/applyPendingOperation';
 import { events, eventTags, tagModelColumns, tags } from '../schema';
 
 export class SQLiteTagRepository implements TagRepository {
@@ -119,18 +118,14 @@ export class SQLiteTagRepository implements TagRepository {
 
     this.database.transaction((tx) => {
       const { id: entityId, deletedAt: _deletedAt, ...payload } = tag;
-      applyOperation(
-        createOperation(
-          {
-            operationType: 'entity.create',
-            entityType: 'tag',
-            entityId,
-            payload,
-          },
-          tx
-        ),
-        tx,
-        this.dependencies
+      applyPendingOperation(
+        {
+          operationType: 'entity.create',
+          entityType: 'tag',
+          entityId,
+          payload,
+        },
+        tx
       );
     });
 
@@ -149,21 +144,17 @@ export class SQLiteTagRepository implements TagRepository {
     };
 
     this.database.transaction((tx) => {
-      applyOperation(
-        createOperation(
-          {
-            operationType: 'entity.patch',
-            entityType: 'tag',
-            entityId: id,
-            payload: {
-              changes: { name: updated.name },
-              updatedAt: updated.updatedAt,
-            },
+      applyPendingOperation(
+        {
+          operationType: 'entity.patch',
+          entityType: 'tag',
+          entityId: id,
+          payload: {
+            changes: { name: updated.name },
+            updatedAt: updated.updatedAt,
           },
-          tx
-        ),
-        tx,
-        this.dependencies
+        },
+        tx
       );
     });
 
@@ -190,18 +181,14 @@ export class SQLiteTagRepository implements TagRepository {
         .sort();
       const timestamp = this.dependencies.now();
 
-      applyOperation(
-        createOperation(
-          {
-            operationType: 'entity.delete',
-            entityType: 'tag',
-            entityId: id,
-            payload: { deletedAt: timestamp },
-          },
-          transaction
-        ),
-        transaction,
-        this.dependencies
+      applyPendingOperation(
+        {
+          operationType: 'entity.delete',
+          entityType: 'tag',
+          entityId: id,
+          payload: { deletedAt: timestamp },
+        },
+        transaction
       );
 
       return { affectedEventIds };

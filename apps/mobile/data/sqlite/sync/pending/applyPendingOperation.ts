@@ -7,7 +7,7 @@ import { compactPendingOperation } from './compactPendingOperation';
 import { cleanupDeletion } from './cleanupDeletion';
 import { clearLocalConflicts } from './clearLocalConflicts';
 
-/** Applies and compacts local intent; not yet wired to repositories.
+/** Applies and compacts repository-local intent without sealing it.
  * The caller supplies a transaction and performs local domain checks within it.
  * Errors must propagate to roll back the transaction.
  */

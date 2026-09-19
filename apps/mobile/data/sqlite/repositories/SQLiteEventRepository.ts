@@ -47,8 +47,7 @@ import {
   normalizeSearchText,
 } from '@/data/repositories/metadataName';
 import type { AppDatabase, SyncTransaction } from '../database';
-import { createOperation } from '../sync/createOperation';
-import { applyOperation } from '../sync/applyOperation';
+import { applyPendingOperation } from '../sync/pending/applyPendingOperation';
 import {
   categories,
   categoryModelColumns,
@@ -247,7 +246,7 @@ export class SQLiteEventRepository implements EventRepository {
     };
     this.database.transaction((tx) => {
       const { id: entityId, deletedAt: _deletedAt, ...payload } = event;
-      const operation = createOperation(
+      applyPendingOperation(
         {
           operationType: 'entity.create',
           entityType: 'event',
@@ -256,7 +255,6 @@ export class SQLiteEventRepository implements EventRepository {
         },
         tx
       );
-      applyOperation(operation, tx, this.dependencies);
       this.replaceTags(id, values.tagIds, timestamp, tx);
       this.replacePeople(id, values.peopleIds, timestamp, tx);
     });
@@ -336,18 +334,14 @@ export class SQLiteEventRepository implements EventRepository {
             : {}),
           ...(updated.notes !== existing.notes ? { notes: updated.notes } : {}),
         };
-        applyOperation(
-          createOperation(
-            {
-              operationType: 'entity.patch',
-              entityType: 'event',
-              entityId: id,
-              payload: { changes, updatedAt: updated.updatedAt },
-            },
-            tx
-          ),
-          tx,
-          this.dependencies
+        applyPendingOperation(
+          {
+            operationType: 'entity.patch',
+            entityType: 'event',
+            entityId: id,
+            payload: { changes, updatedAt: updated.updatedAt },
+          },
+          tx
         );
       }
       if (tagsChanged)
@@ -387,18 +381,14 @@ export class SQLiteEventRepository implements EventRepository {
 
       const timestamp = this.dependencies.now();
       for (const id of activeIds) {
-        applyOperation(
-          createOperation(
-            {
-              operationType: 'entity.delete',
-              entityType: 'event',
-              entityId: id,
-              payload: { deletedAt: timestamp },
-            },
-            transaction
-          ),
-          transaction,
-          this.dependencies
+        applyPendingOperation(
+          {
+            operationType: 'entity.delete',
+            entityType: 'event',
+            entityId: id,
+            payload: { deletedAt: timestamp },
+          },
+          transaction
         );
       }
     });
@@ -561,18 +551,14 @@ export class SQLiteEventRepository implements EventRepository {
     const desired = new Set(ids);
     for (const relation of existing) {
       if (relation.deletedAt === null && !desired.has(relation.tagId)) {
-        applyOperation(
-          createOperation(
-            {
-              operationType: 'relation.remove',
-              entityType: 'event_tag',
-              entityId: JSON.stringify([eventId, relation.tagId]),
-              payload: { eventId, tagId: relation.tagId, deletedAt: at },
-            },
-            tx
-          ),
-          tx,
-          this.dependencies
+        applyPendingOperation(
+          {
+            operationType: 'relation.remove',
+            entityType: 'event_tag',
+            entityId: JSON.stringify([eventId, relation.tagId]),
+            payload: { eventId, tagId: relation.tagId, deletedAt: at },
+          },
+          tx
         );
       }
     }
@@ -580,23 +566,19 @@ export class SQLiteEventRepository implements EventRepository {
       const previous = existing.find((relation) => relation.tagId === tagId);
       // Skip only an already-active link. A tombstone has a non-null timestamp.
       if (previous?.deletedAt === null) continue;
-      applyOperation(
-        createOperation(
-          {
-            operationType: 'relation.add',
-            entityType: 'event_tag',
-            entityId: JSON.stringify([eventId, tagId]),
-            payload: {
-              eventId,
-              tagId,
-              createdAt: previous?.createdAt ?? at,
-              updatedAt: at,
-            },
+      applyPendingOperation(
+        {
+          operationType: 'relation.add',
+          entityType: 'event_tag',
+          entityId: JSON.stringify([eventId, tagId]),
+          payload: {
+            eventId,
+            tagId,
+            createdAt: previous?.createdAt ?? at,
+            updatedAt: at,
           },
-          tx
-        ),
-        tx,
-        this.dependencies
+        },
+        tx
       );
     }
   }
@@ -615,18 +597,14 @@ export class SQLiteEventRepository implements EventRepository {
     const desired = new Set(ids);
     for (const relation of existing) {
       if (relation.deletedAt === null && !desired.has(relation.personId)) {
-        applyOperation(
-          createOperation(
-            {
-              operationType: 'relation.remove',
-              entityType: 'event_person',
-              entityId: JSON.stringify([eventId, relation.personId]),
-              payload: { eventId, personId: relation.personId, deletedAt: at },
-            },
-            tx
-          ),
-          tx,
-          this.dependencies
+        applyPendingOperation(
+          {
+            operationType: 'relation.remove',
+            entityType: 'event_person',
+            entityId: JSON.stringify([eventId, relation.personId]),
+            payload: { eventId, personId: relation.personId, deletedAt: at },
+          },
+          tx
         );
       }
     }
@@ -636,23 +614,19 @@ export class SQLiteEventRepository implements EventRepository {
       );
       // Missing rows and tombstones both need an addition/reactivation operation.
       if (previous?.deletedAt === null) continue;
-      applyOperation(
-        createOperation(
-          {
-            operationType: 'relation.add',
-            entityType: 'event_person',
-            entityId: JSON.stringify([eventId, personId]),
-            payload: {
-              eventId,
-              personId,
-              createdAt: previous?.createdAt ?? at,
-              updatedAt: at,
-            },
+      applyPendingOperation(
+        {
+          operationType: 'relation.add',
+          entityType: 'event_person',
+          entityId: JSON.stringify([eventId, personId]),
+          payload: {
+            eventId,
+            personId,
+            createdAt: previous?.createdAt ?? at,
+            updatedAt: at,
           },
-          tx
-        ),
-        tx,
-        this.dependencies
+        },
+        tx
       );
     }
   }

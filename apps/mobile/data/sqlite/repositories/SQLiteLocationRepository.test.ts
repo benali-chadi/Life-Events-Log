@@ -1,3 +1,4 @@
+import { recordSealedCreation } from '../testing/recordSealedCreation';
 import type { Database } from 'sql.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
@@ -137,6 +138,7 @@ describe('SQLiteLocationRepository', () => {
       deletedAt: NOW,
     });
 
+    recordSealedCreation(database, 'location', LOCATION_ID);
     await expect(repository.softDelete(LOCATION_ID)).resolves.toEqual({
       affectedEventIds: ['deleted-event', 'event-1'],
     });

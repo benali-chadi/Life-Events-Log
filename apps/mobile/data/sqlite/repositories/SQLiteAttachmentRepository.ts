@@ -10,8 +10,7 @@ import {
 import type { EventAttachment, UUID } from '@/models';
 import type { AppDatabase } from '../database';
 import { eventAttachments, events } from '../schema';
-import { createOperation } from '../sync/createOperation';
-import { applyOperation } from '../sync/applyOperation';
+import { applyPendingOperation } from '../sync/pending/applyPendingOperation';
 
 export class SQLiteAttachmentRepository implements AttachmentRepository {
   constructor(
@@ -80,18 +79,14 @@ export class SQLiteAttachmentRepository implements AttachmentRepository {
 
     this.database.transaction((tx) => {
       const { id: entityId, deletedAt: _deletedAt, ...payload } = attachment;
-      applyOperation(
-        createOperation(
-          {
-            operationType: 'attachment.create',
-            entityType: 'attachment',
-            entityId,
-            payload,
-          },
-          tx
-        ),
-        tx,
-        this.dependencies
+      applyPendingOperation(
+        {
+          operationType: 'attachment.create',
+          entityType: 'attachment',
+          entityId,
+          payload,
+        },
+        tx
       );
     });
 
@@ -151,18 +146,14 @@ export class SQLiteAttachmentRepository implements AttachmentRepository {
 
       const timestamp = this.dependencies.now();
 
-      applyOperation(
-        createOperation(
-          {
-            operationType: 'event.attachment.reorder',
-            entityType: 'event',
-            entityId: eventId,
-            payload: { orderedAttachmentIds: orderedIds, updatedAt: timestamp },
-          },
-          transaction
-        ),
-        transaction,
-        this.dependencies
+      applyPendingOperation(
+        {
+          operationType: 'event.attachment.reorder',
+          entityType: 'event',
+          entityId: eventId,
+          payload: { orderedAttachmentIds: orderedIds, updatedAt: timestamp },
+        },
+        transaction
       );
       return this.activeAttachmentsForEvent(eventId, transaction);
     });
@@ -216,18 +207,14 @@ export class SQLiteAttachmentRepository implements AttachmentRepository {
 
       const timestamp = this.dependencies.now();
       for (const id of activeIds) {
-        applyOperation(
-          createOperation(
-            {
-              operationType: 'attachment.delete',
-              entityType: 'attachment',
-              entityId: id,
-              payload: { deletedAt: timestamp },
-            },
-            transaction
-          ),
-          transaction,
-          this.dependencies
+        applyPendingOperation(
+          {
+            operationType: 'attachment.delete',
+            entityType: 'attachment',
+            entityId: id,
+            payload: { deletedAt: timestamp },
+          },
+          transaction
         );
       }
     });

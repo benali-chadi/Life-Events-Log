@@ -33,8 +33,7 @@ import {
   type UUID,
 } from '@/models';
 import type { AppDatabase } from '../database';
-import { createOperation } from '../sync/createOperation';
-import { applyOperation } from '../sync/applyOperation';
+import { applyPendingOperation } from '../sync/pending/applyPendingOperation';
 import { categories, categoryModelColumns, events } from '../schema';
 
 export class SQLiteCategoryRepository implements CategoryRepository {
@@ -133,18 +132,14 @@ export class SQLiteCategoryRepository implements CategoryRepository {
 
     this.database.transaction((tx) => {
       const { id: entityId, deletedAt: _deletedAt, ...payload } = category;
-      applyOperation(
-        createOperation(
-          {
-            operationType: 'entity.create',
-            entityType: 'category',
-            entityId,
-            payload,
-          },
-          tx
-        ),
-        tx,
-        this.dependencies
+      applyPendingOperation(
+        {
+          operationType: 'entity.create',
+          entityType: 'category',
+          entityId,
+          payload,
+        },
+        tx
       );
     });
 
@@ -170,24 +165,20 @@ export class SQLiteCategoryRepository implements CategoryRepository {
     };
 
     this.database.transaction((tx) => {
-      applyOperation(
-        createOperation(
-          {
-            operationType: 'entity.patch',
-            entityType: 'category',
-            entityId: id,
-            payload: {
-              changes: {
-                ...(name !== existing.name ? { name } : {}),
-                ...(color !== existing.color ? { color } : {}),
-              },
-              updatedAt: updated.updatedAt,
+      applyPendingOperation(
+        {
+          operationType: 'entity.patch',
+          entityType: 'category',
+          entityId: id,
+          payload: {
+            changes: {
+              ...(name !== existing.name ? { name } : {}),
+              ...(color !== existing.color ? { color } : {}),
             },
+            updatedAt: updated.updatedAt,
           },
-          tx
-        ),
-        tx,
-        this.dependencies
+        },
+        tx
       );
     });
 
@@ -214,18 +205,14 @@ export class SQLiteCategoryRepository implements CategoryRepository {
         .sort();
       const timestamp = this.dependencies.now();
 
-      applyOperation(
-        createOperation(
-          {
-            operationType: 'entity.delete',
-            entityType: 'category',
-            entityId: id,
-            payload: { deletedAt: timestamp },
-          },
-          transaction
-        ),
-        transaction,
-        this.dependencies
+      applyPendingOperation(
+        {
+          operationType: 'entity.delete',
+          entityType: 'category',
+          entityId: id,
+          payload: { deletedAt: timestamp },
+        },
+        transaction
       );
 
       return { affectedEventIds };

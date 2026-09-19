@@ -4,6 +4,7 @@ import {
   eventAttachments,
   events,
   syncOperations,
+  syncPendingOperations,
   syncConflicts,
   syncFieldVersions,
 } from '../../schema';
@@ -255,7 +256,7 @@ it('rolls back an inserted attachment if recording fails', async () => {
   }
 });
 
-it('records repository create/delete, makes repeated deletion a no-op, and validates batches atomically', async () => {
+it('compacts repository create/delete and validates batches atomically', async () => {
   const s = await setup();
   try {
     let next = 0;
@@ -266,22 +267,14 @@ it('records repository create/delete, makes repeated deletion a no-op, and valid
     await repo.create(payload);
     await repo.create(payload);
     await expect(repo.softDeleteMany(['image-1', 'missing'])).rejects.toThrow();
-    expect(s.database.select().from(syncOperations).all()).toHaveLength(3);
+    expect(s.database.select().from(syncOperations).all()).toHaveLength(1);
+    expect(s.database.select().from(syncPendingOperations).all()).toHaveLength(
+      2
+    );
     await repo.softDeleteMany(['image-1', 'image-2']);
-    await repo.softDeleteMany(['image-1', 'image-2']);
-    expect(
-      s.database
-        .select()
-        .from(syncOperations)
-        .all()
-        .map((row) => row.operationType)
-    ).toEqual([
-      'entity.create',
-      'attachment.create',
-      'attachment.create',
-      'attachment.delete',
-      'attachment.delete',
-    ]);
+    expect(s.database.select().from(syncOperations).all()).toHaveLength(1);
+    expect(s.database.select().from(syncPendingOperations).all()).toEqual([]);
+    expect(s.database.select().from(eventAttachments).all()).toEqual([]);
   } finally {
     s.sqlite.close();
   }

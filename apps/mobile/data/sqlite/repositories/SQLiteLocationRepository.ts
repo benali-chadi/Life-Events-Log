@@ -28,8 +28,7 @@ import {
 } from '@/data/repositories/metadataName';
 import type { Location, UUID } from '@/models';
 import type { AppDatabase } from '../database';
-import { createOperation } from '../sync/createOperation';
-import { applyOperation } from '../sync/applyOperation';
+import { applyPendingOperation } from '../sync/pending/applyPendingOperation';
 import { events, locationModelColumns, locations } from '../schema';
 
 export class SQLiteLocationRepository implements LocationRepository {
@@ -126,18 +125,14 @@ export class SQLiteLocationRepository implements LocationRepository {
 
     this.database.transaction((tx) => {
       const { id: entityId, deletedAt: _deletedAt, ...payload } = location;
-      applyOperation(
-        createOperation(
-          {
-            operationType: 'entity.create',
-            entityType: 'location',
-            entityId,
-            payload,
-          },
-          tx
-        ),
-        tx,
-        this.dependencies
+      applyPendingOperation(
+        {
+          operationType: 'entity.create',
+          entityType: 'location',
+          entityId,
+          payload,
+        },
+        tx
       );
     });
 
@@ -156,21 +151,17 @@ export class SQLiteLocationRepository implements LocationRepository {
     };
 
     this.database.transaction((tx) => {
-      applyOperation(
-        createOperation(
-          {
-            operationType: 'entity.patch',
-            entityType: 'location',
-            entityId: id,
-            payload: {
-              changes: { name: updated.name },
-              updatedAt: updated.updatedAt,
-            },
+      applyPendingOperation(
+        {
+          operationType: 'entity.patch',
+          entityType: 'location',
+          entityId: id,
+          payload: {
+            changes: { name: updated.name },
+            updatedAt: updated.updatedAt,
           },
-          tx
-        ),
-        tx,
-        this.dependencies
+        },
+        tx
       );
     });
 
@@ -197,18 +188,14 @@ export class SQLiteLocationRepository implements LocationRepository {
         .sort();
       const timestamp = this.dependencies.now();
 
-      applyOperation(
-        createOperation(
-          {
-            operationType: 'entity.delete',
-            entityType: 'location',
-            entityId: id,
-            payload: { deletedAt: timestamp },
-          },
-          transaction
-        ),
-        transaction,
-        this.dependencies
+      applyPendingOperation(
+        {
+          operationType: 'entity.delete',
+          entityType: 'location',
+          entityId: id,
+          payload: { deletedAt: timestamp },
+        },
+        transaction
       );
 
       return { affectedEventIds };

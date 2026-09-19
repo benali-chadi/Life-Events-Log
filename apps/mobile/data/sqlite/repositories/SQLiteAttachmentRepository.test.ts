@@ -1,3 +1,4 @@
+import { recordSealedCreation } from '../testing/recordSealedCreation';
 import type { Database } from 'sql.js';
 import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -214,6 +215,7 @@ describe('SQLiteAttachmentRepository', () => {
       ])
       .run();
 
+    recordSealedCreation(database, 'attachment', 'restored');
     await repository.softDelete('restored');
     await expect(repository.getById('restored')).resolves.toBeNull();
 
