@@ -5,8 +5,9 @@ import { winningFieldsFor } from '../entityFields';
 import { applyDomainMutation } from '../applyDomainMutation';
 import { compactPendingOperation } from './compactPendingOperation';
 import { cleanupDeletion } from './cleanupDeletion';
+import { clearLocalConflicts } from './clearLocalConflicts';
 
-/** Work in progress: not wired to repositories; conflict cleanup is still pending.
+/** Applies and compacts local intent; not yet wired to repositories.
  * The caller supplies a transaction and performs local domain checks within it.
  * Errors must propagate to roll back the transaction.
  */
@@ -24,5 +25,5 @@ export function applyPendingOperation(
   ) {
     cleanupDeletion(input, tx);
   }
-  // TODO: Clear relevant local conflicts.
+  clearLocalConflicts(input, tx);
 }
