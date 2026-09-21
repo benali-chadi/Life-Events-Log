@@ -4,7 +4,6 @@ import {
   ModelValidationError,
   RepositoryError,
   comparableMetadataName,
-  normalizeSearchText,
   type CommitEventImportInput,
   type CommitEventImportResult,
   type EventImportMetadataReference,
@@ -22,9 +21,7 @@ import type { AppDatabase } from '../database';
 import {
   categories,
   categoryModelColumns,
-  eventPeople,
   events,
-  eventTags,
   locations,
   locationModelColumns,
   people,
@@ -32,6 +29,7 @@ import {
   tags,
   tagModelColumns,
 } from '../schema';
+import { applyPendingOperation } from '../sync/pending/applyPendingOperation';
 
 type NamedEntity = Tag | Person | Location;
 
@@ -124,13 +122,16 @@ export class SQLiteEventImportRepository implements EventImportRepository {
             updatedAt: timestamp,
             deletedAt: null,
           };
-          transaction
-            .insert(categories)
-            .values({
-              ...entity,
-              normalizedName: comparable,
-            })
-            .run();
+          const { id: entityId, deletedAt: _deletedAt, ...payload } = entity;
+          applyPendingOperation(
+            {
+              operationType: 'entity.create',
+              entityType: 'category',
+              entityId,
+              payload,
+            },
+            transaction
+          );
           createdCategories.push(entity);
         }
         categoryByName.set(comparable, entity);
@@ -149,13 +150,16 @@ export class SQLiteEventImportRepository implements EventImportRepository {
             updatedAt: timestamp,
             deletedAt: null,
           };
-          transaction
-            .insert(tags)
-            .values({
-              ...tag,
-              normalizedName: comparableMetadataName(tag.name),
-            })
-            .run();
+          const { id: entityId, deletedAt: _deletedAt, ...payload } = tag;
+          applyPendingOperation(
+            {
+              operationType: 'entity.create',
+              entityType: 'tag',
+              entityId,
+              payload,
+            },
+            transaction
+          );
           return tag;
         }
       );
@@ -174,13 +178,16 @@ export class SQLiteEventImportRepository implements EventImportRepository {
             updatedAt: timestamp,
             deletedAt: null,
           };
-          transaction
-            .insert(people)
-            .values({
-              ...person,
-              normalizedName: comparableMetadataName(person.name),
-            })
-            .run();
+          const { id: entityId, deletedAt: _deletedAt, ...payload } = person;
+          applyPendingOperation(
+            {
+              operationType: 'entity.create',
+              entityType: 'person',
+              entityId,
+              payload,
+            },
+            transaction
+          );
           return person;
         }
       );
@@ -199,13 +206,16 @@ export class SQLiteEventImportRepository implements EventImportRepository {
             updatedAt: timestamp,
             deletedAt: null,
           };
-          transaction
-            .insert(locations)
-            .values({
-              ...location,
-              normalizedName: comparableMetadataName(location.name),
-            })
-            .run();
+          const { id: entityId, deletedAt: _deletedAt, ...payload } = location;
+          applyPendingOperation(
+            {
+              operationType: 'entity.create',
+              entityType: 'location',
+              entityId,
+              payload,
+            },
+            transaction
+          );
           return location;
         }
       );
@@ -244,40 +254,47 @@ export class SQLiteEventImportRepository implements EventImportRepository {
           updatedAt: timestamp,
           deletedAt: null,
         };
-        transaction
-          .insert(events)
-          .values({
-            ...event,
-            normalizedTitle: normalizeSearchText(event.title),
-          })
-          .run();
-        if (tagEntities.length > 0) {
+        const { id: entityId, deletedAt: _deletedAt, ...payload } = event;
+        applyPendingOperation(
+          {
+            operationType: 'entity.create',
+            entityType: 'event',
+            entityId,
+            payload,
+          },
           transaction
-            .insert(eventTags)
-            .values(
-              tagEntities.map((tag) => ({
+        );
+        for (const tag of tagEntities) {
+          applyPendingOperation(
+            {
+              operationType: 'relation.add',
+              entityType: 'event_tag',
+              entityId: JSON.stringify([event.id, tag.id]),
+              payload: {
                 eventId: event.id,
                 tagId: tag.id,
                 createdAt: timestamp,
                 updatedAt: timestamp,
-                deletedAt: null,
-              }))
-            )
-            .run();
+              },
+            },
+            transaction
+          );
         }
-        if (peopleEntities.length > 0) {
-          transaction
-            .insert(eventPeople)
-            .values(
-              peopleEntities.map((person) => ({
+        for (const person of peopleEntities) {
+          applyPendingOperation(
+            {
+              operationType: 'relation.add',
+              entityType: 'event_person',
+              entityId: JSON.stringify([event.id, person.id]),
+              payload: {
                 eventId: event.id,
                 personId: person.id,
                 createdAt: timestamp,
                 updatedAt: timestamp,
-                deletedAt: null,
-              }))
-            )
-            .run();
+              },
+            },
+            transaction
+          );
         }
       }
 
