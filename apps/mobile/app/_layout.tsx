@@ -14,6 +14,8 @@ import { appQueryClient } from '@/data/query';
 import { RepositoryProvider } from '@/data/RepositoryProvider';
 import { DATABASE_NAME, initializeDatabase } from '@/data/sqlite/database';
 
+import { useDrizzleStudio } from "expo-drizzle-studio-plugin";
+
 export const unstable_settings = {
   anchor: 'index',
 };
@@ -30,6 +32,7 @@ function AppLayout() {
   const { isDark, colors } = useTheme();
   const sqlite = useSQLiteContext();
   const repositories = useMemo(() => createAppRepositories(sqlite), [sqlite]);
+  useDrizzleStudio(sqlite);
 
   return (
     <RepositoryProvider repositories={repositories}>

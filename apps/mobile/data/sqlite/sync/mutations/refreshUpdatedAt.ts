@@ -87,8 +87,10 @@ function refreshAttachment(id: string, tx: SyncTransaction): void {
   // no longer participate in the active order.
   if (row.deletedAt === null)
     timestamps.push(...winnerTimes('event', row.eventId, tx, true));
+  const updatedAt = latest(row.createdAt, timestamps);
+  if (updatedAt === row.updatedAt) return;
   tx.update(eventAttachments)
-    .set({ updatedAt: latest(row.createdAt, timestamps) })
+    .set({ updatedAt })
     .where(eq(eventAttachments.id, id))
     .run();
 }
@@ -119,13 +121,13 @@ export function refreshUpdatedAt(
         throw new OperationValidationError(
           'Entity timestamp target was not found.'
         );
+      const updatedAt = latest(
+        row.createdAt,
+        winnerTimes(operation.entityType, operation.entityId, tx)
+      );
+      if (updatedAt === row.updatedAt) return;
       tx.update(table)
-        .set({
-          updatedAt: latest(
-            row.createdAt,
-            winnerTimes(operation.entityType, operation.entityId, tx)
-          ),
-        })
+        .set({ updatedAt })
         .where(eq(table.id, operation.entityId))
         .run();
       return;
@@ -138,15 +140,12 @@ export function refreshUpdatedAt(
         throw new OperationValidationError(
           'Relation timestamp target was not found.'
         );
-      tx.update(table)
-        .set({
-          updatedAt: latest(
-            row.createdAt,
-            winnerTimes(operation.entityType, operation.entityId, tx)
-          ),
-        })
-        .where(where)
-        .run();
+      const updatedAt = latest(
+        row.createdAt,
+        winnerTimes(operation.entityType, operation.entityId, tx)
+      );
+      if (updatedAt === row.updatedAt) return;
+      tx.update(table).set({ updatedAt }).where(where).run();
       return;
     }
     case 'attachment.create':

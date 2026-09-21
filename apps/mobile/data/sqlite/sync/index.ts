@@ -1,4 +1,5 @@
 export * from './createOperation';
+export * from './pending/sealPendingOperations';
 export * from './initialization/initializeSyncLocalState';
 export * from './initialization/bootstrapDefaults';
 export * from './applyOperation';
