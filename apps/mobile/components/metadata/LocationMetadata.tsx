@@ -20,7 +20,7 @@ export default function LocationMetadata({
   const setLocation = onChange ?? setInternalValue;
   const options = (locationsQuery.data ?? []).map((item) => ({
     id: item.id,
-    label: item.name,
+    label: item.displayName ?? item.name,
   }));
 
   return (
@@ -31,7 +31,7 @@ export default function LocationMetadata({
       onCreate={async (label) => {
         const created = await createLocation.mutateAsync({ name: label });
 
-        return { id: created.id, label: created.name };
+        return { id: created.id, label: created.displayName ?? created.name };
       }}
       onCreateError={(error) =>
         Alert.alert(

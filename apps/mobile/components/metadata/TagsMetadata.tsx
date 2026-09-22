@@ -22,7 +22,7 @@ export default function TagsMetadata({
   const setSelectedTags = onChange ?? setInternalValue;
   const options = (tagsQuery.data ?? []).map((tag) => ({
     id: tag.id,
-    label: tag.name,
+    label: tag.displayName ?? tag.name,
   }));
 
   return (
@@ -37,7 +37,7 @@ export default function TagsMetadata({
       onCreate={async (label) => {
         const tag = await createTag.mutateAsync({ name: label });
 
-        return { id: tag.id, label: tag.name };
+        return { id: tag.id, label: tag.displayName ?? tag.name };
       }}
       onCreateError={(error) =>
         Alert.alert(

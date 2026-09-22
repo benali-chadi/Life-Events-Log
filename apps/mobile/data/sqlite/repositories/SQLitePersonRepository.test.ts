@@ -96,6 +96,7 @@ describe('SQLitePersonRepository', () => {
     expect(created).toEqual({
       id: GENERATED_ID,
       name: 'Omar Alaoui',
+      displayName: 'Omar Alaoui',
       createdAt: NOW,
       updatedAt: NOW,
       deletedAt: null,

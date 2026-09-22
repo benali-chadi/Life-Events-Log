@@ -54,8 +54,14 @@ describe('InMemoryTagRepository', () => {
     });
 
     await expect(repository.listWithUsage()).resolves.toEqual([
-      { metadata: developmentTag, eventCount: 0 },
-      { metadata: localFirstTag, eventCount: 0 },
+      {
+        metadata: { ...developmentTag, displayName: developmentTag.name },
+        eventCount: 0,
+      },
+      {
+        metadata: { ...localFirstTag, displayName: localFirstTag.name },
+        eventCount: 0,
+      },
     ]);
   });
 
@@ -67,6 +73,7 @@ describe('InMemoryTagRepository', () => {
     expect(created).toEqual({
       id: '90000000-0000-4000-8000-000000000001',
       name: 'data ownership',
+      displayName: 'data ownership',
       createdAt: '2026-07-30T10:00:00.000Z',
       updatedAt: '2026-07-30T10:00:00.000Z',
       deletedAt: null,

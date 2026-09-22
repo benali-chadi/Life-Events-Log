@@ -18,7 +18,7 @@ import {
 } from '@/data/repositories';
 import type { InMemoryDatabase } from '../types';
 import {
-  cloneMetadataEntity,
+  metadataWithDisplayName,
   comparableMetadataName,
   compareMetadataNames,
   normalizeMetadataName,
@@ -36,7 +36,7 @@ export class InMemoryCategoryRepository implements CategoryRepository {
     const category = this.database.categories.get(id);
 
     return category && category.deletedAt === null
-      ? cloneMetadataEntity(category)
+      ? metadataWithDisplayName(category, this.database.categories.values())
       : null;
   }
 
@@ -47,10 +47,19 @@ export class InMemoryCategoryRepository implements CategoryRepository {
       .filter(
         (category) =>
           category.deletedAt === null &&
-          (!search || comparableMetadataName(category.name).includes(search))
+          (!search ||
+            comparableMetadataName(category.name).includes(search) ||
+            comparableMetadataName(
+              metadataWithDisplayName(
+                category,
+                this.database.categories.values()
+              ).displayName
+            ).includes(search))
       )
       .sort(compareMetadataNames)
-      .map(cloneMetadataEntity);
+      .map((entity) =>
+        metadataWithDisplayName(entity, this.database.categories.values())
+      );
   }
 
   async listWithUsage(
@@ -99,7 +108,7 @@ export class InMemoryCategoryRepository implements CategoryRepository {
 
     this.database.categories.set(id, category);
 
-    return cloneMetadataEntity(category);
+    return metadataWithDisplayName(category, this.database.categories.values());
   }
 
   async update(id: UUID, input: UpdateCategoryInput) {
@@ -109,10 +118,14 @@ export class InMemoryCategoryRepository implements CategoryRepository {
     const color =
       input.color === undefined ? existing.color : this.validColor(input.color);
 
-    this.assertUniqueName(name, id);
+    if (comparableMetadataName(name) !== comparableMetadataName(existing.name))
+      this.assertUniqueName(name, id);
 
     if (name === existing.name && color === existing.color) {
-      return cloneMetadataEntity(existing);
+      return metadataWithDisplayName(
+        existing,
+        this.database.categories.values()
+      );
     }
 
     const updated: Category = {
@@ -124,7 +137,7 @@ export class InMemoryCategoryRepository implements CategoryRepository {
 
     this.database.categories.set(id, updated);
 
-    return cloneMetadataEntity(updated);
+    return metadataWithDisplayName(updated, this.database.categories.values());
   }
 
   async softDelete(id: UUID) {

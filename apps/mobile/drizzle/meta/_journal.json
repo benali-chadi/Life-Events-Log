@@ -57,6 +57,13 @@
       "when": 1789833157104,
       "tag": "0007_icy_shriek",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1790109708172,
+      "tag": "0008_wandering_malice",
+      "breakpoints": true
     }
   ]
 }

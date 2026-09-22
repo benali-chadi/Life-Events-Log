@@ -13,7 +13,7 @@ import {
   type UpdateNamedMetadataInput,
 } from '@/data/repositories';
 import {
-  cloneMetadataEntity,
+  metadataWithDisplayName,
   comparableMetadataName,
   compareMetadataNames,
   normalizeMetadataName,
@@ -47,7 +47,7 @@ export class InMemoryNamedMetadataRepository<
     const entity = this.table.get(id);
 
     return entity && entity.deletedAt === null
-      ? cloneMetadataEntity(entity)
+      ? metadataWithDisplayName(entity, this.table.values())
       : null;
   }
 
@@ -58,10 +58,14 @@ export class InMemoryNamedMetadataRepository<
       .filter(
         (entity) =>
           entity.deletedAt === null &&
-          (!search || comparableMetadataName(entity.name).includes(search))
+          (!search ||
+            comparableMetadataName(entity.name).includes(search) ||
+            comparableMetadataName(
+              metadataWithDisplayName(entity, this.table.values()).displayName
+            ).includes(search))
       )
       .sort(compareMetadataNames)
-      .map(cloneMetadataEntity);
+      .map((entity) => metadataWithDisplayName(entity, this.table.values()));
   }
 
   async listWithUsage(
@@ -105,13 +109,14 @@ export class InMemoryNamedMetadataRepository<
 
     this.table.set(id, entity);
 
-    return cloneMetadataEntity(entity);
+    return metadataWithDisplayName(entity, this.table.values());
   }
 
   async update(id: UUID, input: UpdateNamedMetadataInput) {
     const existing = this.entityOrThrow(id);
     const name = this.validName(input.name);
-    this.assertUniqueName(name, id);
+    if (comparableMetadataName(name) !== comparableMetadataName(existing.name))
+      this.assertUniqueName(name, id);
 
     const updated = {
       ...existing,
@@ -121,7 +126,7 @@ export class InMemoryNamedMetadataRepository<
 
     this.table.set(id, updated);
 
-    return cloneMetadataEntity(updated);
+    return metadataWithDisplayName(updated, this.table.values());
   }
 
   async softDelete(id: UUID): Promise<SoftDeleteMetadataResult> {

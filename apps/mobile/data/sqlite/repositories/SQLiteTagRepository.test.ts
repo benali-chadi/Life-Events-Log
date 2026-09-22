@@ -96,6 +96,7 @@ describe('SQLiteTagRepository', () => {
     expect(created).toEqual({
       id: GENERATED_ID,
       name: 'Big Trips',
+      displayName: 'Big Trips',
       createdAt: NOW,
       updatedAt: NOW,
       deletedAt: null,

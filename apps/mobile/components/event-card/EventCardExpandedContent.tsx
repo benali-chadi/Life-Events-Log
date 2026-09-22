@@ -19,7 +19,7 @@ export default function EventCardExpandedContent({
       {event.category && (
         <DetailRow
           label="Category"
-          value={event.category.name}
+          value={event.category.displayName ?? event.category.name}
           colors={colors}
         />
       )}

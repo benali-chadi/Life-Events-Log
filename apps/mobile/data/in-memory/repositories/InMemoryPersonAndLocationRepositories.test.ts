@@ -37,7 +37,9 @@ describe('InMemoryPersonRepository', () => {
       name: 'Chadi A.',
       createdAt: '2026-07-30T10:00:00.000Z',
     });
-    expect(database.people.get(created.id)).toEqual(created);
+    const { displayName, ...stored } = created;
+    expect(displayName).toBe(created.name);
+    expect(database.people.get(created.id)).toEqual(stored);
     expect(database.tags.has(created.id)).toBe(false);
     await expect(repository.list({ search: 'chadi a.' })).resolves.toEqual([
       created,

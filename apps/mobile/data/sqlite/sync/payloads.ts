@@ -24,9 +24,12 @@ export type EventPatchPayload = {
 type NamedMetadata = Tag | Person | Location;
 export type NamedMetadataCreatePayload = Omit<
   NamedMetadata,
-  'id' | 'deletedAt'
+  'id' | 'deletedAt' | 'displayName'
 >;
-export type CategoryCreatePayload = Omit<Category, 'id' | 'deletedAt'>;
+export type CategoryCreatePayload = Omit<
+  Category,
+  'id' | 'deletedAt' | 'displayName'
+>;
 
 export type NamedMetadataPatchPayload = {
   changes: Pick<NamedMetadata, 'name'>;

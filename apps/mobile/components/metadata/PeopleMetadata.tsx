@@ -22,7 +22,7 @@ export default function PeopleMetadata({
   const setSelectedPeople = onChange ?? setInternalValue;
   const options = (peopleQuery.data ?? []).map((person) => ({
     id: person.id,
-    label: person.name,
+    label: person.displayName ?? person.name,
   }));
 
   return (
@@ -37,7 +37,7 @@ export default function PeopleMetadata({
       onCreate={async (label) => {
         const person = await createPerson.mutateAsync({ name: label });
 
-        return { id: person.id, label: person.name };
+        return { id: person.id, label: person.displayName ?? person.name };
       }}
       onCreateError={(error) =>
         Alert.alert(

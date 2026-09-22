@@ -69,9 +69,11 @@ type ImmediateEventField =
   'date' | 'category' | 'people' | 'tags' | 'significance' | 'location';
 
 function metadataOption(
-  value: { id: string; name: string } | null
+  value: { id: string; name: string; displayName?: string } | null
 ): SelectOption | null {
-  return value ? { id: value.id, label: value.name } : null;
+  return value
+    ? { id: value.id, label: value.displayName ?? value.name }
+    : null;
 }
 
 function significanceOption(value: string): SelectOption {
@@ -190,10 +192,16 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
     metadataOption(details.category)
   );
   const [people, setPeople] = useState<SelectOption[]>(() =>
-    details.people.map((person) => ({ id: person.id, label: person.name }))
+    details.people.map((person) => ({
+      id: person.id,
+      label: person.displayName ?? person.name,
+    }))
   );
   const [tags, setTags] = useState<SelectOption[]>(() =>
-    details.tags.map((tag) => ({ id: tag.id, label: tag.name }))
+    details.tags.map((tag) => ({
+      id: tag.id,
+      label: tag.displayName ?? tag.name,
+    }))
   );
   const [significance, setSignificance] = useState<SelectOption | null>(() =>
     significanceOption(event.significance)

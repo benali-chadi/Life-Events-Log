@@ -86,7 +86,7 @@ function valueAt(operation: Operation, field: SyncFieldName): unknown {
 }
 
 /** Resolves supported entity operations and local best-effort conflict UI state.
- * Name collisions across different identities remain a constraint error.
+ * Different identities may share a name; read models disambiguate their labels.
  */
 export function resolveEntity(
   operation: EntityOperation,

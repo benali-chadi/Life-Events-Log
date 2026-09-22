@@ -81,6 +81,7 @@ describe('SQLiteLocationRepository', () => {
     expect(created).toEqual({
       id: GENERATED_ID,
       name: 'Casablanca Marina',
+      displayName: 'Casablanca Marina',
       createdAt: NOW,
       updatedAt: NOW,
       deletedAt: null,

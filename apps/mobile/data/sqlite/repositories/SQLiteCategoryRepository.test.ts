@@ -87,6 +87,7 @@ describe('SQLiteCategoryRepository', () => {
     expect(created).toEqual({
       id: GENERATED_ID,
       name: 'Work Projects',
+      displayName: 'Work Projects',
       color: 'blue',
       createdAt: NOW,
       updatedAt: NOW,

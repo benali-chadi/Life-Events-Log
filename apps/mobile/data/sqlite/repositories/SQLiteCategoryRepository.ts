@@ -32,7 +32,7 @@ import {
   type CategoryColor,
   type UUID,
 } from '@/models';
-import type { AppDatabase } from '../database';
+import type { AppDatabase, SyncTransaction } from '../database';
 import { applyPendingOperation } from '../sync/pending/applyPendingOperation';
 import { categories, categoryModelColumns, events } from '../schema';
 
@@ -62,7 +62,7 @@ export class SQLiteCategoryRepository implements CategoryRepository {
         and(
           isNull(categories.deletedAt),
           search
-            ? sql`instr(${categories.normalizedName}, ${search}) > 0`
+            ? sql`(instr(${categories.normalizedName}, ${search}) > 0 OR instr(lower(${categoryModelColumns.displayName}), ${search}) > 0)`
             : undefined
         )
       )
@@ -89,7 +89,7 @@ export class SQLiteCategoryRepository implements CategoryRepository {
         and(
           isNull(categories.deletedAt),
           search
-            ? sql`instr(${categories.normalizedName}, ${search}) > 0`
+            ? sql`(instr(${categories.normalizedName}, ${search}) > 0 OR instr(lower(${categoryModelColumns.displayName}), ${search}) > 0)`
             : undefined
         )
       )
@@ -105,7 +105,6 @@ export class SQLiteCategoryRepository implements CategoryRepository {
   async create(input: CreateCategoryInput): Promise<Category> {
     const name = this.validName(input.name);
     const color = this.validColor(input.color);
-    this.assertUniqueName(name);
 
     const id = this.dependencies.createId();
     const existing = this.database
@@ -131,6 +130,7 @@ export class SQLiteCategoryRepository implements CategoryRepository {
     };
 
     this.database.transaction((tx) => {
+      this.assertUniqueName(name, undefined, tx);
       const { id: entityId, deletedAt: _deletedAt, ...payload } = category;
       applyPendingOperation(
         {
@@ -143,7 +143,7 @@ export class SQLiteCategoryRepository implements CategoryRepository {
       );
     });
 
-    return category;
+    return (await this.getById(id))!;
   }
 
   async update(id: UUID, input: UpdateCategoryInput): Promise<Category> {
@@ -152,8 +152,6 @@ export class SQLiteCategoryRepository implements CategoryRepository {
       input.name === undefined ? existing.name : this.validName(input.name);
     const color =
       input.color === undefined ? existing.color : this.validColor(input.color);
-
-    this.assertUniqueName(name, id);
 
     if (name === existing.name && color === existing.color) return existing;
 
@@ -165,6 +163,10 @@ export class SQLiteCategoryRepository implements CategoryRepository {
     };
 
     this.database.transaction((tx) => {
+      if (
+        comparableMetadataName(name) !== comparableMetadataName(existing.name)
+      )
+        this.assertUniqueName(name, id, tx);
       applyPendingOperation(
         {
           operationType: 'entity.patch',
@@ -263,8 +265,12 @@ export class SQLiteCategoryRepository implements CategoryRepository {
     return value;
   }
 
-  private assertUniqueName(name: string, excludedId?: UUID) {
-    const duplicate = this.database
+  private assertUniqueName(
+    name: string,
+    excludedId: UUID | undefined,
+    tx: SyncTransaction
+  ) {
+    const duplicate = tx
       .select({ id: categories.id })
       .from(categories)
       .where(

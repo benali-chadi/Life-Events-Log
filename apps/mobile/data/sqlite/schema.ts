@@ -45,7 +45,7 @@ function activeNameIndex(
   name: string,
   table: { normalizedName: AnySQLiteColumn; deletedAt: AnySQLiteColumn }
 ) {
-  return uniqueIndex(name)
+  return index(name)
     .on(table.normalizedName)
     .where(sql`${table.deletedAt} IS NULL`);
 }
@@ -60,7 +60,7 @@ export const categories = sqliteTable(
     ...syncTimestamps,
   },
   (table) => [
-    activeNameIndex('categories_active_normalized_name_unique', table),
+    activeNameIndex('categories_active_normalized_name_idx', table),
     check(
       'categories_color_check',
       sql`${table.color} IN (${categoryColorSql})`
@@ -76,7 +76,7 @@ export const tags = sqliteTable(
     normalizedName: text('normalized_name').notNull().default(''),
     ...syncTimestamps,
   },
-  (table) => [activeNameIndex('tags_active_normalized_name_unique', table)]
+  (table) => [activeNameIndex('tags_active_normalized_name_idx', table)]
 );
 
 export const people = sqliteTable(
@@ -87,7 +87,7 @@ export const people = sqliteTable(
     normalizedName: text('normalized_name').notNull().default(''),
     ...syncTimestamps,
   },
-  (table) => [activeNameIndex('people_active_normalized_name_unique', table)]
+  (table) => [activeNameIndex('people_active_normalized_name_idx', table)]
 );
 
 export const locations = sqliteTable(
@@ -98,7 +98,7 @@ export const locations = sqliteTable(
     normalizedName: text('normalized_name').notNull().default(''),
     ...syncTimestamps,
   },
-  (table) => [activeNameIndex('locations_active_normalized_name_unique', table)]
+  (table) => [activeNameIndex('locations_active_normalized_name_idx', table)]
 );
 
 export const events = sqliteTable(
@@ -221,9 +221,36 @@ export const eventPeople = sqliteTable(
   ]
 );
 
+/** Read-only presentation. The correlated lookup sees all active peers, even
+ * when the outer query filters by ID, event, or search. No synced column.
+ * Expand to the full ID if another peer shares the eight-character prefix.
+ */
+function metadataDisplayName(
+  table: typeof categories | typeof tags | typeof people | typeof locations
+) {
+  const tableName =
+    table === categories
+      ? 'categories'
+      : table === tags
+        ? 'tags'
+        : table === people
+          ? 'people'
+          : 'locations';
+  const peers = sql.raw(`"${tableName}" AS "name_peer"`);
+  // Keep the outer reference qualified inside the subquery. Drizzle otherwise
+  // unqualifies direct selection columns for single-table reads.
+  const outerId = sql`${table.id}`;
+  const collision = sql`SELECT 1 FROM ${peers} WHERE name_peer.deleted_at IS NULL AND name_peer.normalized_name = ${table.normalizedName} AND name_peer.id <> ${table.id}`;
+  return sql<string>`CASE WHEN ${table.deletedAt} IS NULL AND EXISTS (${collision})
+    THEN ${table.name} || ' · ' || CASE WHEN EXISTS (${collision} AND substr(name_peer.id, 1, 8) = substr(${outerId}, 1, 8))
+      THEN ${table.id} ELSE substr(${table.id}, 1, 8) END
+    ELSE ${table.name} END`;
+}
+
 export const categoryModelColumns = {
   id: categories.id,
   name: categories.name,
+  displayName: metadataDisplayName(categories),
   color: categories.color,
   createdAt: categories.createdAt,
   updatedAt: categories.updatedAt,
@@ -233,6 +260,7 @@ export const categoryModelColumns = {
 export const tagModelColumns = {
   id: tags.id,
   name: tags.name,
+  displayName: metadataDisplayName(tags),
   createdAt: tags.createdAt,
   updatedAt: tags.updatedAt,
   deletedAt: tags.deletedAt,
@@ -241,6 +269,7 @@ export const tagModelColumns = {
 export const personModelColumns = {
   id: people.id,
   name: people.name,
+  displayName: metadataDisplayName(people),
   createdAt: people.createdAt,
   updatedAt: people.updatedAt,
   deletedAt: people.deletedAt,
@@ -249,6 +278,7 @@ export const personModelColumns = {
 export const locationModelColumns = {
   id: locations.id,
   name: locations.name,
+  displayName: metadataDisplayName(locations),
   createdAt: locations.createdAt,
   updatedAt: locations.updatedAt,
   deletedAt: locations.deletedAt,

@@ -119,6 +119,7 @@ export class SQLiteEventRepository implements EventRepository {
           SELECT json_group_array(json_object(
             'id', ${tags.id},
             'name', ${tags.name},
+            'displayName', ${tagModelColumns.displayName},
             'createdAt', ${tags.createdAt},
             'updatedAt', ${tags.updatedAt},
             'deletedAt', ${tags.deletedAt}
@@ -133,6 +134,7 @@ export class SQLiteEventRepository implements EventRepository {
           SELECT json_group_array(json_object(
             'id', ${people.id},
             'name', ${people.name},
+            'displayName', ${personModelColumns.displayName},
             'createdAt', ${people.createdAt},
             'updatedAt', ${people.updatedAt},
             'deletedAt', ${people.deletedAt}

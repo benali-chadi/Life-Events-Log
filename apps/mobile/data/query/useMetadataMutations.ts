@@ -39,6 +39,7 @@ type SoftDeleteMetadataRepository = {
 };
 
 type MetadataKeys = {
+  details(): QueryKey;
   lists(): QueryKey;
   usageLists(): QueryKey;
   detail(id: UUID): QueryKey;
@@ -74,7 +75,9 @@ function useSoftDeleteManyMetadataMutation(
       ids.forEach((id) => queryClient.setQueryData(keys.detail(id), null));
       await Promise.all([
         invalidateMetadataLists(queryClient, keys),
+        queryClient.invalidateQueries({ queryKey: keys.details() }),
         invalidateAffectedEvents(queryClient, result.affectedEventIds),
+        invalidateEmbeddedMetadata(queryClient),
       ]);
       return result;
     },
@@ -97,6 +100,7 @@ function useUpdateMetadataMutation<
       queryClient.setQueryData(keys.detail(entity.id), entity);
       await Promise.all([
         invalidateMetadataLists(queryClient, keys),
+        queryClient.invalidateQueries({ queryKey: keys.details() }),
         invalidateEmbeddedMetadata(queryClient),
       ]);
     },
@@ -115,6 +119,8 @@ function useSoftDeleteMetadataMutation(
       queryClient.setQueryData(keys.detail(id), null);
       await Promise.all([
         invalidateMetadataLists(queryClient, keys),
+        queryClient.invalidateQueries({ queryKey: keys.details() }),
+        invalidateEmbeddedMetadata(queryClient),
         invalidateAffectedEvents(queryClient, result.affectedEventIds),
       ]);
 

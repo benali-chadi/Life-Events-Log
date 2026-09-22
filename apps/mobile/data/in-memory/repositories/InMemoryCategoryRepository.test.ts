@@ -86,6 +86,7 @@ describe('InMemoryCategoryRepository', () => {
     expect(created).toEqual({
       id: '90000000-0000-4000-8000-000000000001',
       name: 'Work Projects',
+      displayName: 'Work Projects',
       color: 'violet',
       createdAt: '2026-07-30T10:00:00.000Z',
       updatedAt: '2026-07-30T10:00:00.000Z',

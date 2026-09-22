@@ -155,7 +155,7 @@ function MetadataUsageList<TEntity extends UsageEntity>({
       selectedItems.map((item) => ({
         kind,
         id: item.metadata.id,
-        name: item.metadata.name,
+        name: item.metadata.displayName ?? item.metadata.name,
         eventCount: item.eventCount,
       })),
       label,
@@ -376,14 +376,14 @@ function MetadataUsageList<TEntity extends UsageEntity>({
             const deletion = {
               kind,
               id: item.metadata.id,
-              name: item.metadata.name,
+              name: item.metadata.displayName ?? item.metadata.name,
               eventCount: item.eventCount,
             };
             const selected = selectedIds.has(item.metadata.id);
 
             const row = isPendingDeletion ? (
               <View
-                accessibilityLabel={`${item.metadata.name}, pending deletion`}
+                accessibilityLabel={`${item.metadata.displayName ?? item.metadata.name}, pending deletion`}
                 accessibilityState={{ disabled: true }}
                 style={[
                   styles.row,
@@ -407,7 +407,7 @@ function MetadataUsageList<TEntity extends UsageEntity>({
                     numberOfLines={1}
                     style={[styles.name, { color: colors.textMuted }]}
                   >
-                    {item.metadata.name}
+                    {item.metadata.displayName ?? item.metadata.name}
                   </Text>
                 </View>
                 <Text style={[styles.usage, { color: colors.destructive }]}>
@@ -418,8 +418,8 @@ function MetadataUsageList<TEntity extends UsageEntity>({
               <Pressable
                 accessibilityLabel={
                   selectionMode
-                    ? `${selected ? 'Deselect' : 'Select'} ${item.metadata.name}`
-                    : `Edit ${item.metadata.name}, ${count}`
+                    ? `${selected ? 'Deselect' : 'Select'} ${item.metadata.displayName ?? item.metadata.name}`
+                    : `Edit ${item.metadata.displayName ?? item.metadata.name}, ${count}`
                 }
                 accessibilityRole={selectionMode ? 'checkbox' : 'button'}
                 accessibilityState={
@@ -487,7 +487,7 @@ function MetadataUsageList<TEntity extends UsageEntity>({
                     numberOfLines={1}
                     style={[styles.name, { color: colors.text }]}
                   >
-                    {item.metadata.name}
+                    {item.metadata.displayName ?? item.metadata.name}
                   </Text>
                 </View>
                 <Text
@@ -520,7 +520,7 @@ function MetadataUsageList<TEntity extends UsageEntity>({
                 action={
                   selectionMode ? null : (
                     <Pressable
-                      accessibilityLabel={`Delete ${item.metadata.name}`}
+                      accessibilityLabel={`Delete ${item.metadata.displayName ?? item.metadata.name}`}
                       accessibilityRole="button"
                       onPress={() => requestDeletion(deletion)}
                       style={({ pressed }) => [
@@ -671,7 +671,9 @@ function CategoriesSection(props: SectionContentProps) {
               {
                 kind: 'category',
                 id: editingCategory.metadata.id,
-                name: editingCategory.metadata.name,
+                name:
+                  editingCategory.metadata.displayName ??
+                  editingCategory.metadata.name,
                 eventCount: editingCategory.eventCount,
               },
               () => setEditingCategory(null)
@@ -759,7 +761,8 @@ function TagsSection(props: SectionContentProps) {
               {
                 kind: 'tag',
                 id: editingTag.metadata.id,
-                name: editingTag.metadata.name,
+                name:
+                  editingTag.metadata.displayName ?? editingTag.metadata.name,
                 eventCount: editingTag.eventCount,
               },
               () => setEditingTag(null)
@@ -846,7 +849,9 @@ function PeopleSection(props: SectionContentProps) {
               {
                 kind: 'person',
                 id: editingPerson.metadata.id,
-                name: editingPerson.metadata.name,
+                name:
+                  editingPerson.metadata.displayName ??
+                  editingPerson.metadata.name,
                 eventCount: editingPerson.eventCount,
               },
               () => setEditingPerson(null)
@@ -933,7 +938,9 @@ function LocationsSection(props: SectionContentProps) {
               {
                 kind: 'location',
                 id: editingLocation.metadata.id,
-                name: editingLocation.metadata.name,
+                name:
+                  editingLocation.metadata.displayName ??
+                  editingLocation.metadata.name,
                 eventCount: editingLocation.eventCount,
               },
               () => setEditingLocation(null)

@@ -27,7 +27,7 @@ import {
   normalizeMetadataName,
 } from '@/data/repositories/metadataName';
 import type { Person, UUID } from '@/models';
-import type { AppDatabase } from '../database';
+import type { AppDatabase, SyncTransaction } from '../database';
 import { applyPendingOperation } from '../sync/pending/applyPendingOperation';
 import { eventPeople, events, people, personModelColumns } from '../schema';
 
@@ -57,7 +57,7 @@ export class SQLitePersonRepository implements PersonRepository {
         and(
           isNull(people.deletedAt),
           search
-            ? sql`instr(${people.normalizedName}, ${search}) > 0`
+            ? sql`(instr(${people.normalizedName}, ${search}) > 0 OR instr(lower(${personModelColumns.displayName}), ${search}) > 0)`
             : undefined
         )
       )
@@ -85,7 +85,7 @@ export class SQLitePersonRepository implements PersonRepository {
         and(
           isNull(people.deletedAt),
           search
-            ? sql`instr(${people.normalizedName}, ${search}) > 0`
+            ? sql`(instr(${people.normalizedName}, ${search}) > 0 OR instr(lower(${personModelColumns.displayName}), ${search}) > 0)`
             : undefined
         )
       )
@@ -100,7 +100,6 @@ export class SQLitePersonRepository implements PersonRepository {
 
   async create(input: CreateNamedMetadataInput): Promise<Person> {
     const name = this.validName(input.name);
-    this.assertUniqueName(name);
 
     const id = this.dependencies.createId();
     const existing = this.database
@@ -125,6 +124,7 @@ export class SQLitePersonRepository implements PersonRepository {
     };
 
     this.database.transaction((tx) => {
+      this.assertUniqueName(name, undefined, tx);
       const { id: entityId, deletedAt: _deletedAt, ...payload } = person;
       applyPendingOperation(
         {
@@ -137,13 +137,12 @@ export class SQLitePersonRepository implements PersonRepository {
       );
     });
 
-    return person;
+    return (await this.getById(id))!;
   }
 
   async update(id: UUID, input: UpdateNamedMetadataInput): Promise<Person> {
     const existing = this.activePersonOrThrow(id);
     const name = this.validName(input.name);
-    this.assertUniqueName(name, id);
 
     const updated: Person = {
       ...existing,
@@ -152,6 +151,10 @@ export class SQLitePersonRepository implements PersonRepository {
     };
 
     this.database.transaction((tx) => {
+      if (
+        comparableMetadataName(name) !== comparableMetadataName(existing.name)
+      )
+        this.assertUniqueName(name, id, tx);
       applyPendingOperation(
         {
           operationType: 'entity.patch',
@@ -239,8 +242,12 @@ export class SQLitePersonRepository implements PersonRepository {
     return name;
   }
 
-  private assertUniqueName(name: string, excludedId?: UUID) {
-    const duplicate = this.database
+  private assertUniqueName(
+    name: string,
+    excludedId: UUID | undefined,
+    tx: SyncTransaction
+  ) {
+    const duplicate = tx
       .select({ id: people.id })
       .from(people)
       .where(

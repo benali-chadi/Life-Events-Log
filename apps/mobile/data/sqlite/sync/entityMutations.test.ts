@@ -301,21 +301,19 @@ it('rejects missing patch/delete targets without recording an operation', () => 
   expect(database.select().from(syncOperations).all()).toEqual([]);
 });
 
-it('rolls back a uniqueness violation without advancing history', () => {
+it('accepts duplicate metadata names in replicated history', () => {
   apply({
     operationType: 'entity.create',
     entityType: 'tag',
     entityId: 'a',
     payload: { name: 'Same', createdAt: at, updatedAt: at },
   });
-  expect(() =>
-    apply({
-      operationType: 'entity.create',
-      entityType: 'tag',
-      entityId: 'b',
-      payload: { name: 'Same', createdAt: at, updatedAt: at },
-    })
-  ).toThrow();
-  expect(database.select().from(tags).all()).toHaveLength(1);
-  expect(database.select().from(syncOperations).all()).toHaveLength(1);
+  apply({
+    operationType: 'entity.create',
+    entityType: 'tag',
+    entityId: 'b',
+    payload: { name: 'Same', createdAt: at, updatedAt: at },
+  });
+  expect(database.select().from(tags).all()).toHaveLength(2);
+  expect(database.select().from(syncOperations).all()).toHaveLength(2);
 });

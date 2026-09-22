@@ -26,6 +26,7 @@ import { eventPersonKey, eventTagKey } from '../relationshipKeys';
 import type { InMemoryDatabase } from '../types';
 import {
   cloneMetadataEntity,
+  metadataWithDisplayName,
   compareMetadataNames,
   normalizeMetadataName,
 } from '@/data/repositories/metadataName';
@@ -613,12 +614,14 @@ export class InMemoryEventRepository implements EventRepository {
     const tags = this.tagIdsForEvent(event.id)
       .map((id) => this.database.tags.get(id))
       .filter((tag) => tag?.deletedAt === null)
-      .map((tag) => cloneMetadataEntity(tag!))
+      .map((tag) => metadataWithDisplayName(tag!, this.database.tags.values()))
       .sort(compareMetadataNames);
     const people = this.peopleIdsForEvent(event.id)
       .map((id) => this.database.people.get(id))
       .filter((person) => person?.deletedAt === null)
-      .map((person) => cloneMetadataEntity(person!))
+      .map((person) =>
+        metadataWithDisplayName(person!, this.database.people.values())
+      )
       .sort(compareMetadataNames);
     const attachments = [...this.database.attachments.values()]
       .filter(
@@ -635,9 +638,13 @@ export class InMemoryEventRepository implements EventRepository {
     return {
       event: cloneEvent(event),
       category:
-        category?.deletedAt === null ? cloneMetadataEntity(category) : null,
+        category?.deletedAt === null
+          ? metadataWithDisplayName(category, this.database.categories.values())
+          : null,
       location:
-        location?.deletedAt === null ? cloneMetadataEntity(location) : null,
+        location?.deletedAt === null
+          ? metadataWithDisplayName(location, this.database.locations.values())
+          : null,
       tags,
       people,
       attachments,

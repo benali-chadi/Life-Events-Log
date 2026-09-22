@@ -75,7 +75,7 @@ export default function IcsImportPreview({
   const categoryOptions = useMemo(() => {
     const options = categories.map((category) => ({
       id: category.id,
-      label: category.name,
+      label: category.displayName ?? category.name,
       color: eventColors[category.color][isDark ? 'dark' : 'light'],
     }));
     if (proposedCategory) {
@@ -421,7 +421,7 @@ function CandidateRow({
 function categoryName(category: IcsImportCandidate['category']) {
   if (!category) return '';
   return category.kind === 'existing'
-    ? category.entity.name
+    ? (category.entity.displayName ?? category.entity.name)
     : category.category.name;
 }
 
@@ -449,11 +449,11 @@ function candidateMetadata(candidate: IcsImportCandidate) {
   };
 }
 
-function referenceName<TEntity extends { name: string }>(
+function referenceName<TEntity extends { name: string; displayName?: string }>(
   reference: IcsImportMetadataReference<TEntity>
 ) {
   return reference.kind === 'existing'
-    ? reference.entity.name
+    ? (reference.entity.displayName ?? reference.entity.name)
     : reference.metadata.name;
 }
 

@@ -27,7 +27,7 @@ import {
   normalizeMetadataName,
 } from '@/data/repositories/metadataName';
 import type { Location, UUID } from '@/models';
-import type { AppDatabase } from '../database';
+import type { AppDatabase, SyncTransaction } from '../database';
 import { applyPendingOperation } from '../sync/pending/applyPendingOperation';
 import { events, locationModelColumns, locations } from '../schema';
 
@@ -57,7 +57,7 @@ export class SQLiteLocationRepository implements LocationRepository {
         and(
           isNull(locations.deletedAt),
           search
-            ? sql`instr(${locations.normalizedName}, ${search}) > 0`
+            ? sql`(instr(${locations.normalizedName}, ${search}) > 0 OR instr(lower(${locationModelColumns.displayName}), ${search}) > 0)`
             : undefined
         )
       )
@@ -84,7 +84,7 @@ export class SQLiteLocationRepository implements LocationRepository {
         and(
           isNull(locations.deletedAt),
           search
-            ? sql`instr(${locations.normalizedName}, ${search}) > 0`
+            ? sql`(instr(${locations.normalizedName}, ${search}) > 0 OR instr(lower(${locationModelColumns.displayName}), ${search}) > 0)`
             : undefined
         )
       )
@@ -99,7 +99,6 @@ export class SQLiteLocationRepository implements LocationRepository {
 
   async create(input: CreateNamedMetadataInput): Promise<Location> {
     const name = this.validName(input.name);
-    this.assertUniqueName(name);
 
     const id = this.dependencies.createId();
     const existing = this.database
@@ -124,6 +123,7 @@ export class SQLiteLocationRepository implements LocationRepository {
     };
 
     this.database.transaction((tx) => {
+      this.assertUniqueName(name, undefined, tx);
       const { id: entityId, deletedAt: _deletedAt, ...payload } = location;
       applyPendingOperation(
         {
@@ -136,13 +136,12 @@ export class SQLiteLocationRepository implements LocationRepository {
       );
     });
 
-    return location;
+    return (await this.getById(id))!;
   }
 
   async update(id: UUID, input: UpdateNamedMetadataInput): Promise<Location> {
     const existing = this.activeLocationOrThrow(id);
     const name = this.validName(input.name);
-    this.assertUniqueName(name, id);
 
     const updated: Location = {
       ...existing,
@@ -151,6 +150,10 @@ export class SQLiteLocationRepository implements LocationRepository {
     };
 
     this.database.transaction((tx) => {
+      if (
+        comparableMetadataName(name) !== comparableMetadataName(existing.name)
+      )
+        this.assertUniqueName(name, id, tx);
       applyPendingOperation(
         {
           operationType: 'entity.patch',
@@ -238,8 +241,12 @@ export class SQLiteLocationRepository implements LocationRepository {
     return name;
   }
 
-  private assertUniqueName(name: string, excludedId?: UUID) {
-    const duplicate = this.database
+  private assertUniqueName(
+    name: string,
+    excludedId: UUID | undefined,
+    tx: SyncTransaction
+  ) {
+    const duplicate = tx
       .select({ id: locations.id })
       .from(locations)
       .where(
