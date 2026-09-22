@@ -57,71 +57,6 @@ const INITIAL_FILTERS: TimelineFilters = {
   timeRange: {},
 };
 
-function useDebouncedValue<T>(value: T, delay: number) {
-  const [debouncedValue, setDebouncedValue] = useState(value);
-
-  useEffect(() => {
-    const timeout = setTimeout(() => setDebouncedValue(value), delay);
-
-    return () => clearTimeout(timeout);
-  }, [delay, value]);
-
-  return debouncedValue;
-}
-
-function localDateToday(): LocalDate {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-
-  return `${year}-${month}-${day}` as LocalDate;
-}
-
-function shiftLocalDate(date: LocalDate, days: number): LocalDate {
-  const year = Number(date.slice(0, 4));
-  const month = Number(date.slice(5, 7));
-  const day = Number(date.slice(8, 10));
-  const shifted = new Date(year, month - 1, day + days);
-  const shiftedMonth = String(shifted.getMonth() + 1).padStart(2, '0');
-  const shiftedDay = String(shifted.getDate()).padStart(2, '0');
-
-  return `${shifted.getFullYear()}-${shiftedMonth}-${shiftedDay}` as LocalDate;
-}
-
-function formatSectionDate(date: LocalDate) {
-  const today = localDateToday();
-
-  if (date === today) return 'Today';
-  if (date === shiftLocalDate(today, -1)) return 'Yesterday';
-
-  const year = Number(date.slice(0, 4));
-  const month = Number(date.slice(5, 7));
-  const day = Number(date.slice(8, 10));
-  return new Intl.DateTimeFormat(undefined, {
-    day: 'numeric',
-    month: 'long',
-    year: year === new Date().getFullYear() ? undefined : 'numeric',
-  }).format(new Date(year, month - 1, day, 12));
-}
-
-function groupEventsByDate(items: EventListItem[]) {
-  const groups = new Map<LocalDate, EventListItem[]>();
-
-  for (const item of items) {
-    const existing = groups.get(item.event.date);
-
-    if (existing) existing.push(item);
-    else groups.set(item.event.date, [item]);
-  }
-
-  return Array.from(groups, ([date, data]) => ({
-    date,
-    title: formatSectionDate(date),
-    data,
-  }));
-}
-
 export default function Index() {
   const { colors } = useTheme();
   const navigation = useNavigation();
@@ -811,3 +746,68 @@ const styles = StyleSheet.create({
     borderRadius: radius.xl,
   },
 });
+
+function useDebouncedValue<T>(value: T, delay: number) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => setDebouncedValue(value), delay);
+
+    return () => clearTimeout(timeout);
+  }, [delay, value]);
+
+  return debouncedValue;
+}
+
+function localDateToday(): LocalDate {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}` as LocalDate;
+}
+
+function shiftLocalDate(date: LocalDate, days: number): LocalDate {
+  const year = Number(date.slice(0, 4));
+  const month = Number(date.slice(5, 7));
+  const day = Number(date.slice(8, 10));
+  const shifted = new Date(year, month - 1, day + days);
+  const shiftedMonth = String(shifted.getMonth() + 1).padStart(2, '0');
+  const shiftedDay = String(shifted.getDate()).padStart(2, '0');
+
+  return `${shifted.getFullYear()}-${shiftedMonth}-${shiftedDay}` as LocalDate;
+}
+
+function formatSectionDate(date: LocalDate) {
+  const today = localDateToday();
+
+  if (date === today) return 'Today';
+  if (date === shiftLocalDate(today, -1)) return 'Yesterday';
+
+  const year = Number(date.slice(0, 4));
+  const month = Number(date.slice(5, 7));
+  const day = Number(date.slice(8, 10));
+  return new Intl.DateTimeFormat(undefined, {
+    day: 'numeric',
+    month: 'long',
+    year: year === new Date().getFullYear() ? undefined : 'numeric',
+  }).format(new Date(year, month - 1, day, 12));
+}
+
+function groupEventsByDate(items: EventListItem[]) {
+  const groups = new Map<LocalDate, EventListItem[]>();
+
+  for (const item of items) {
+    const existing = groups.get(item.event.date);
+
+    if (existing) existing.push(item);
+    else groups.set(item.event.date, [item]);
+  }
+
+  return Array.from(groups, ([date, data]) => ({
+    date,
+    title: formatSectionDate(date),
+    data,
+  }));
+}
