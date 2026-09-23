@@ -2,6 +2,7 @@ export type ColorsTheme = {
   bg: string;
   surface: string;
   surfaceElevated: string;
+  shadow: string;
   text: string;
   textSecondary: string;
   textMuted: string;
@@ -30,6 +31,7 @@ export const lightTheme = {
   bg: '#F7F7F5',
   surface: '#FFFFFF',
   surfaceElevated: '#FCFCFB',
+  shadow: '#222222',
   text: '#222222',
   textSecondary: '#616161',
   textMuted: '#8A8A8A',
@@ -58,6 +60,7 @@ export const darkTheme = {
   bg: '#171717',
   surface: '#202020',
   surfaceElevated: '#282828',
+  shadow: '#080808',
   text: '#F4F4F2',
   textSecondary: '#C7C7C5',
   textMuted: '#9C9C9A',

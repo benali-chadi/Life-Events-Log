@@ -132,7 +132,7 @@ export default function TimelineOverflowMenu({
                 {
                   backgroundColor: colors.surfaceElevated,
                   borderColor: colors.border,
-                  shadowColor: colors.text,
+                  shadowColor: colors.shadow,
                 },
               ]}
             >

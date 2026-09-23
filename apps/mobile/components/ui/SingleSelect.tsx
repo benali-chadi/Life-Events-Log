@@ -292,7 +292,7 @@ export default function SingleSelect({
             {
               backgroundColor: colors.surfaceElevated,
               borderColor: colors.border,
-              shadowColor: colors.text,
+              shadowColor: colors.shadow,
             },
           ]}
         >

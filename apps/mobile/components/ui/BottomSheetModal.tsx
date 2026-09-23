@@ -51,7 +51,7 @@ export default function BottomSheetModal({
             {
               backgroundColor: colors.surfaceElevated,
               borderColor: colors.border,
-              shadowColor: colors.text,
+              shadowColor: colors.shadow,
             },
             sheetStyle,
           ]}

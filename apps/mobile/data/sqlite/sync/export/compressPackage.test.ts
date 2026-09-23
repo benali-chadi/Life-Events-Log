@@ -83,7 +83,7 @@ beforeEach(() => {
 
 it('streams JSON and stored blobs into an interoperable ZIP with bounded reads', async () => {
   const name = `blobs/${'a'.repeat(64)}`;
-  const blob = new Uint8Array(700_000).fill(123);
+  const blob = new Uint8Array(2_500_000).fill(123);
   state.files.set(`stage/${name}`, blob);
   const yieldToApp = vi.fn(async () => {});
   await compressPackage(args, yieldToApp);
@@ -96,8 +96,8 @@ it('streams JSON and stored blobs into an interoperable ZIP with bounded reads',
   ]);
   expect(decoded[name]).toEqual(blob);
   expect(decoded['operations.jsonl']).toHaveLength(0);
-  expect(state.maxRead).toBe(256 * 1024);
-  expect(yieldToApp.mock.calls.length).toBeGreaterThanOrEqual(4);
+  expect(state.maxRead).toBe(1024 * 1024);
+  expect(yieldToApp).not.toHaveBeenCalled();
   expect(state.open).toBe(0);
   // Independent DEFLATE implementation checks the first entry using central-directory sizes.
   const view = new DataView(
@@ -122,6 +122,7 @@ it('removes partial output and closes handles after IO or yielding failure', asy
   expect(state.files.has('partial')).toBe(false);
   expect(state.open).toBe(0);
   state.failWrite = false;
+  state.files.set(`stage/blobs/${'b'.repeat(64)}`, new Uint8Array(9 * 1024 * 1024));
   await expect(
     compressPackage(args, async () => {
       throw new Error('yield failed');

@@ -1,11 +1,12 @@
 import { Directory, File } from 'expo-file-system';
 import { Zip, ZipDeflate, ZipPassThrough } from 'fflate';
 
-const CHUNK_SIZE = 256 * 1024;
+const CHUNK_SIZE = 1024 * 1024;
+const YIELD_AFTER_BYTES = 8 * 1024 * 1024;
 // This adapter writes classic ZIP, not ZIP64. Reject rather than truncate sizes.
 const ZIP_LIMIT = 0xffffffff;
 
-/** Synchronous streaming codecs, with UI yields between bounded file reads.
+/** Synchronous streaming codecs, with periodic UI yields between bounded file reads.
  * No cancellation during compression. Output is owned by this invocation and
  * removed on failure; source files are never changed.
  */
@@ -72,6 +73,7 @@ export async function compressPackage(
       handle!.writeBytes(bytes);
       if (final) finished = true;
     });
+    let bytesSinceYield = 0;
     for (const { name, file, compress } of entries) {
       const entry = compress
         ? new ZipDeflate(name, { level: 6 })
@@ -87,7 +89,11 @@ export async function compressPackage(
             throw new Error('Unexpected staged file length.');
           remaining -= bytes.length;
           entry.push(bytes, remaining === 0);
-          await yieldToApp();
+          bytesSinceYield += bytes.length;
+          if (bytesSinceYield >= YIELD_AFTER_BYTES) {
+            bytesSinceYield = 0;
+            await yieldToApp();
+          }
         }
       } finally {
         input.close();

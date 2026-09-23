@@ -159,7 +159,7 @@ export default function AppToastProvider({
               borderColor:
                 toast.kind === 'error' ? colors.destructive : colors.border,
               bottom: insets.bottom + spacing[4],
-              shadowColor: colors.text,
+              shadowColor: colors.shadow,
             },
           ]}
         >
