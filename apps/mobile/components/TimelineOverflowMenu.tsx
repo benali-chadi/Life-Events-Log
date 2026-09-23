@@ -23,6 +23,7 @@ const MENU_WIDTH = 230;
 
 type TimelineOverflowMenuProps = {
   exportDisabled?: boolean;
+  onExportSyncPackage?: () => void;
   showFilteredExport?: boolean;
   onExportAll?: () => void;
   onExportFiltered?: () => void;
@@ -30,6 +31,7 @@ type TimelineOverflowMenuProps = {
 
 export default function TimelineOverflowMenu({
   exportDisabled = false,
+  onExportSyncPackage,
   showFilteredExport = false,
   onExportAll,
   onExportFiltered,
@@ -184,6 +186,27 @@ export default function TimelineOverflowMenu({
                   />
                   <Text style={[styles.menuItemText, { color: colors.text }]}>
                     Export all to calendar file
+                  </Text>
+                </Pressable>
+              )}
+              {onExportSyncPackage && (
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={exportDisabled}
+                  onPress={() => exportEvents(onExportSyncPackage)}
+                  style={({ pressed }) => [
+                    styles.menuItem,
+                    pressed && { backgroundColor: colors.interactivePressed },
+                    exportDisabled && styles.disabled,
+                  ]}
+                >
+                  <Download
+                    color={colors.textSecondary}
+                    size={18}
+                    strokeWidth={2}
+                  />
+                  <Text style={[styles.menuItemText, { color: colors.text }]}>
+                    Export sync package
                   </Text>
                 </Pressable>
               )}

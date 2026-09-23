@@ -18,6 +18,13 @@ import type {
   SyncPackageManifest,
 } from './types';
 
+function checkCancellation(signal?: AbortSignal): void {
+  if (!signal?.aborted) return;
+  const error = new Error('Sync export cancelled.');
+  error.name = 'AbortError';
+  throw error;
+}
+
 export type SyncExportDependencies = {
   database: AppDatabase;
   storageAccess: AttachmentStorageAccess;
@@ -51,17 +58,17 @@ export function createSyncExporter({
     signal,
     onProgress,
   }: SyncExportOptions = {}): Promise<SyncExportResult> {
-    signal?.throwIfAborted();
+    checkCancellation(signal);
     const packageId = createId();
     let workspace: ExportWorkspace | undefined;
     let completed = false;
     try {
       const manifest = await storageAccess.withAccess(
         async (): Promise<SyncPackageManifest> => {
-          signal?.throwIfAborted();
+          checkCancellation(signal);
           onProgress?.({ phase: 'preparing', cancellable: true });
           await yieldToApp();
-          signal?.throwIfAborted();
+          checkCancellation(signal);
           workspace = createWorkspace(packageId);
           const snapshot = database.transaction((tx) => {
             sealPendingOperations(tx, { now });
@@ -111,7 +118,7 @@ export function createSyncExporter({
             // A single JSON parameter avoids SQLite's variable limit for many origins.
             const frontier = JSON.stringify(snapshot.frontier);
             while (true) {
-              signal?.throwIfAborted();
+              checkCancellation(signal);
               const rows = database
                 .select()
                 .from(syncOperations)
@@ -182,7 +189,7 @@ export function createSyncExporter({
             cancellable: true,
           });
           for (let i = 0; i < snapshot.hashes.length; i++) {
-            signal?.throwIfAborted();
+            checkCancellation(signal);
             const contentHash = snapshot.hashes[i]!;
             const byteLength = workspace.copyBlob(contentHash);
             if (byteLength !== null) blobs.push({ contentHash, byteLength });
@@ -208,10 +215,10 @@ export function createSyncExporter({
           };
         }
       );
-      signal?.throwIfAborted();
+      checkCancellation(signal);
       workspace!.writeManifest(manifest);
       await yieldToApp();
-      signal?.throwIfAborted();
+      checkCancellation(signal);
       // From this boundary onward, cancellation is intentionally not observed.
       onProgress?.({ phase: 'compressing', cancellable: false });
       await compressPackage({

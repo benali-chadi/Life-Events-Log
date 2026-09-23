@@ -166,6 +166,15 @@ it('cancels between chunks, closes output, cleans artifacts, and preserves seale
   expect(fixture.database.select().from(syncOperations).all()).toHaveLength(2);
 });
 
+it('supports AbortSignal runtimes without throwIfAborted', async () => {
+  const test = setup();
+  const signal = { aborted: true } as AbortSignal;
+  await expect(test.syncExport({ signal })).rejects.toMatchObject({
+    name: 'AbortError',
+  });
+  expect(test.workspace.cleanup).not.toHaveBeenCalled();
+});
+
 it('ignores cancellation once compression starts', async () => {
   const test = setup();
   const controller = new AbortController();
