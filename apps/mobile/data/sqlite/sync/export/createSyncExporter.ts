@@ -10,6 +10,7 @@ import {
   syncOperations,
 } from '../../schema';
 import type { AttachmentStorageAccess } from '../../../attachments/storageAccess';
+import { MAX_OPERATION_LINE_BYTES } from '../packageLimits';
 import { sealPendingOperations } from '../pending/sealPendingOperations';
 import type {
   ExportWorkspace,
@@ -164,6 +165,10 @@ export function createSyncExporter({
                 ...operation
               } of rows) {
                 const bytes = utf8ToBytes(`${JSON.stringify(operation)}\n`);
+                if (bytes.length > MAX_OPERATION_LINE_BYTES)
+                  throw new Error(
+                    'Operation exceeds the sync package line limit.'
+                  );
                 writer.write(bytes);
                 digest.update(bytes);
                 operations.count++;

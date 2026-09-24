@@ -2,6 +2,7 @@ import { beforeEach, expect, it, vi } from 'vitest';
 import { unzipSync, strToU8, strFromU8 } from 'fflate';
 import { inflateRawSync } from 'node:zlib';
 import { compressPackage } from './compressPackage';
+import { writeZipArchive } from '../../../compression/zip/writeZipArchive';
 
 const state = vi.hoisted(() => ({
   files: new Map<string, Uint8Array>(),
@@ -122,7 +123,10 @@ it('removes partial output and closes handles after IO or yielding failure', asy
   expect(state.files.has('partial')).toBe(false);
   expect(state.open).toBe(0);
   state.failWrite = false;
-  state.files.set(`stage/blobs/${'b'.repeat(64)}`, new Uint8Array(9 * 1024 * 1024));
+  state.files.set(
+    `stage/blobs/${'b'.repeat(64)}`,
+    new Uint8Array(9 * 1024 * 1024)
+  );
   await expect(
     compressPackage(args, async () => {
       throw new Error('yield failed');
@@ -140,4 +144,28 @@ it('never overwrites existing output or archives unexpected paths', async () => 
   state.files.set('stage/blobs/not-a-hash', strToU8('bad'));
   await expect(compressPackage(args)).rejects.toThrow('Unexpected');
   expect(state.files.has('partial')).toBe(false);
+});
+
+it('offers a format-independent ZIP writer for other callers', async () => {
+  state.files.set('stage/custom.txt', strToU8('hello'));
+  await writeZipArchive('generic.zip', [
+    {
+      name: 'folder/custom.txt',
+      sourceUri: 'stage/custom.txt',
+      compression: 'deflate',
+    },
+  ]);
+  expect(
+    strFromU8(unzipSync(state.files.get('generic.zip')!)['folder/custom.txt']!)
+  ).toBe('hello');
+  await expect(
+    writeZipArchive('unsafe.zip', [
+      {
+        name: '../outside',
+        sourceUri: 'stage/custom.txt',
+        compression: 'store',
+      },
+    ])
+  ).rejects.toThrow('Unsafe ZIP entry name');
+  expect(state.files.has('unsafe.zip')).toBe(false);
 });
