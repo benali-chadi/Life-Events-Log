@@ -9,46 +9,73 @@ import {
   View,
 } from 'react-native';
 import type { ExportPhase } from '@/data/sqlite/sync/export';
+import type { ImportPhase } from '@/data/sqlite/sync/import/types';
 
-export type SyncExportViewState = {
-  phase: ExportPhase;
-  completed?: number;
-  total?: number;
-  cancellable: boolean;
-};
+export type SyncTransferProgress =
+  | {
+      kind: 'exporting';
+      phase: ExportPhase;
+      completed?: number;
+      total?: number;
+      cancellable: boolean;
+    }
+  | {
+      kind: 'importing';
+      phase: ImportPhase;
+      completed?: number;
+      total?: number;
+      cancellable: boolean;
+    };
 
-export default function SyncExportProgressModal({
+export default function SyncTransferProgressModal({
   progress,
   error,
   onCancel,
   onRetry,
   onClose,
 }: {
-  progress: SyncExportViewState | null;
-  error: string | null;
+  progress: SyncTransferProgress | null;
+  error: { kind: 'exporting' | 'importing'; message: string } | null;
   onCancel: () => void;
   onRetry: () => void;
   onClose: () => void;
 }) {
   const { colors } = useTheme();
   const visible = progress !== null || error !== null;
+  const kind = progress?.kind ?? error?.kind;
   const title = error
-    ? 'Couldn’t export sync package'
-    : progress?.phase === 'compressing'
-      ? 'Packaging…'
-      : progress?.phase === 'operations'
-        ? 'Exporting operations…'
-        : progress?.phase === 'blobs'
-          ? 'Copying attachments…'
-          : 'Preparing sync package…';
+    ? kind === 'importing'
+      ? 'Couldn’t import sync package'
+      : 'Couldn’t export sync package'
+    : progress?.kind === 'importing'
+      ? progress.phase === 'applying-operations'
+        ? 'Applying changes…'
+        : progress.phase === 'repairing-blobs'
+          ? 'Restoring attachments…'
+          : 'Preparing sync package…'
+      : progress?.kind === 'exporting' && progress.phase === 'compressing'
+        ? 'Packaging…'
+        : progress?.kind === 'exporting' && progress.phase === 'operations'
+          ? 'Exporting operations…'
+          : progress?.kind === 'exporting' && progress.phase === 'blobs'
+            ? 'Copying attachments…'
+            : 'Preparing sync package…';
   const count =
-    progress?.phase === 'operations' && progress.completed !== undefined
+    progress?.kind === 'exporting' &&
+    progress.phase === 'operations' &&
+    progress.completed !== undefined
       ? `${progress.completed.toLocaleString()} operations exported`
-      : progress?.phase === 'blobs' &&
+      : progress?.kind === 'exporting' &&
+          progress.phase === 'blobs' &&
           progress.completed !== undefined &&
           progress.total !== undefined
         ? `${progress.completed.toLocaleString()} / ${progress.total.toLocaleString()} attachments checked`
-        : null;
+        : progress?.kind === 'importing' &&
+            progress.phase === 'repairing-blobs' &&
+            progress.completed !== undefined &&
+            progress.total !== undefined
+          ? `${progress.completed.toLocaleString()} / ${progress.total.toLocaleString()} attachments checked`
+          : null;
   return (
     <Modal
       animationType="fade"
@@ -67,9 +94,11 @@ export default function SyncExportProgressModal({
           {!error && <ActivityIndicator color={colors.primary} size="large" />}
           <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
           <Text style={[styles.description, { color: colors.textMuted }]}>
-            {error ??
+            {error?.message ??
               count ??
-              'Includes your full sync history and available attachments, regardless of timeline filters.'}
+              (kind === 'importing'
+                ? 'Importing sync history for the whole app, regardless of timeline filters.'
+                : 'Includes your full sync history and available attachments, regardless of timeline filters.')}
           </Text>
           {error ? (
             <View style={styles.actions}>
@@ -101,7 +130,10 @@ export default function SyncExportProgressModal({
               style={styles.action}
             >
               <Text style={[styles.actionText, { color: colors.primary }]}>
-                Cancel
+                {progress.kind === 'importing' &&
+                progress.phase === 'repairing-blobs'
+                  ? 'Stop attachment repair'
+                  : 'Cancel'}
               </Text>
             </Pressable>
           ) : null}

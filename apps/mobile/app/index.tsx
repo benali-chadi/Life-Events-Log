@@ -1,9 +1,6 @@
 import { radius, spacing, typography } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
 import { router, useNavigation } from 'expo-router';
-import { randomUUID } from 'expo-crypto';
-import * as Sharing from 'expo-sharing';
-import { useSQLiteContext } from 'expo-sqlite';
 import { Download, Plus, Trash2, X } from 'lucide-react-native';
 import {
   useCallback,
@@ -32,9 +29,6 @@ import EventsHeader, {
   WITHOUT_LOCATION_FILTER_ID,
 } from '@/components/EventsHeader';
 import TimelineOverflowMenu from '@/components/TimelineOverflowMenu';
-import SyncExportProgressModal, {
-  type SyncExportViewState,
-} from '@/components/SyncExportProgressModal';
 import { closeOpenSwipe } from '@/components/ui/SwipeReveal';
 import { useAppToast } from '@/components/ui/AppToastProvider';
 import {
@@ -44,9 +38,8 @@ import {
 } from '@/data/query';
 import type { EventListItem, EventExportQuery } from '@/data/repositories';
 import { useEventExportRepository } from '@/data/RepositoryProvider';
-import { useAttachmentStorageAccess } from '@/data/attachments/AttachmentStorageAccessProvider';
-import { createDrizzleDatabase } from '@/data/sqlite/database';
-import { createExpoSyncExporter } from '@/data/sqlite/sync/export/createExpoSyncExporter';
+import SyncTransferProgressModal from '@/features/sync/SyncTransferProgressModal';
+import { useSyncPackageTransfer } from '@/features/sync/useSyncPackageTransfer';
 import { exportEventsAsIcs, type IcsExportSource } from '@/features/ics';
 import type { LocalDate, UUID } from '@/models';
 
@@ -71,25 +64,12 @@ export default function Index() {
   const navigation = useNavigation();
   const { showToast } = useAppToast();
   const eventExportRepository = useEventExportRepository();
-  const sqlite = useSQLiteContext();
-  const storageAccess = useAttachmentStorageAccess();
-  const syncExport = useMemo(
-    () =>
-      createExpoSyncExporter({
-        database: createDrizzleDatabase(sqlite),
-        storageAccess,
-        createId: randomUUID,
-        now: () => new Date().toISOString(),
-      }),
-    [sqlite, storageAccess]
-  );
-  const syncExportController = useRef<AbortController | null>(null);
-  const syncExportRunning = useRef(false);
-  const syncExportPhase = useRef<SyncExportViewState | null>(null);
-  const [syncProgress, setSyncProgress] = useState<SyncExportViewState | null>(
-    null
-  );
-  const [syncExportError, setSyncExportError] = useState<string | null>(null);
+  const syncTransfer = useSyncPackageTransfer();
+  const {
+    status: syncStatus,
+    exportPackage: exportSyncPackage,
+    importPackage: importSyncPackage,
+  } = syncTransfer;
   const eventsHeaderRef = useRef<EventsHeaderHandle>(null);
   const [filters, setFilters] = useState<TimelineFilters>(INITIAL_FILTERS);
   const [selectedEventIds, setSelectedEventIds] = useState<Set<UUID>>(
@@ -184,86 +164,13 @@ export default function Index() {
     [eventExportRepository, isExporting, showToast]
   );
 
-  const shareSyncPackage = useCallback(
-    async (uri: string) => {
-      try {
-        if (!(await Sharing.isAvailableAsync()))
-          throw new Error('Sharing is not available on this device.');
-        await Sharing.shareAsync(uri, {
-          dialogTitle: 'Share sync package',
-          mimeType: 'application/zip',
-        });
-        showToast({
-          message: 'Sync package ready',
-          duration: 7_000,
-          actions: [
-            { label: 'Share again', onPress: () => void shareSyncPackage(uri) },
-          ],
-        });
-      } catch (error) {
-        showToast({
-          message:
-            error instanceof Error
-              ? error.message
-              : 'The sync package could not be shared.',
-          kind: 'error',
-          actions: [
-            { label: 'Share again', onPress: () => void shareSyncPackage(uri) },
-          ],
-        });
-      }
-    },
-    [showToast]
-  );
-
-  const exportSyncPackage = useCallback(async () => {
-    if (syncExportRunning.current) return;
-    syncExportRunning.current = true;
-    const controller = new AbortController();
-    syncExportController.current = controller;
-    syncExportPhase.current = { phase: 'preparing', cancellable: true };
-    setSyncExportError(null);
-    setSyncProgress(syncExportPhase.current);
-    try {
-      const result = await syncExport({
-        signal: controller.signal,
-        onProgress: (progress) => {
-          syncExportPhase.current = progress;
-          setSyncProgress(progress);
-        },
-      });
-      syncExportPhase.current = null;
-      setSyncProgress(null);
-      // Let the native progress modal close before presenting the share sheet.
-      await new Promise((resolve) => setTimeout(resolve, 250));
-      await shareSyncPackage(result.uri);
-    } catch (error) {
-      syncExportPhase.current = null;
-      setSyncProgress(null);
-      if (!(error instanceof Error && error.name === 'AbortError')) {
-        setSyncExportError(
-          error instanceof Error
-            ? error.message
-            : 'The sync package could not be exported.'
-        );
-      }
-    } finally {
-      syncExportController.current = null;
-      syncExportRunning.current = false;
-    }
-  }, [shareSyncPackage, syncExport]);
-
-  const cancelSyncExport = useCallback(() => {
-    if (syncExportPhase.current?.cancellable)
-      syncExportController.current?.abort();
-  }, []);
-
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
         <TimelineOverflowMenu
-          exportDisabled={isExporting || syncProgress !== null}
+          exportDisabled={isExporting || syncStatus !== 'idle'}
           onExportSyncPackage={() => void exportSyncPackage()}
+          onImportSyncPackage={() => void importSyncPackage()}
           onExportAll={() => void exportEvents({ kind: 'query', query: {} })}
           onExportFiltered={() =>
             void exportEvents({ kind: 'query', query: eventExportQuery })
@@ -275,10 +182,11 @@ export default function Index() {
   }, [
     eventExportQuery,
     exportEvents,
+    syncStatus,
     exportSyncPackage,
+    importSyncPackage,
     hasActiveExportFilters,
     isExporting,
-    syncProgress,
     navigation,
   ]);
 
@@ -338,20 +246,20 @@ export default function Index() {
     }
   };
 
-  const syncExportModal = (
-    <SyncExportProgressModal
-      progress={syncProgress}
-      error={syncExportError}
-      onCancel={cancelSyncExport}
-      onRetry={() => void exportSyncPackage()}
-      onClose={() => setSyncExportError(null)}
+  const syncTransferModal = (
+    <SyncTransferProgressModal
+      progress={syncTransfer.progress}
+      error={syncTransfer.error}
+      onCancel={syncTransfer.cancel}
+      onRetry={syncTransfer.retry}
+      onClose={syncTransfer.closeError}
     />
   );
 
   if (eventsQuery.isPending) {
     return (
       <View style={[styles.centeredState, { backgroundColor: colors.bg }]}>
-        {syncExportModal}
+        {syncTransferModal}
         <ActivityIndicator color={colors.primary} />
         <Text style={[styles.stateText, { color: colors.textMuted }]}>
           Loading events…
@@ -363,7 +271,7 @@ export default function Index() {
   if (eventsQuery.isError) {
     return (
       <View style={[styles.centeredState, { backgroundColor: colors.bg }]}>
-        {syncExportModal}
+        {syncTransferModal}
         <Text style={[styles.stateTitle, { color: colors.text }]}>
           Couldn’t load events
         </Text>
@@ -387,7 +295,7 @@ export default function Index() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
-      {syncExportModal}
+      {syncTransferModal}
       {selectionMode ? (
         <View
           accessibilityLiveRegion="polite"
