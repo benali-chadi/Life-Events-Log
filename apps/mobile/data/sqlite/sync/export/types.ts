@@ -38,10 +38,11 @@ export type SyncExportResult = {
  * storage so the ZIP library can be chosen without changing the exporter.
  */
 export type ExportWorkspace = {
-  contentsUri: string;
+  operationsUri: string;
+  manifestUri: string;
   partialPackageUri: string;
   openOperations(): { write(bytes: Uint8Array): void; close(): void };
-  copyBlob(hash: string): number | null; // null means the source is missing
+  findBlob(hash: string): { sourceUri: string; byteLength: number } | null;
   writeManifest(manifest: SyncPackageManifest): void;
   finalize(): string;
   cleanup(keepFinalPackage: boolean): void | Promise<void>;

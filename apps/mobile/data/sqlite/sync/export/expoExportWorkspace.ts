@@ -10,11 +10,10 @@ export function createExpoExportWorkspace(packageId: string): ExportWorkspace {
   const root = new Directory(Paths.cache, 'sync-exports', packageId);
   if (root.exists) throw new Error('Export workspace already exists.');
   const contents = new Directory(root, 'contents');
-  const blobs = new Directory(contents, 'blobs');
   const partial = new File(root, 'package.partial');
   const final = new File(root, `${packageId}.lel-package`);
   try {
-    blobs.create({ intermediates: true });
+    contents.create({ intermediates: true });
   } catch (error) {
     try {
       if (root.exists) root.delete();
@@ -24,7 +23,8 @@ export function createExpoExportWorkspace(packageId: string): ExportWorkspace {
     throw error;
   }
   return {
-    contentsUri: contents.uri,
+    operationsUri: new File(contents, 'operations.jsonl').uri,
+    manifestUri: new File(contents, 'manifest.json').uri,
     partialPackageUri: partial.uri,
     openOperations() {
       const file = new File(contents, 'operations.jsonl');
@@ -35,14 +35,12 @@ export function createExpoExportWorkspace(packageId: string): ExportWorkspace {
         close: () => handle.close(),
       };
     },
-    copyBlob(hash) {
+    findBlob(hash) {
       if (!/^[0-9a-f]{64}$/.test(hash))
         throw new Error('Invalid attachment content hash.');
       const source = new File(Paths.document, 'attachments', hash);
       if (!source.exists) return null;
-      const destination = new File(blobs, hash);
-      source.copy(destination);
-      return destination.size;
+      return { sourceUri: source.uri, byteLength: source.size };
     },
     writeManifest(manifest) {
       const file = new File(contents, 'manifest.json');

@@ -43,12 +43,13 @@ function setup() {
     close: vi.fn(),
   };
   const workspace: ExportWorkspace = {
-    contentsUri: 'contents',
+    operationsUri: 'contents/operations.jsonl',
+    manifestUri: 'contents/manifest.json',
     partialPackageUri: 'partial',
     openOperations: () => writer,
-    copyBlob: vi.fn(() => {
+    findBlob: vi.fn((hash: string) => {
       expect(access).toBe(true);
-      return 10;
+      return { sourceUri: `attachments/${hash}`, byteLength: 10 };
     }),
     writeManifest: vi.fn((value) => {
       manifest = value;
@@ -56,9 +57,16 @@ function setup() {
     finalize: vi.fn(() => 'completed.lel-package'),
     cleanup: vi.fn(),
   };
-  const compressPackage = vi.fn(async () => {
-    expect(access).toBe(false);
-  });
+  const archive = {
+    create: vi.fn(async () => {
+      expect(access).toBe(true);
+    }),
+    append: vi.fn(async () => {
+      expect(access).toBe(true);
+    }),
+    list: vi.fn(),
+    extract: vi.fn(),
+  };
   const yieldToApp = vi.fn(async () => {});
   const syncExport = createSyncExporter({
     database: fixture.database,
@@ -76,7 +84,7 @@ function setup() {
     createId: () => 'package-id',
     now: () => at,
     createWorkspace: () => workspace,
-    compressPackage,
+    archive,
     yieldToApp,
     chunkSize: 1,
   });
@@ -84,7 +92,8 @@ function setup() {
     syncExport,
     workspace,
     writer,
-    compressPackage,
+    archive,
+    hasAccess: () => access,
     yieldToApp,
     manifest: () => manifest!,
     text: () => chunks.map((bytes) => new TextDecoder().decode(bytes)).join(''),
@@ -121,6 +130,16 @@ it('seals pending changes, pages immutable content, and hashes exact UTF-8 bytes
   );
   expect(test.writer.close).toHaveBeenCalledOnce();
   expect(test.workspace.cleanup).toHaveBeenCalledWith(true);
+  expect(test.archive.create).toHaveBeenCalledWith(
+    'partial',
+    [
+      { sourceUri: 'contents/manifest.json' },
+      { sourceUri: 'contents/operations.jsonl' },
+    ],
+    6,
+    undefined
+  );
+  expect(test.archive.append).not.toHaveBeenCalled();
 });
 
 it('excludes history sealed after the snapshot, including a new origin', async () => {
@@ -162,7 +181,7 @@ it('cancels between chunks, closes output, cleans artifacts, and preserves seale
   ).rejects.toMatchObject({ name: 'AbortError' });
   expect(test.writer.close).toHaveBeenCalledOnce();
   expect(test.workspace.cleanup).toHaveBeenCalledWith(false);
-  expect(test.compressPackage).not.toHaveBeenCalled();
+  expect(test.archive.create).not.toHaveBeenCalled();
   expect(fixture.database.select().from(syncOperations).all()).toHaveLength(2);
 });
 
@@ -175,7 +194,7 @@ it('supports AbortSignal runtimes without throwIfAborted', async () => {
   expect(test.workspace.cleanup).not.toHaveBeenCalled();
 });
 
-it('ignores cancellation once compression starts', async () => {
+it('honors cancellation at the packaging boundary', async () => {
   const test = setup();
   const controller = new AbortController();
   await expect(
@@ -183,13 +202,15 @@ it('ignores cancellation once compression starts', async () => {
       signal: controller.signal,
       onProgress(p) {
         if (p.phase === 'compressing') {
-          expect(p.cancellable).toBe(false);
+          expect(p.cancellable).toBe(true);
           controller.abort();
         }
       },
     })
-  ).resolves.toMatchObject({ operationCount: 0 });
-  expect(test.compressPackage).toHaveBeenCalledOnce();
+  ).rejects.toMatchObject({ name: 'AbortError' });
+  expect(test.archive.create).not.toHaveBeenCalled();
+  expect(test.workspace.finalize).not.toHaveBeenCalled();
+  expect(test.workspace.cleanup).toHaveBeenCalledWith(false);
 });
 
 it('propagates write and compression errors with cleanup', async () => {
@@ -201,7 +222,7 @@ it('propagates write and compression errors with cleanup', async () => {
   await expect(test.syncExport()).rejects.toThrow('disk full');
   expect(test.writer.close).toHaveBeenCalledOnce();
   expect(test.workspace.cleanup).toHaveBeenCalledWith(false);
-  test.compressPackage.mockRejectedValueOnce(new Error('zip failed'));
+  test.archive.create.mockRejectedValueOnce(new Error('zip failed'));
   await expect(test.syncExport()).rejects.toThrow('zip failed');
 });
 
@@ -249,12 +270,53 @@ it('deduplicates live blobs, skips missing files and ignores deleted references'
     )
     .run();
   const test = setup();
-  vi.mocked(test.workspace.copyBlob).mockImplementation((hash) =>
-    hash === missing ? null : 10
+  vi.mocked(test.workspace.findBlob).mockImplementation((hash) =>
+    hash === missing
+      ? null
+      : { sourceUri: `attachments/${hash}`, byteLength: 10 }
   );
   await test.syncExport();
-  expect(test.workspace.copyBlob).toHaveBeenCalledTimes(2);
+  expect(test.workspace.findBlob).toHaveBeenCalledTimes(2);
+  expect(test.archive.append).toHaveBeenCalledWith(
+    'partial',
+    [{ sourceUri: `attachments/${live}` }],
+    0,
+    undefined
+  );
   expect(test.manifest().blobs).toEqual([
     { contentHash: live, byteLength: 10 },
   ]);
+  test.archive.append.mockRejectedValueOnce(
+    new Error('selected blob disappeared')
+  );
+  vi.mocked(test.workspace.finalize).mockClear();
+  await expect(test.syncExport()).rejects.toThrow('selected blob disappeared');
+  expect(test.workspace.finalize).not.toHaveBeenCalled();
+  expect(test.workspace.cleanup).toHaveBeenLastCalledWith(false);
+});
+
+it('holds access and delays cleanup until cancelled native packaging settles', async () => {
+  const test = setup();
+  const controller = new AbortController();
+  let finish!: () => void;
+  test.archive.create.mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      })
+  );
+  const exporting = test.syncExport({ signal: controller.signal });
+  const assertion = expect(exporting).rejects.toMatchObject({
+    name: 'AbortError',
+  });
+  await vi.waitFor(() => expect(test.archive.create).toHaveBeenCalledOnce());
+  expect(test.archive.create.mock.calls[0]).toContain(controller.signal);
+  controller.abort();
+  expect(test.hasAccess()).toBe(true);
+  expect(test.workspace.cleanup).not.toHaveBeenCalled();
+  finish();
+  await assertion;
+  expect(test.hasAccess()).toBe(false);
+  expect(test.workspace.finalize).not.toHaveBeenCalled();
+  expect(test.workspace.cleanup).toHaveBeenCalledWith(false);
 });

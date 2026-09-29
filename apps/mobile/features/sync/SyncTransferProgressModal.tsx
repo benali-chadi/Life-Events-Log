@@ -14,6 +14,7 @@ import type { ImportPhase } from '@/data/sqlite/sync/import/types';
 export type SyncTransferProgress =
   | {
       kind: 'exporting';
+      stopping?: boolean;
       phase: ExportPhase;
       completed?: number;
       total?: number;
@@ -47,19 +48,21 @@ export default function SyncTransferProgressModal({
     ? kind === 'importing'
       ? 'Couldn’t import sync package'
       : 'Couldn’t export sync package'
-    : progress?.kind === 'importing'
-      ? progress.phase === 'applying-operations'
-        ? 'Applying changes…'
-        : progress.phase === 'repairing-blobs'
-          ? 'Restoring attachments…'
-          : 'Preparing sync package…'
-      : progress?.kind === 'exporting' && progress.phase === 'compressing'
-        ? 'Packaging…'
-        : progress?.kind === 'exporting' && progress.phase === 'operations'
-          ? 'Exporting operations…'
-          : progress?.kind === 'exporting' && progress.phase === 'blobs'
-            ? 'Copying attachments…'
-            : 'Preparing sync package…';
+    : progress?.kind === 'exporting' && progress.stopping
+      ? 'Stopping export…'
+      : progress?.kind === 'importing'
+        ? progress.phase === 'applying-operations'
+          ? 'Applying changes…'
+          : progress.phase === 'repairing-blobs'
+            ? 'Restoring attachments…'
+            : 'Preparing sync package…'
+        : progress?.kind === 'exporting' && progress.phase === 'compressing'
+          ? 'Packaging…'
+          : progress?.kind === 'exporting' && progress.phase === 'operations'
+            ? 'Exporting operations…'
+            : progress?.kind === 'exporting' && progress.phase === 'blobs'
+              ? 'Preparing attachments…'
+              : 'Preparing sync package…';
   const count =
     progress?.kind === 'exporting' &&
     progress.phase === 'operations' &&

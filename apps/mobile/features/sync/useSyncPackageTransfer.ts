@@ -103,7 +103,10 @@ export function useSyncPackageTransfer() {
     try {
       const result = await exportPackage({
         signal: abort.signal,
-        onProgress: (next) => updateProgress({ kind: 'exporting', ...next }),
+        onProgress: (next) => {
+          if (!abort.signal.aborted)
+            updateProgress({ kind: 'exporting', ...next });
+        },
       });
       updateProgress(null);
       // Let the native progress modal close before presenting the share sheet.
@@ -203,8 +206,13 @@ export function useSyncPackageTransfer() {
   );
 
   const cancel = useCallback(() => {
-    if (currentProgress.current?.cancellable) controller.current?.abort();
-  }, []);
+    const progress = currentProgress.current;
+    if (!progress?.cancellable) return;
+    if (progress.kind === 'exporting') {
+      updateProgress({ ...progress, stopping: true, cancellable: false });
+    }
+    controller.current?.abort();
+  }, [updateProgress]);
 
   const retry = useCallback(() => {
     if (error?.kind === 'exporting') void startExport();

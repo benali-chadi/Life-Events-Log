@@ -10,6 +10,10 @@ import {
   syncOperations,
 } from '../../schema';
 import type { AttachmentStorageAccess } from '../../../attachments/storageAccess';
+import type {
+  ArchiveService,
+  ArchiveSource,
+} from '../../../compression/ArchiveService';
 import { MAX_OPERATION_LINE_BYTES } from '../packageLimits';
 import { sealPendingOperations } from '../pending/sealPendingOperations';
 import type {
@@ -32,10 +36,7 @@ export type SyncExportDependencies = {
   createId(): string;
   now(): string;
   createWorkspace(packageId: string): ExportWorkspace;
-  compressPackage(input: {
-    sourceDirectory: string;
-    destination: string;
-  }): Promise<void>;
+  archive: ArchiveService;
   chunkSize?: number;
   yieldToApp?: () => Promise<void>;
 };
@@ -49,7 +50,7 @@ export function createSyncExporter({
   createId,
   now,
   createWorkspace,
-  compressPackage,
+  archive,
   chunkSize = 1_000,
   yieldToApp = () => new Promise((resolve) => setTimeout(resolve, 0)),
 }: SyncExportDependencies) {
@@ -187,6 +188,7 @@ export function createSyncExporter({
           }
           operations.sha256 = bytesToHex(digest.digest());
           const blobs: SyncPackageManifest['blobs'] = [];
+          const blobSources: ArchiveSource[] = [];
           onProgress?.({
             phase: 'blobs',
             completed: 0,
@@ -196,8 +198,11 @@ export function createSyncExporter({
           for (let i = 0; i < snapshot.hashes.length; i++) {
             checkCancellation(signal);
             const contentHash = snapshot.hashes[i]!;
-            const byteLength = workspace.copyBlob(contentHash);
-            if (byteLength !== null) blobs.push({ contentHash, byteLength });
+            const blob = workspace.findBlob(contentHash);
+            if (blob !== null) {
+              blobs.push({ contentHash, byteLength: blob.byteLength });
+              blobSources.push({ sourceUri: blob.sourceUri });
+            }
             onProgress?.({
               phase: 'blobs',
               completed: i + 1,
@@ -206,7 +211,7 @@ export function createSyncExporter({
             });
             await yieldToApp();
           }
-          return {
+          const manifest: SyncPackageManifest = {
             formatVersion: 1,
             operationSchemaVersion: 1,
             packageId,
@@ -218,18 +223,34 @@ export function createSyncExporter({
             operations,
             blobs,
           };
+          workspace.writeManifest(manifest);
+          await yieldToApp();
+          checkCancellation(signal);
+          onProgress?.({ phase: 'compressing', cancellable: true });
+          checkCancellation(signal);
+          await archive.create(
+            workspace.partialPackageUri,
+            [
+              { sourceUri: workspace.manifestUri },
+              { sourceUri: workspace.operationsUri },
+            ],
+            6,
+            signal
+          );
+          checkCancellation(signal);
+          if (blobSources.length) {
+            await archive.append(
+              workspace.partialPackageUri,
+              blobSources,
+              0,
+              signal
+            );
+          }
+          checkCancellation(signal);
+          return manifest;
         }
       );
       checkCancellation(signal);
-      workspace!.writeManifest(manifest);
-      await yieldToApp();
-      checkCancellation(signal);
-      // From this boundary onward, cancellation is intentionally not observed.
-      onProgress?.({ phase: 'compressing', cancellable: false });
-      await compressPackage({
-        sourceDirectory: workspace!.contentsUri,
-        destination: workspace!.partialPackageUri,
-      });
       const uri = workspace!.finalize();
       completed = true;
       return {
