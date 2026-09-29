@@ -67,6 +67,13 @@ export function createSyncImporter({
       );
       try {
         checkCancellation(options.signal);
+        if (
+          !database.transaction((tx) =>
+            frontierCovers(tx, prepared.manifest.exporterFrontier)
+          )
+        )
+          await prepared.prepareOperations(options.signal);
+        checkCancellation(options.signal);
         options.onProgress?.({
           phase: 'applying-operations',
           cancellable: false,
@@ -151,7 +158,11 @@ export function createSyncImporter({
         );
         return { packageId: prepared.manifest.packageId, operations, blobs };
       } finally {
-        await prepared.cleanup();
+        try {
+          await prepared.cleanup();
+        } catch (error) {
+          console.error('Sync import temporary-file cleanup failed', error);
+        }
       }
     });
   };

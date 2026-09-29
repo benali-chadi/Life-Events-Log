@@ -27,7 +27,13 @@ export type SyncImportResult = {
 /** The adapter owns any extracted temporary files until cleanup. */
 export type PreparedSyncPackage = {
   manifest: SyncPackageManifest;
+  prepareOperations(signal?: AbortSignal): Promise<void>;
   forEachOperationLine(visit: (line: Uint8Array) => void): void;
+  /** Extract one batch; discard partial output before rejecting. */
+  prepareBlobBatch(
+    hashes: readonly string[],
+    signal?: AbortSignal
+  ): Promise<void>;
   repairBlob(
     hash: string,
     signal?: AbortSignal

@@ -35,9 +35,9 @@ Native processing replaces JavaScript codec loops. Level 0 remains DEFLATE, not
 STORE. The adapter supports source basenames, not arbitrary entryPath mappings;
 reject an explicit differing entryPath rather than silently ignoring it.
 
-Future sync integration will use a flat package layout and may extract JSON to
-temporary files. No backward compatibility is required for unpublished packages.
-No import/export integration or removal of the existing fflate adapter yet.
+Sync export and import now use this adapter with a flat package layout and
+temporary JSON files. No backward compatibility is required for unpublished
+packages. The obsolete JavaScript ZIP reader/writer has been removed.
 
 ## Interface
 
@@ -67,4 +67,4 @@ are removed by the adapter itself.
 
 Extraction selects exact files, not recursive directory selections. Empty
 extraction is a no-op; empty creation/append is rejected. Native Android behavior
-still requires device verification before integration.
+still requires device verification for the import integration.

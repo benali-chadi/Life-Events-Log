@@ -7,6 +7,9 @@ import type {
   SyncImportResult,
 } from './types';
 
+const BATCH_FILES = 16;
+const BATCH_BYTES = 64 * 1024 * 1024;
+
 /** Only active attachments belonging to active events keep blobs live. */
 export function findMissingLiveBlobHashes(
   database: AppDatabase,
@@ -29,8 +32,8 @@ export async function fixLiveAttachmentBlobs(
   yieldToApp: () => Promise<void>
 ): Promise<SyncImportResult['blobs']> {
   const result = { restored: 0, stillMissing: 0, failed: 0, cancelled: false };
-  const packaged = new Set(
-    prepared.manifest.blobs.map((blob) => blob.contentHash)
+  const packaged = new Map(
+    prepared.manifest.blobs.map((blob) => [blob.contentHash, blob.byteLength])
   );
   onProgress?.({
     phase: 'repairing-blobs',
@@ -38,11 +41,49 @@ export async function fixLiveAttachmentBlobs(
     total: hashes.length,
     cancellable: true,
   });
-  for (let index = 0; index < hashes.length; index++) {
+  let completed = 0;
+  const report = () =>
+    onProgress?.({
+      phase: 'repairing-blobs',
+      completed,
+      total: hashes.length,
+      cancellable: true,
+    });
+  for (let index = 0; index < hashes.length;) {
     if (signal?.aborted) return { ...result, cancelled: true };
-    const hash = hashes[index]!;
-    if (!packaged.has(hash)) result.stillMissing++;
-    else {
+    const batch: string[] = [];
+    let bytes = 0;
+    while (index < hashes.length && batch.length < BATCH_FILES) {
+      const hash = hashes[index]!;
+      const size = packaged.get(hash);
+      if (size === undefined) {
+        result.stillMissing++;
+        completed++;
+        index++;
+        continue;
+      }
+      // An oversized file gets its own batch; this is a target, not a file limit.
+      if (batch.length && bytes + size > BATCH_BYTES) break;
+      batch.push(hash);
+      bytes += size;
+      index++;
+    }
+    if (!batch.length) {
+      report();
+      continue;
+    }
+    try {
+      await prepared.prepareBlobBatch(batch, signal);
+    } catch {
+      if (signal?.aborted) return { ...result, cancelled: true };
+      result.failed += batch.length;
+      completed += batch.length;
+      report();
+      await yieldToApp();
+      continue;
+    }
+    for (const hash of batch) {
+      if (signal?.aborted) return { ...result, cancelled: true };
       try {
         const outcome = await prepared.repairBlob(hash, signal);
         if (outcome === 'restored') result.restored++;
@@ -57,14 +98,10 @@ export async function fixLiveAttachmentBlobs(
           return { ...result, cancelled: true };
         result.failed++;
       }
+      completed++;
+      report();
+      await yieldToApp();
     }
-    onProgress?.({
-      phase: 'repairing-blobs',
-      completed: index + 1,
-      total: hashes.length,
-      cancellable: true,
-    });
-    await yieldToApp();
   }
   return result;
 }

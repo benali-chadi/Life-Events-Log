@@ -139,7 +139,11 @@ export async function validateSyncPackage(
     checkCancellation(signal);
     return prepared;
   } catch (error) {
-    await prepared.cleanup();
+    try {
+      await prepared.cleanup();
+    } catch (cleanupError) {
+      console.error('Sync import temporary-file cleanup failed', cleanupError);
+    }
     throw error;
   }
 }

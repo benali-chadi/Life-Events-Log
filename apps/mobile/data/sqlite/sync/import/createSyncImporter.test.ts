@@ -97,6 +97,8 @@ function packageForSource(): {
 function setup(manifest: SyncPackageManifest, lines: Uint8Array[]) {
   const prepared: PreparedSyncPackage = {
     manifest,
+    prepareOperations: vi.fn(async () => {}),
+    prepareBlobBatch: vi.fn(async () => {}),
     forEachOperationLine: vi.fn((visit) => lines.forEach(visit)),
     repairBlob: vi.fn(async () => 'missing' as const),
     cleanup: vi.fn(),
@@ -144,6 +146,38 @@ it('applies unseen operations, then skips an already-covered package without sea
     target.database.select().from(syncPendingOperations).all()
   ).toHaveLength(1);
   expect(prepared.forEachOperationLine).toHaveBeenCalledTimes(1);
+  expect(prepared.prepareOperations).toHaveBeenCalledTimes(1);
+});
+
+it('does not seal or apply when operations extraction fails', async () => {
+  addSourceTag('source-tag');
+  const { manifest, lines } = packageForSource();
+  const { syncImport, prepared } = setup(manifest, lines);
+  prepared.prepareOperations = vi.fn(async () => {
+    throw new Error('Extraction failed');
+  });
+  await expect(syncImport('package')).rejects.toThrow('Extraction failed');
+  expect(prepared.forEachOperationLine).not.toHaveBeenCalled();
+  expect(target.database.select().from(syncOperations).all()).toHaveLength(0);
+  expect(prepared.cleanup).toHaveBeenCalledOnce();
+});
+
+it('reports a committed import as successful even if temporary cleanup fails', async () => {
+  addSourceTag('source-tag');
+  const { manifest, lines } = packageForSource();
+  const { syncImport, prepared } = setup(manifest, lines);
+  prepared.cleanup = () => {
+    throw new Error('Cleanup failed');
+  };
+  const report = vi.spyOn(console, 'error').mockImplementation(() => {});
+  try {
+    await expect(syncImport('package')).resolves.toMatchObject({
+      operations: { status: 'processed', applied: 1 },
+    });
+    expect(report).toHaveBeenCalled();
+  } finally {
+    report.mockRestore();
+  }
 });
 
 it('rolls back both sealing and incoming operations when the stream digest fails', async () => {
@@ -233,6 +267,8 @@ it('repairs missing live blobs even when all operations are already covered', as
   manifest.blobs = [{ contentHash: hash, byteLength: 10 }];
   const prepared: PreparedSyncPackage = {
     manifest,
+    prepareOperations: vi.fn(async () => {}),
+    prepareBlobBatch: vi.fn(async () => {}),
     forEachOperationLine: vi.fn((visit) => lines.forEach(visit)),
     repairBlob: vi.fn(async () => 'restored' as const),
     cleanup: vi.fn(),
@@ -254,4 +290,6 @@ it('repairs missing live blobs even when all operations are already covered', as
   });
   expect(prepared.repairBlob).toHaveBeenCalledWith(hash, undefined);
   expect(prepared.forEachOperationLine).not.toHaveBeenCalled();
+  expect(prepared.prepareOperations).not.toHaveBeenCalled();
+  expect(prepared.prepareBlobBatch).toHaveBeenCalledWith([hash], undefined);
 });
