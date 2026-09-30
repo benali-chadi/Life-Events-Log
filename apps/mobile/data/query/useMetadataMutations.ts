@@ -19,6 +19,7 @@ import {
 } from '@/data/RepositoryProvider';
 import {
   invalidateAffectedEvents,
+  invalidateConflicts,
   invalidateEmbeddedMetadata,
   invalidateMetadataLists,
 } from './invalidation';
@@ -74,6 +75,7 @@ function useSoftDeleteManyMetadataMutation(
     onSuccess: async (result, ids) => {
       ids.forEach((id) => queryClient.setQueryData(keys.detail(id), null));
       await Promise.all([
+        invalidateConflicts(queryClient),
         invalidateMetadataLists(queryClient, keys),
         queryClient.invalidateQueries({ queryKey: keys.details() }),
         invalidateAffectedEvents(queryClient, result.affectedEventIds),
@@ -99,6 +101,7 @@ function useUpdateMetadataMutation<
     onSuccess: async (entity) => {
       queryClient.setQueryData(keys.detail(entity.id), entity);
       await Promise.all([
+        invalidateConflicts(queryClient),
         invalidateMetadataLists(queryClient, keys),
         queryClient.invalidateQueries({ queryKey: keys.details() }),
         invalidateEmbeddedMetadata(queryClient),
@@ -118,6 +121,7 @@ function useSoftDeleteMetadataMutation(
     onSuccess: async (result, id) => {
       queryClient.setQueryData(keys.detail(id), null);
       await Promise.all([
+        invalidateConflicts(queryClient),
         invalidateMetadataLists(queryClient, keys),
         queryClient.invalidateQueries({ queryKey: keys.details() }),
         invalidateEmbeddedMetadata(queryClient),

@@ -17,7 +17,7 @@ import type {
   DomainFieldName,
   SyncFieldName,
 } from '../types';
-import { entityFields, winningFieldsFor } from '../entityFields';
+import { entityFields, winningFieldsFor, reviewFields } from '../entityFields';
 import { OperationValidationError } from '../validation/OperationValidationError';
 import { conflictId } from './conflictId';
 import { hasSeen, compareOperations } from './operationOrder';
@@ -32,13 +32,6 @@ const tables = {
   tag: tags,
   person: people,
   location: locations,
-};
-const reviewFields: Record<EntityOperation['entityType'], readonly string[]> = {
-  event: ['title', 'date', 'time', 'significance', 'notes'],
-  category: ['name', 'color'],
-  tag: ['name'],
-  person: ['name'],
-  location: ['name'],
 };
 
 function storedOperation(id: OperationId, tx: SyncTransaction): Operation {

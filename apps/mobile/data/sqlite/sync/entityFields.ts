@@ -25,6 +25,17 @@ export const entityFields = {
   >;
 };
 
+export const reviewFields: Record<
+  keyof typeof entityFields,
+  readonly string[]
+> = {
+  event: ['title', 'date', 'time', 'significance', 'notes'],
+  category: ['name', 'color'],
+  tag: ['name'],
+  person: ['name'],
+  location: ['name'],
+};
+
 /** Fields affected by the payload; resolveOperation selects the winning subset.
  * Also used by bootstrap when adopting mutations already present in domain rows.
  */

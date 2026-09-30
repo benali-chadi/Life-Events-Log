@@ -12,6 +12,7 @@ import {
 } from '@/data/RepositoryProvider';
 import {
   cacheEventDetails,
+  invalidateConflicts,
   invalidateEventLists,
   invalidateMetadataLists,
   invalidateMetadataUsageLists,
@@ -77,6 +78,7 @@ export function useUpdateEventMutation() {
     onSuccess: async (details) => {
       cacheEventDetails(queryClient, details);
       await Promise.all([
+        invalidateConflicts(queryClient),
         invalidateEventLists(queryClient),
         invalidateMetadataUsageLists(queryClient),
       ]);
@@ -98,6 +100,7 @@ export function useDeleteEventMutation() {
       queryClient.setQueryData(eventKeys.record(id), null);
       queryClient.setQueryData(eventKeys.detail(id), null);
       await Promise.all([
+        invalidateConflicts(queryClient),
         invalidateEventLists(queryClient),
         invalidateMetadataUsageLists(queryClient),
       ]);
@@ -121,6 +124,7 @@ export function useDeleteManyEventsMutation() {
         queryClient.setQueryData(eventKeys.detail(id), null);
       });
       await Promise.all([
+        invalidateConflicts(queryClient),
         invalidateEventLists(queryClient),
         invalidateMetadataUsageLists(queryClient),
       ]);

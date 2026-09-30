@@ -2,6 +2,7 @@ import type { QueryClient, QueryKey } from '@tanstack/react-query';
 import type { EventDetails, UUID } from '@/models';
 import {
   categoryKeys,
+  conflictKeys,
   eventKeys,
   locationKeys,
   personKeys,
@@ -12,6 +13,20 @@ type MetadataListKeys = {
   lists(): QueryKey;
   usageLists(): QueryKey;
 };
+
+export function invalidateConflicts(queryClient: QueryClient) {
+  return queryClient.invalidateQueries({ queryKey: conflictKeys.all });
+}
+
+/** Also refresh on already-resolved: another edit may have removed the row. */
+export function invalidateConflictResolution(queryClient: QueryClient) {
+  return Promise.all([
+    invalidateConflicts(queryClient),
+    ...[eventKeys, categoryKeys, tagKeys, personKeys, locationKeys].map(
+      (keys) => queryClient.invalidateQueries({ queryKey: keys.all })
+    ),
+  ]);
+}
 
 export function cacheEventDetails(
   queryClient: QueryClient,
