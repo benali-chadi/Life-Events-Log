@@ -101,7 +101,7 @@ export function createConflictService(
   return {
     getConflicts(
       entityType: ConflictEntityType,
-      entityId: string
+      entityId?: string
     ): FieldConflict[] {
       return database.transaction((tx) =>
         tx
@@ -110,7 +110,9 @@ export function createConflictService(
           .where(
             and(
               eq(syncConflicts.entityType, entityType),
-              eq(syncConflicts.entityId, entityId),
+              entityId === undefined
+                ? undefined
+                : eq(syncConflicts.entityId, entityId),
               eq(syncConflicts.status, 'pending')
             )
           )

@@ -46,3 +46,13 @@ export function useResolveConflictMutation() {
     onSuccess: () => invalidateConflictResolution(queryClient),
   });
 }
+
+export function useMetadataConflictsQuery(
+  entityType: Exclude<ConflictEntityType, 'event'>
+) {
+  const service = useConflictService();
+  return useQuery({
+    queryKey: conflictKeys.type(entityType),
+    queryFn: () => service.getConflicts(entityType),
+  });
+}

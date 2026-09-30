@@ -30,6 +30,7 @@ export const eventKeys = {
 
 export const conflictKeys = {
   all: ['conflicts'] as const,
+  type: (entityType: string) => ['conflicts', entityType] as const,
   entity: (entityType: string, entityId: UUID) =>
     ['conflicts', entityType, entityId] as const,
 };

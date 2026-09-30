@@ -1,7 +1,8 @@
 # Manual field conflict resolution
 
-Status: data layer and event-details UI implemented. Native UI verification on
-Android remains; metadata UI and timeline indicators are not included.
+Status: data layer, event-details UI, and metadata UI implemented. Event review
+verified by the user on Android; metadata Android verification remains pending.
+Timeline indicators deferred.
 
 ## Goal and example
 
@@ -90,3 +91,24 @@ Components: ConflictIndicator (accessible 44px target), ConflictResolutionSheet
 Verify empty values, formatting, both choices, dismissal/errors/pending state,
 and visible updates without overwriting unrelated edits. Native layout, scrolling,
 accessibility, and Android Back need an Android check; no new UI framework.
+
+## Manage metadata UI slice
+
+One pending-conflicts query for the active metadata type, grouped by entity ID
+and field, feeds Manage metadata. Name indicators sit beside row names; category
+color indicators sit beside swatches. They open review directly, not editing.
+Keep review controls separate from row edit pressables and hide them in selection
+mode or for pending-deletion rows. Close any open swipe before opening review.
+
+Reuse ConflictResolutionSheet and the existing mutation/invalidation. Show color
+values as theme-aware swatches with readable labels; names remain raw values, not
+derived disambiguation suffixes. Display the metadata name as sheet context.
+Duplicate-name errors remain in the sheet for retry or dismissal; normal rename
+is still available outside it and clears the corresponding conflict.
+
+Add a type-level conflict query/key without per-row queries. Preserve current
+search, usage sorting, editing, deletion, and multi-selection. Pull-to-refresh
+refreshes both metadata and conflicts; conflict-load failure offers retry.
+Verify type filtering, independent name/color actions, swatches, selection and
+deletion guards, and existing failure handling. Android layout/touch verification
+for this slice remains separate; no timeline or centralized conflict screen.

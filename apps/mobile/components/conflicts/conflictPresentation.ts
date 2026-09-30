@@ -12,6 +12,7 @@ export function formatConflictValue(
       : field === 'notes'
         ? 'No notes'
         : 'Empty value';
+  if (field === 'color') return conflictFieldLabel(value);
   if (field === 'significance')
     return value === 'turning-point'
       ? 'Turning point'

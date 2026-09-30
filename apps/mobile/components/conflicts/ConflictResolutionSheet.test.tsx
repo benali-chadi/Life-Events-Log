@@ -32,6 +32,10 @@ vi.mock('lucide-react-native', () => ({
   GitCompareArrows: 'GitCompareArrows',
 }));
 vi.mock('@lel/design', () => ({
+  eventColors: {
+    blue: { light: '#blue', dark: '#darkblue' },
+    rose: { light: '#rose', dark: '#darkrose' },
+  },
   radius: { sm: 4, md: 8 },
   spacing: { 2: 8, 3: 12, 4: 16 },
   typography: {},
@@ -161,4 +165,30 @@ it('labels the comparison indicator and keeps it distinct from field editing', (
   expect(indicator.props.accessibilityLabel).toBe('Review conflicting time');
   indicator.props.onPress();
   expect(onPress).toHaveBeenCalledOnce();
+});
+
+it('shows metadata context and labeled swatches for both category color values', () => {
+  const tree = ConflictResolutionSheet({
+    conflict: {
+      ...conflict,
+      entityType: 'category',
+      fieldName: 'color',
+      currentValue: 'blue',
+      alternativeValue: 'rose',
+    },
+    entityLabel: 'Travel · aaaaaaaa',
+    onClose: vi.fn(),
+    onResolved: vi.fn(),
+  });
+  const all = nodes(tree);
+  expect(all.some((node) => node.props.children === 'Travel · aaaaaaaa')).toBe(
+    true
+  );
+  expect(all.some((node) => node.props.children === 'Blue')).toBe(true);
+  expect(all.some((node) => node.props.children === 'Rose')).toBe(true);
+  expect(
+    all.filter((node) =>
+      node.props.accessibilityLabel?.endsWith('color swatch')
+    )
+  ).toHaveLength(2);
 });

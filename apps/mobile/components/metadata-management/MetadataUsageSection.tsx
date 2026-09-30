@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 import {
   useCategoriesQuery,
+  useMetadataConflictsQuery,
   useCategoriesWithUsageQuery,
   useCreateCategoryMutation,
   useCreateLocationMutation,
@@ -48,6 +49,9 @@ import {
 } from './MetadataDeletionProvider';
 import type { MetadataSectionId } from './MetadataTabs';
 import NamedMetadataEditSheet from './NamedMetadataEditSheet';
+import ConflictIndicator from '../conflicts/ConflictIndicator';
+import ConflictResolutionSheet from '../conflicts/ConflictResolutionSheet';
+import type { FieldConflict } from '@/data/sqlite/sync/conflicts/createConflictService';
 
 export type MetadataUsageOrder = 'most' | 'least';
 
@@ -105,6 +109,27 @@ function MetadataUsageList<TEntity extends UsageEntity>({
   const { pendingKind, pendingIds, requestDeletion, requestManyDeletions } =
     useMetadataDeletion();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const conflicts = useMetadataConflictsQuery(kind);
+  const [reviewing, setReviewing] = useState<{
+    conflict: FieldConflict;
+    label: string;
+  } | null>(null);
+  const conflictsByEntity = useMemo(() => {
+    const grouped = new Map<string, Map<string, FieldConflict>>();
+    for (const conflict of conflicts.data ?? []) {
+      let fields = grouped.get(conflict.entityId);
+      if (!fields) {
+        fields = new Map();
+        grouped.set(conflict.entityId, fields);
+      }
+      fields.set(conflict.fieldName, conflict);
+    }
+    return grouped;
+  }, [conflicts.data]);
+  const review = (conflict: FieldConflict, name: string) => {
+    closeOpenSwipe();
+    setReviewing({ conflict, label: name });
+  };
   const suppressEditRef = useRef<string | null>(null);
   const selectionMode = selectedIds.size > 0;
   const normalizedSearch = normalizeOptionValue(search);
@@ -266,6 +291,18 @@ function MetadataUsageList<TEntity extends UsageEntity>({
         </Text>
       )}
 
+      {conflicts.isError && (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => void conflicts.refetch()}
+          style={styles.conflictError}
+        >
+          <Text style={{ color: colors.warning }}>
+            Couldn’t load conflicts. Tap to retry.
+          </Text>
+        </Pressable>
+      )}
+
       {!selectionMode && !query.isPending && !query.isError && (
         <View style={styles.toolbar}>
           <Text style={[styles.resultCount, { color: colors.textMuted }]}>
@@ -365,9 +402,12 @@ function MetadataUsageList<TEntity extends UsageEntity>({
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
           keyExtractor={(item) => item.metadata.id}
-          onRefresh={() => void query.refetch()}
+          onRefresh={() => {
+            void query.refetch();
+            void conflicts.refetch();
+          }}
           onScrollBeginDrag={closeOpenSwipe}
-          refreshing={query.isRefetching}
+          refreshing={query.isRefetching || conflicts.isRefetching}
           renderItem={({ item }) => {
             const color = getColor?.(item.metadata);
             const count = usageLabel(item.eventCount);
@@ -380,6 +420,26 @@ function MetadataUsageList<TEntity extends UsageEntity>({
               eventCount: item.eventCount,
             };
             const selected = selectedIds.has(item.metadata.id);
+            const displayName = item.metadata.displayName ?? item.metadata.name;
+            const fields = conflictsByEntity.get(item.metadata.id);
+            const nameConflict = !selectionMode
+              ? fields?.get('name')
+              : undefined;
+            const colorConflict = !selectionMode
+              ? fields?.get('color')
+              : undefined;
+            const editOrSelect = () => {
+              if (suppressEditRef.current === item.metadata.id) {
+                suppressEditRef.current = null;
+                return;
+              }
+              if (closeOpenSwipe()) return;
+              if (selectionMode) {
+                toggleSelection(item.metadata.id);
+                return;
+              }
+              onEdit(item);
+            };
 
             const row = isPendingDeletion ? (
               <View
@@ -415,64 +475,9 @@ function MetadataUsageList<TEntity extends UsageEntity>({
                 </Text>
               </View>
             ) : (
-              <Pressable
-                accessibilityLabel={
-                  selectionMode
-                    ? `${selected ? 'Deselect' : 'Select'} ${item.metadata.displayName ?? item.metadata.name}`
-                    : `Edit ${item.metadata.displayName ?? item.metadata.name}, ${count}`
-                }
-                accessibilityRole={selectionMode ? 'checkbox' : 'button'}
-                accessibilityState={
-                  selectionMode ? { checked: selected } : undefined
-                }
-                onLongPress={() => {
-                  if (selectionMode) return;
-                  suppressEditRef.current = item.metadata.id;
-                  toggleSelection(item.metadata.id);
-                }}
-                onPress={() => {
-                  if (suppressEditRef.current === item.metadata.id) {
-                    suppressEditRef.current = null;
-                    return;
-                  }
-                  if (closeOpenSwipe()) return;
-                  if (selectionMode) {
-                    toggleSelection(item.metadata.id);
-                    return;
-                  }
-                  onEdit(item);
-                }}
-                style={({ pressed }) => [
-                  styles.row,
-                  { backgroundColor: colors.bg },
-                  pressed && { backgroundColor: colors.interactiveMuted },
-                ]}
-              >
-                <View style={styles.rowMain}>
-                  {selectionMode && (
-                    <View
-                      style={[
-                        styles.selectionControl,
-                        {
-                          backgroundColor: selected
-                            ? colors.primary
-                            : colors.bg,
-                          borderColor: selected
-                            ? colors.primary
-                            : colors.borderStrong,
-                        },
-                      ]}
-                    >
-                      {selected && (
-                        <Check
-                          color={colors.onPrimary}
-                          size={14}
-                          strokeWidth={3}
-                        />
-                      )}
-                    </View>
-                  )}
-                  {color && (
+              <View style={[styles.row, { backgroundColor: colors.bg }]}>
+                {color && colorConflict && (
+                  <View style={styles.colorReview}>
                     <View
                       style={[
                         styles.colorMarker,
@@ -482,33 +487,109 @@ function MetadataUsageList<TEntity extends UsageEntity>({
                         },
                       ]}
                     />
-                  )}
-                  <Text
-                    numberOfLines={1}
-                    style={[styles.name, { color: colors.text }]}
-                  >
-                    {item.metadata.displayName ?? item.metadata.name}
-                  </Text>
-                </View>
-                <Text
-                  style={[
-                    styles.usage,
-                    {
-                      color:
-                        item.eventCount === 0
-                          ? colors.textMuted
-                          : colors.textSecondary,
-                    },
+                    <ConflictIndicator
+                      fieldLabel={`color for ${displayName}`}
+                      onPress={() => review(colorConflict, displayName)}
+                    />
+                  </View>
+                )}
+                <Pressable
+                  accessibilityLabel={
+                    selectionMode
+                      ? `${selected ? 'Deselect' : 'Select'} ${item.metadata.displayName ?? item.metadata.name}`
+                      : `Edit ${item.metadata.displayName ?? item.metadata.name}, ${count}`
+                  }
+                  accessibilityRole={selectionMode ? 'checkbox' : 'button'}
+                  accessibilityState={
+                    selectionMode ? { checked: selected } : undefined
+                  }
+                  onLongPress={() => {
+                    if (selectionMode) return;
+                    suppressEditRef.current = item.metadata.id;
+                    toggleSelection(item.metadata.id);
+                  }}
+                  onPress={editOrSelect}
+                  style={({ pressed }) => [
+                    styles.editTarget,
+                    { backgroundColor: colors.bg },
+                    pressed && { backgroundColor: colors.interactiveMuted },
                   ]}
                 >
-                  {count}
-                </Text>
-                <ChevronRight
-                  color={colors.textMuted}
-                  size={17}
-                  strokeWidth={2}
-                />
-              </Pressable>
+                  <View style={styles.rowMain}>
+                    {selectionMode && (
+                      <View
+                        style={[
+                          styles.selectionControl,
+                          {
+                            backgroundColor: selected
+                              ? colors.primary
+                              : colors.bg,
+                            borderColor: selected
+                              ? colors.primary
+                              : colors.borderStrong,
+                          },
+                        ]}
+                      >
+                        {selected && (
+                          <Check
+                            color={colors.onPrimary}
+                            size={14}
+                            strokeWidth={3}
+                          />
+                        )}
+                      </View>
+                    )}
+                    {color && !colorConflict && (
+                      <View
+                        style={[
+                          styles.colorMarker,
+                          {
+                            backgroundColor:
+                              eventColors[color][isDark ? 'dark' : 'light'],
+                          },
+                        ]}
+                      />
+                    )}
+                    <Text
+                      numberOfLines={1}
+                      style={[styles.name, { color: colors.text }]}
+                    >
+                      {item.metadata.displayName ?? item.metadata.name}
+                    </Text>
+                  </View>
+                </Pressable>
+                {nameConflict && (
+                  <ConflictIndicator
+                    fieldLabel={`name for ${displayName}`}
+                    onPress={() => review(nameConflict, displayName)}
+                  />
+                )}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${selectionMode ? 'Select or deselect' : 'Edit'} ${displayName}`}
+                  onPress={editOrSelect}
+                  style={styles.usageAction}
+                >
+                  <Text
+                    style={[
+                      styles.usage,
+                      {
+                        color:
+                          item.eventCount === 0
+                            ? colors.textMuted
+                            : colors.textSecondary,
+                      },
+                    ]}
+                  >
+                    {count}
+                  </Text>
+                  <ChevronRight
+                    color={colors.textMuted}
+                    size={17}
+                    strokeWidth={2}
+                  />
+                </Pressable>
+              </View>
             );
 
             if (isPendingDeletion) return row;
@@ -568,6 +649,15 @@ function MetadataUsageList<TEntity extends UsageEntity>({
             </View>
           }
           showsVerticalScrollIndicator={false}
+        />
+      )}
+      {reviewing && (
+        <ConflictResolutionSheet
+          key={reviewing.conflict.conflictId}
+          conflict={reviewing.conflict}
+          entityLabel={reviewing.label}
+          onClose={() => setReviewing(null)}
+          onResolved={() => {}}
         />
       )}
     </View>
@@ -969,6 +1059,19 @@ export default function MetadataUsageSection({
 }
 
 const styles = StyleSheet.create({
+  usageAction: {
+    minHeight: 44,
+    flexDirection: 'row',
+    gap: spacing[2],
+    alignItems: 'center',
+  },
+  editTarget: { flex: 1, minWidth: 0, minHeight: 44, justifyContent: 'center' },
+  colorReview: { flexDirection: 'row', alignItems: 'center' },
+  conflictError: {
+    minHeight: 44,
+    justifyContent: 'center',
+    marginHorizontal: spacing[4],
+  },
   root: { flex: 1, paddingTop: spacing[3] },
   selectionToolbar: {
     minHeight: 52,

@@ -9,7 +9,8 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { radius, spacing, typography } from '@lel/design';
+import { eventColors, radius, spacing, typography } from '@lel/design';
+import { CATEGORY_COLOR_VALUES, type CategoryColor } from '@/models';
 import { useTheme } from '@lel/design/useTheme';
 import BottomSheetModal from '@/components/ui/BottomSheetModal';
 import { useAppToast } from '@/components/ui/AppToastProvider';
@@ -28,12 +29,14 @@ export default function ConflictResolutionSheet({
   conflict,
   onClose,
   onResolved,
+  entityLabel,
 }: {
   conflict: FieldConflict;
   onClose(): void;
   onResolved(choice: ConflictChoice, result: ResolveConflictResult): void;
+  entityLabel?: string;
 }) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { showToast } = useAppToast();
@@ -85,6 +88,11 @@ export default function ConflictResolutionSheet({
       >
         Review conflicting {label.toLowerCase()}
       </Text>
+      {entityLabel && (
+        <Text style={[styles.description, { color: colors.text }]}>
+          {entityLabel}
+        </Text>
+      )}
       <Text style={[styles.description, { color: colors.textSecondary }]}>
         Choose which value to keep for this field.
       </Text>
@@ -103,6 +111,30 @@ export default function ConflictResolutionSheet({
             >
               {choice === 'current' ? 'Current value' : 'Alternative value'}
             </Text>
+            {conflict.entityType === 'category' &&
+              conflict.fieldName === 'color' &&
+              (() => {
+                const value =
+                  choice === 'current'
+                    ? conflict.currentValue
+                    : conflict.alternativeValue;
+                return value &&
+                  CATEGORY_COLOR_VALUES.includes(value as CategoryColor) ? (
+                  <View
+                    accessibilityLabel={`${formatConflictValue('color', value)} color swatch`}
+                    style={[
+                      styles.swatch,
+                      {
+                        backgroundColor:
+                          eventColors[value as CategoryColor][
+                            isDark ? 'dark' : 'light'
+                          ],
+                        borderColor: colors.borderStrong,
+                      },
+                    ]}
+                  />
+                ) : null;
+              })()}
             <Text selectable style={[styles.value, { color: colors.text }]}>
               {formatConflictValue(
                 conflict.fieldName,
@@ -171,6 +203,7 @@ export default function ConflictResolutionSheet({
 }
 
 const styles = StyleSheet.create({
+  swatch: { width: 40, height: 40, borderRadius: radius.sm, borderWidth: 1 },
   sheet: { padding: spacing[4] },
   heading: { ...typography.h3 },
   description: { ...typography.small, marginVertical: spacing[2] },

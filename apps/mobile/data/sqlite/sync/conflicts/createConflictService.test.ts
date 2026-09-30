@@ -332,3 +332,56 @@ it('invalidates conflicts and entity views without invalidating unrelated attach
   expect(client.getQueryState(attachmentKeys.all)?.isInvalidated).toBe(false);
   client.clear();
 });
+
+it.each(['category', 'tag', 'person', 'location'] as const)(
+  'lists all pending %s conflicts without mixing other types',
+  (entityType) => {
+    eventConflict();
+    for (const id of ['first', 'second']) {
+      const seed = `${entityType}-${id}-seed`;
+      const payload = { name: id, createdAt: at, updatedAt: at };
+      apply(
+        entityType === 'category'
+          ? {
+              operationType: 'entity.create',
+              entityType,
+              entityId: id,
+              payload: { ...payload, color: 'blue' },
+            }
+          : {
+              operationType: 'entity.create',
+              entityType,
+              entityId: id,
+              payload,
+            },
+        seed
+      );
+      for (const origin of ['a', 'b'])
+        apply(
+          {
+            operationType: 'entity.patch',
+            entityType,
+            entityId: id,
+            payload: { changes: { name: `${id}-${origin}` }, updatedAt: at },
+          },
+          `${seed}-${origin}`,
+          { [seed]: 1 }
+        );
+    }
+    expect(
+      service()
+        .getConflicts(entityType)
+        .map((row) => row.entityId)
+        .sort()
+    ).toEqual(['first', 'second']);
+    expect(service().getConflicts(entityType, 'first')).toHaveLength(1);
+    const first = service().getConflicts(entityType, 'first')[0]!;
+    service().resolveConflict(first.conflictId, 'alternative');
+    expect(
+      service()
+        .getConflicts(entityType)
+        .map((row) => row.entityId)
+    ).toEqual(['second']);
+    expect(service().getConflicts('event', 'event')).toHaveLength(3);
+  }
+);

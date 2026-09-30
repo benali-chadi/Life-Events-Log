@@ -18,6 +18,7 @@ it('preserves full notes, whitespace, and local dates/times', () => {
 });
 
 it('uses readable field and significance labels', () => {
+  expect(formatConflictValue('color', 'rose')).toBe('Rose');
   expect(conflictFieldLabel('significance')).toBe('Significance');
   expect(formatConflictValue('significance', 'turning-point')).toBe(
     'Turning point'
