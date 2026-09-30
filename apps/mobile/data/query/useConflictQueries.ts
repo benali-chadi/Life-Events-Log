@@ -32,6 +32,14 @@ export function useEntityConflictsQuery(
   });
 }
 
+export function useConflictedEventIdsQuery() {
+  const service = useConflictService();
+  return useQuery({
+    queryKey: conflictKeys.eventIds,
+    queryFn: () => service.getConflictedEventIds(),
+  });
+}
+
 export function useResolveConflictMutation() {
   const service = useConflictService();
   const queryClient = useQueryClient();

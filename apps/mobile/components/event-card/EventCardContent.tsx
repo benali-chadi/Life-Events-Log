@@ -15,6 +15,7 @@ import type { EventListItem } from '@/data/repositories';
 
 type EventCardContentProps = {
   event: EventListItem;
+  hasConflicts?: boolean;
   significance: EventSignificance;
   colors: ReturnType<typeof useTheme>['colors'];
   isDark: boolean;
@@ -28,6 +29,7 @@ type EventCardContentProps = {
 
 export default function EventCardContent({
   event,
+  hasConflicts = false,
   significance,
   colors,
   isDark,
@@ -50,7 +52,7 @@ export default function EventCardContent({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Open ${event.event.title}, ${significanceLabels[significance]} significance`}
+      accessibilityLabel={`Open ${event.event.title}, ${significanceLabels[significance]} significance${hasConflicts ? ', has unresolved conflicts' : ''}`}
       onPress={onOpen}
       onLongPress={onLongPress}
       style={({ pressed }) => [
@@ -78,6 +80,7 @@ export default function EventCardContent({
       )}
 
       <EventCardHeader
+        hasConflicts={hasConflicts}
         title={event.event.title}
         time={event.event.time ?? undefined}
         significance={significance}

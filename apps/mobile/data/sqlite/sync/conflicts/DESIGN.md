@@ -1,8 +1,8 @@
 # Manual field conflict resolution
 
 Status: data layer, event-details UI, and metadata UI implemented. Event review
-verified by the user on Android; metadata Android verification remains pending.
-Timeline indicators deferred.
+and metadata review verified by the user on Android. Timeline indicators
+implemented; their Android layout/touch verification remains pending.
 
 ## Goal and example
 
@@ -112,3 +112,45 @@ refreshes both metadata and conflicts; conflict-load failure offers retry.
 Verify type filtering, independent name/color actions, swatches, selection and
 deletion guards, and existing failure handling. Android layout/touch verification
 for this slice remains separate; no timeline or centralized conflict screen.
+
+## Timeline indicator slice
+
+### Goal and example
+
+Flag events with pending field conflicts without offering resolution in the
+timeline. An event with title and notes conflicts gets one comparison icon;
+opening its details exposes the existing field-level review controls.
+
+### Flow
+
+Query distinct event IDs with pending conflicts once for the timeline, build an
+ID set, and pass a boolean to each card. Show a non-interactive comparison icon
+in the header beside its existing time/significance information. Keep normal
+card navigation and selection behavior. Include conflict status in accessibility
+text. Refresh with existing conflict invalidations and timeline pull-to-refresh.
+Query failure must not block the timeline; offer retry rather than imply that
+an unsuccessful query found no conflicts. There are no writes or cancellation
+steps in this slice.
+
+### Responsibilities and choices
+
+The service selects distinct pending event IDs, without loading operation values.
+TanStack Query owns caching/refetching; the timeline maps IDs to cards, and cards
+only render the boolean. A single query avoids per-card queries. Querying all
+pending event IDs keeps pagination simple; memory scales with conflicted events,
+not operation history. Metadata conflicts do not flag associated events.
+
+### Interface
+
+Service method: `getConflictedEventIds(): string[]`.
+Hook: `useConflictedEventIdsQuery()` under the conflicts query-key prefix.
+Card/header prop: `hasConflicts?: boolean`. No press handler on the icon.
+
+### First implementation slice
+
+Implement the lightweight query and header indicator only. Test deduplication,
+pending/event filtering, card presence/absence, accessibility, and refresh wiring;
+check layout on Android. Agreed placement is the header's trailing information
+area, and the informational icon remains visible during selection.
+No conflict count, sheet, or new
+resolution action is added to the timeline.

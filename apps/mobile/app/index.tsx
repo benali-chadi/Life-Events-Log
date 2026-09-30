@@ -34,6 +34,7 @@ import { useAppToast } from '@/components/ui/AppToastProvider';
 import {
   type EventListQueryInput,
   useEventCountQuery,
+  useConflictedEventIdsQuery,
   useInfiniteEventListQuery,
 } from '@/data/query';
 import type { EventListItem, EventExportQuery } from '@/data/repositories';
@@ -128,6 +129,11 @@ export default function Index() {
     Boolean(filters.timeRange.from || filters.timeRange.to);
   const hasActiveExportFilters = hasSearch || hasTimelineFilters;
   const eventsQuery = useInfiniteEventListQuery(eventListQuery);
+  const conflictsQuery = useConflictedEventIdsQuery();
+  const conflictedEventIds = useMemo(
+    () => new Set(conflictsQuery.data ?? []),
+    [conflictsQuery.data]
+  );
   const eventCountQuery = useEventCountQuery(eventListQuery);
   const sections = useMemo(
     () =>
@@ -391,6 +397,17 @@ export default function Index() {
           }
         />
       )}
+      {conflictsQuery.isError && (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => void conflictsQuery.refetch()}
+          style={{ padding: spacing[4] }}
+        >
+          <Text style={{ color: colors.warning }}>
+            Couldn’t load conflict indicators. Tap to retry.
+          </Text>
+        </Pressable>
+      )}
       <SectionList
         sections={sections}
         contentContainerStyle={[
@@ -401,6 +418,7 @@ export default function Index() {
         renderItem={({ item }) => (
           <EventCard
             event={item}
+            hasConflicts={conflictedEventIds.has(item.event.id)}
             isSelected={selectedEventIds.has(item.event.id)}
             selectionMode={selectionMode}
             onSelect={() => toggleEventSelection(item.event.id)}
@@ -408,8 +426,14 @@ export default function Index() {
         )}
         onEndReached={loadMore}
         onEndReachedThreshold={0.4}
-        onRefresh={() => void eventsQuery.refetch()}
-        refreshing={eventsQuery.isRefetching && !eventsQuery.isFetchingNextPage}
+        onRefresh={() => {
+          void eventsQuery.refetch();
+          void conflictsQuery.refetch();
+        }}
+        refreshing={
+          (eventsQuery.isRefetching && !eventsQuery.isFetchingNextPage) ||
+          conflictsQuery.isRefetching
+        }
         onScrollBeginDrag={closeOpenSwipe}
         showsVerticalScrollIndicator={false}
         renderSectionHeader={({ section: { title } }) => (

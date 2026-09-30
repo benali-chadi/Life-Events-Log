@@ -99,6 +99,19 @@ export function createConflictService(
   { now }: { now(): string }
 ) {
   return {
+    getConflictedEventIds(): string[] {
+      return database
+        .selectDistinct({ entityId: syncConflicts.entityId })
+        .from(syncConflicts)
+        .where(
+          and(
+            eq(syncConflicts.entityType, 'event'),
+            eq(syncConflicts.status, 'pending')
+          )
+        )
+        .all()
+        .map((row) => row.entityId);
+    },
     getConflicts(
       entityType: ConflictEntityType,
       entityId?: string

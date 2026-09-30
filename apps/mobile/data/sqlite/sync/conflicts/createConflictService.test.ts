@@ -39,6 +39,28 @@ afterEach(() => fixture.sqlite.close());
 function service() {
   return createConflictService(fixture.database, { now: () => now });
 }
+it('selects distinct pending event IDs without reading operation values', () => {
+  eventConflict();
+  const rows = fixture.database.select().from(syncConflicts).all();
+  expect(rows).toHaveLength(3);
+  fixture.database
+    .insert(syncConflicts)
+    .values({
+      ...rows[0]!,
+      conflictId: 'metadata-conflict',
+      entityType: 'tag',
+      entityId: 'tag',
+      fieldName: 'name',
+    })
+    .run();
+  expect(service().getConflictedEventIds()).toEqual(['event']);
+  fixture.database
+    .update(syncConflicts)
+    .set({ status: 'resolved' })
+    .where(eq(syncConflicts.entityType, 'event'))
+    .run();
+  expect(service().getConflictedEventIds()).toEqual([]);
+});
 function apply(
   input: CreateOperationInput,
   originDeviceId: string,
@@ -316,6 +338,7 @@ it('invalidates conflicts and entity views without invalidating unrelated attach
   const client = new QueryClient();
   const affected = [
     conflictKeys.entity('event', 'event'),
+    conflictKeys.eventIds,
     eventKeys.detail('event'),
     eventKeys.record('event'),
     eventKeys.lists(),
