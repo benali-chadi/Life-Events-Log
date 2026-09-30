@@ -35,6 +35,15 @@ import DateMetadata, {
   type DateValue,
 } from '@/components/metadata/DateMetadata';
 import { useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import ConflictIndicator from '@/components/conflicts/ConflictIndicator';
+import ConflictResolutionSheet from '@/components/conflicts/ConflictResolutionSheet';
+import { conflictFieldLabel } from '@/components/conflicts/conflictPresentation';
+import type {
+  FieldConflict,
+  ConflictChoice,
+  ResolveConflictResult,
+} from '@/data/sqlite/sync/conflicts/createConflictService';
 import EventNotes from '@/components/event-notes/EventNotes';
 import EventAttachments from '@/components/event-attachments/EventAttachments';
 import type {
@@ -51,6 +60,8 @@ import {
   useDeleteAttachmentMutation,
   useDeleteManyAttachmentsMutation,
   useEventDetailsQuery,
+  useEntityConflictsQuery,
+  eventKeys,
   useImportAttachmentMutation,
   useReorderAttachmentsMutation,
   useUpdateEventMutation,
@@ -105,7 +116,7 @@ export default function EventScreen() {
     return <EventReadState state="not-found" />;
   }
 
-  return <LoadedEventScreen details={eventQuery.data} />;
+  return <LoadedEventScreen key={eventId} details={eventQuery.data} />;
 }
 
 function EventReadState({
@@ -183,6 +194,9 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
     location: 0,
   });
   const { event } = details;
+  const queryClient = useQueryClient();
+  const conflicts = useEntityConflictsQuery('event', event.id);
+  const [reviewing, setReviewing] = useState<FieldConflict | null>(null);
 
   const [eventDate, setEventDate] = useState<DateValue>(() => ({
     date: event.date,
@@ -234,6 +248,66 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
   const hasUnsavedNotes = draftNotes !== committedNotes;
   const hasUnsavedTitle = isEditingTitle && draftTitle.trim() !== title;
   const hasUnsavedChanges = hasUnsavedNotes || hasUnsavedTitle;
+
+  const reviewAction = (fieldName: string) => {
+    const conflict = conflicts.data?.find(
+      (item) => item.fieldName === fieldName
+    );
+    return conflict ? (
+      <ConflictIndicator
+        fieldLabel={conflictFieldLabel(fieldName)}
+        disabled={isDeleting || updateEvent.isPending}
+        onPress={() => setReviewing(conflict)}
+      />
+    ) : null;
+  };
+
+  const refreshResolvedField = (
+    choice: ConflictChoice,
+    result: ResolveConflictResult
+  ) => {
+    if (!reviewing) return;
+    // Query invalidation refreshes persisted data, but this screen also owns local
+    // field state. Update only the reviewed field; never reset unrelated drafts.
+    const latest = queryClient.getQueryData<EventDetails>(
+      eventKeys.detail(event.id)
+    );
+    const value =
+      result.status === 'resolved'
+        ? choice === 'current'
+          ? reviewing.currentValue
+          : reviewing.alternativeValue
+        : latest?.event[reviewing.fieldName as keyof EventDetails['event']];
+    switch (reviewing.fieldName) {
+      case 'title':
+        if (typeof value === 'string') {
+          setTitle(value);
+          setDraftTitle(value);
+        }
+        break;
+      case 'notes':
+        if (typeof value === 'string') {
+          setCommittedNotes(value);
+          setDraftNotes(value);
+        }
+        break;
+      case 'date':
+        if (typeof value === 'string')
+          setEventDate((previous) => ({ ...previous, date: value }));
+        break;
+      case 'time':
+        if (value === null || typeof value === 'string')
+          setEventDate((previous) => ({
+            ...previous,
+            time: value ?? undefined,
+          }));
+        break;
+      case 'significance':
+        if (typeof value === 'string')
+          setSignificance(significanceOption(value));
+        break;
+    }
+  };
 
   usePreventRemove(hasUnsavedChanges && !isDeleting, ({ data }) => {
     Alert.alert(
@@ -413,17 +487,32 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.titleSection}>
-            <EventTitleEditor
-              value={draftTitle}
-              savedValue={title}
-              isEditing={isEditingTitle}
-              isSaving={isSavingTitle}
-              onBeginEditing={beginTitleEditing}
-              onChange={setDraftTitle}
-              onSave={() => void saveTitle()}
-              onCancel={cancelTitleEditing}
-            />
+            <View style={styles.titleEditor}>
+              <EventTitleEditor
+                value={draftTitle}
+                savedValue={title}
+                isEditing={isEditingTitle}
+                isSaving={isSavingTitle}
+                onBeginEditing={beginTitleEditing}
+                onChange={setDraftTitle}
+                onSave={() => void saveTitle()}
+                onCancel={cancelTitleEditing}
+              />
+            </View>
+            {!isEditingTitle && reviewAction('title')}
           </View>
+
+          {conflicts.isError && (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => void conflicts.refetch()}
+              style={styles.conflictError}
+            >
+              <Text style={{ color: colors.warning }}>
+                Couldn’t load conflicts. Tap to retry.
+              </Text>
+            </Pressable>
+          )}
 
           <View>
             <MetadataRow
@@ -434,6 +523,8 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
             >
               <DateMetadata
                 value={eventDate}
+                dateReviewAction={reviewAction('date')}
+                timeReviewAction={reviewAction('time')}
                 onChange={(nextDate) =>
                   void saveImmediate(
                     'date',
@@ -469,6 +560,7 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
             </MetadataRow>
             <MetadataRow
               label="Significance"
+              trailingAction={reviewAction('significance')}
               icon={
                 <BadgeAlert
                   size={14}
@@ -551,6 +643,7 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
 
           <View style={styles.contentSection}>
             <EventNotes
+              reviewAction={reviewAction('notes')}
               committedValue={committedNotes}
               draftValue={draftNotes}
               onDraftChange={setDraftNotes}
@@ -570,6 +663,14 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      {reviewing && (
+        <ConflictResolutionSheet
+          key={reviewing.conflictId}
+          conflict={reviewing}
+          onClose={() => setReviewing(null)}
+          onResolved={refreshResolvedField}
+        />
+      )}
     </>
   );
 }
@@ -720,6 +821,14 @@ const styles = StyleSheet.create({
   },
   titleSection: {
     marginBottom: spacing[3],
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  titleEditor: { flex: 1 },
+  conflictError: {
+    minHeight: 44,
+    justifyContent: 'center',
+    padding: spacing[2],
   },
   contentSection: {
     marginTop: spacing[6],
