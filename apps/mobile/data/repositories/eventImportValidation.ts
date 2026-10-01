@@ -3,8 +3,6 @@ import {
   EVENT_TITLE_MAX_LENGTH,
   CATEGORY_COLOR_VALUES,
   type EventSignificance,
-  type LocalDate,
-  type LocalTime,
 } from '@/models';
 import { ModelValidationError } from './errors';
 import type {
@@ -13,6 +11,7 @@ import type {
   NewEventImportMetadata,
 } from './EventImportRepository';
 import { normalizeMetadataName } from './metadataName';
+import { isValidLocalDate, isValidLocalTime } from '@/models/validation';
 
 export function validateEventImportValues(
   input: EventImportEventInput
@@ -24,10 +23,10 @@ export function validateEventImportValues(
       `Event title cannot exceed ${EVENT_TITLE_MAX_LENGTH} characters.`
     );
   }
-  if (!validDate(input.date)) {
+  if (!isValidLocalDate(input.date)) {
     throw new ModelValidationError(`Invalid event date “${input.date}”.`);
   }
-  if (input.time !== null && !validTime(input.time)) {
+  if (input.time !== null && !isValidLocalTime(input.time)) {
     throw new ModelValidationError(`Invalid event time “${input.time}”.`);
   }
   if (!validSignificance(input.significance)) {
@@ -80,24 +79,6 @@ export function validateEventImportCategory(
     );
   }
   return { ...category, name };
-}
-
-function validDate(value: LocalDate) {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!match) return false;
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  return (
-    date.getUTCFullYear() === year &&
-    date.getUTCMonth() === month - 1 &&
-    date.getUTCDate() === day
-  );
-}
-
-function validTime(value: LocalTime) {
-  return /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
 }
 
 function validSignificance(

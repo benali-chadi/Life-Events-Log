@@ -26,7 +26,7 @@ export default function CategoryMetadata({
   const setCategory = onChange ?? setInternalValue;
   const options = (categoriesQuery.data ?? []).map((item) => ({
     id: item.id,
-    label: item.name,
+    label: item.displayName ?? item.name,
     color: eventColors[item.color][isDark ? 'dark' : 'light'],
   }));
 
@@ -62,7 +62,7 @@ export default function CategoryMetadata({
               .then((created) => {
                 setCategory({
                   id: created.id,
-                  label: created.name,
+                  label: created.displayName ?? created.name,
                   color: eventColors[created.color][isDark ? 'dark' : 'light'],
                 });
                 setCreationName(null);

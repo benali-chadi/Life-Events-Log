@@ -13,6 +13,7 @@ import type { EventListItem } from '@/data/repositories';
 
 type EventCardProps = {
   event: EventListItem;
+  hasConflicts?: boolean;
   isSelected?: boolean;
   selectionMode?: boolean;
   onSelect?: () => void;
@@ -20,6 +21,7 @@ type EventCardProps = {
 
 export default function EventCard({
   event,
+  hasConflicts = false,
   isSelected = false,
   selectionMode = false,
   onSelect,
@@ -138,6 +140,7 @@ export default function EventCard({
         >
           <EventCardContent
             event={event}
+            hasConflicts={hasConflicts}
             significance={significance}
             colors={colors}
             isDark={isDark}

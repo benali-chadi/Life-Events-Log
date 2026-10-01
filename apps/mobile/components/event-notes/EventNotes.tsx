@@ -1,6 +1,7 @@
 import { radius, spacing, typography } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
 import { useCallback, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import {
   Linking,
   Pressable,
@@ -26,6 +27,7 @@ type EventNotesProps = {
   onDraftChange: (value: string) => void;
   onSave: () => boolean | void | Promise<boolean | void>;
   onCancel: () => void;
+  reviewAction?: ReactNode;
 };
 
 export default function EventNotes({
@@ -34,6 +36,7 @@ export default function EventNotes({
   onDraftChange,
   onSave,
   onCancel,
+  reviewAction,
 }: EventNotesProps) {
   const { colors } = useTheme();
   const { showToast } = useAppToast();
@@ -179,7 +182,10 @@ export default function EventNotes({
   return (
     <View style={styles.root}>
       <View style={styles.header}>
-        <Text style={[styles.heading, { color: colors.text }]}>Notes</Text>
+        <View style={styles.headerActions}>
+          <Text style={[styles.heading, { color: colors.text }]}>Notes</Text>
+          {!isEditing && reviewAction}
+        </View>
         {isEditing ? (
           <View style={styles.headerActions}>
             <Pressable

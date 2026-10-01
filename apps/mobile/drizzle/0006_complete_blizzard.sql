@@ -1,0 +1,1 @@
+CREATE INDEX `sync_operations_entity_operation_idx` ON `sync_operations` (`entity_type`,`entity_id`,`operation_type`);

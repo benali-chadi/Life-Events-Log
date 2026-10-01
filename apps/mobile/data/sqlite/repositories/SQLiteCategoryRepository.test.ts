@@ -1,3 +1,4 @@
+import { recordSealedCreation } from '../testing/recordSealedCreation';
 import type { Database } from 'sql.js';
 import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -56,7 +57,9 @@ describe('SQLiteCategoryRepository', () => {
   let repository: SQLiteCategoryRepository;
 
   beforeEach(async () => {
-    ({ sqlite, database } = await createTestDatabase());
+    ({ sqlite, database } = await createTestDatabase({
+      initializeSyncState: true,
+    }));
     repository = new SQLiteCategoryRepository(database, dependencies);
 
     database
@@ -84,6 +87,7 @@ describe('SQLiteCategoryRepository', () => {
     expect(created).toEqual({
       id: GENERATED_ID,
       name: 'Work Projects',
+      displayName: 'Work Projects',
       color: 'blue',
       createdAt: NOW,
       updatedAt: NOW,
@@ -158,6 +162,7 @@ describe('SQLiteCategoryRepository', () => {
       deletedAt: NOW,
     });
 
+    recordSealedCreation(database, 'category', CATEGORY_ID);
     await expect(repository.softDelete(CATEGORY_ID)).resolves.toEqual({
       affectedEventIds: ['deleted-event', 'event-1'],
     });

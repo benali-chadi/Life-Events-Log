@@ -1,3 +1,4 @@
+import { recordSealedCreation } from '../testing/recordSealedCreation';
 import type { Database } from 'sql.js';
 import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -56,7 +57,7 @@ function attachment(
   return {
     id,
     eventId: EVENT_ID,
-    relativePath: `attachments/${id}.jpg`,
+    contentHash: 'a'.repeat(64),
     filename: `${id}.jpg`,
     mimeType: 'image/jpeg',
     width: 100,
@@ -75,7 +76,7 @@ function validInput(
 ): CreateAttachmentInput {
   return {
     eventId: EVENT_ID,
-    relativePath: '  attachments/photo.jpg  ',
+    contentHash: '  ' + 'a'.repeat(64) + '  ',
     filename: '  photo.jpg  ',
     mimeType: ' IMAGE/JPEG ',
     width: 1_200,
@@ -91,7 +92,9 @@ describe('SQLiteAttachmentRepository', () => {
   let repository: SQLiteAttachmentRepository;
 
   beforeEach(async () => {
-    ({ sqlite, database } = await createTestDatabase());
+    ({ sqlite, database } = await createTestDatabase({
+      initializeSyncState: true,
+    }));
     insertEvent(database, EVENT_ID);
     insertEvent(database, OTHER_EVENT_ID);
     repository = new SQLiteAttachmentRepository(database, dependencies);
@@ -113,7 +116,7 @@ describe('SQLiteAttachmentRepository', () => {
     await expect(repository.create(validInput())).resolves.toEqual({
       id: ATTACHMENT_ID,
       eventId: EVENT_ID,
-      relativePath: 'attachments/photo.jpg',
+      contentHash: 'a'.repeat(64),
       filename: 'photo.jpg',
       mimeType: 'image/jpeg',
       width: 1_200,
@@ -212,6 +215,7 @@ describe('SQLiteAttachmentRepository', () => {
       ])
       .run();
 
+    recordSealedCreation(database, 'attachment', 'restored');
     await repository.softDelete('restored');
     await expect(repository.getById('restored')).resolves.toBeNull();
 
@@ -238,7 +242,7 @@ describe('SQLiteAttachmentRepository', () => {
   });
 
   it.each([
-    ['empty path', { relativePath: '   ' }],
+    ['empty path', { contentHash: '   ' }],
     ['empty filename', { filename: '   ' }],
     ['invalid width', { width: 0 }],
     ['invalid height', { height: -1 }],

@@ -1,3 +1,4 @@
+import { recordSealedCreation } from '../testing/recordSealedCreation';
 import type { Database } from 'sql.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
@@ -11,6 +12,7 @@ import type { AppDatabase } from '../database';
 import { eventPeople, events, people } from '../schema';
 import { createTestDatabase } from '../testing/createTestDatabase';
 import { SQLitePersonRepository } from './SQLitePersonRepository';
+import { SQLiteEventRepository } from './SQLiteEventRepository';
 
 const NOW = '2026-08-18T10:00:00.000Z';
 const PERSON_ID = '10000000-0000-4000-8000-000000000001';
@@ -69,7 +71,9 @@ describe('SQLitePersonRepository', () => {
   let repository: SQLitePersonRepository;
 
   beforeEach(async () => {
-    ({ sqlite, database } = await createTestDatabase());
+    ({ sqlite, database } = await createTestDatabase({
+      initializeSyncState: true,
+    }));
     repository = new SQLitePersonRepository(database, dependencies);
     database
       .insert(people)
@@ -92,6 +96,7 @@ describe('SQLitePersonRepository', () => {
     expect(created).toEqual({
       id: GENERATED_ID,
       name: 'Omar Alaoui',
+      displayName: 'Omar Alaoui',
       createdAt: NOW,
       updatedAt: NOW,
       deletedAt: null,
@@ -137,12 +142,22 @@ describe('SQLitePersonRepository', () => {
     ]);
   });
 
-  it('tombstones the person and active relationships transactionally', async () => {
+  it('tombstones the person while preserving relationships and events', async () => {
     insertEvent(database, 'event-1');
     insertEvent(database, 'event-2');
     attachPerson(database, 'event-1', PERSON_ID);
     attachPerson(database, 'event-2', PERSON_ID, '2026-08-02T10:00:00.000Z');
 
+    const originalRelations = database.select().from(eventPeople).all();
+    const originalEvents = database.select().from(events).all();
+    const eventRepository = new SQLiteEventRepository(database, dependencies);
+    await expect(
+      eventRepository.getDetailsById('event-1')
+    ).resolves.toMatchObject({
+      people: [expect.objectContaining({ id: PERSON_ID })],
+    });
+
+    recordSealedCreation(database, 'person', PERSON_ID);
     await expect(repository.softDelete(PERSON_ID)).resolves.toEqual({
       affectedEventIds: ['event-1'],
     });
@@ -151,8 +166,8 @@ describe('SQLitePersonRepository', () => {
       expect.objectContaining({
         eventId: 'event-1',
         personId: PERSON_ID,
-        deletedAt: NOW,
-        updatedAt: NOW,
+        deletedAt: null,
+        updatedAt: '2026-08-01T10:00:00.000Z',
       }),
       expect.objectContaining({
         eventId: 'event-2',
@@ -161,12 +176,25 @@ describe('SQLitePersonRepository', () => {
       }),
     ]);
     expect(database.select().from(events).all()).toEqual([
-      expect.objectContaining({ id: 'event-1', updatedAt: NOW }),
+      expect.objectContaining({
+        id: 'event-1',
+        updatedAt: '2026-08-01T10:00:00.000Z',
+      }),
       expect.objectContaining({
         id: 'event-2',
         updatedAt: '2026-08-01T10:00:00.000Z',
       }),
     ]);
+    expect(database.select().from(eventPeople).all()).toEqual(
+      originalRelations
+    );
+    expect(database.select().from(events).all()).toEqual(originalEvents);
+    await expect(
+      eventRepository.getDetailsById('event-1')
+    ).resolves.toMatchObject({
+      people: [],
+    });
+    await expect(repository.listWithUsage()).resolves.toEqual([]);
     await expect(repository.softDelete(PERSON_ID)).resolves.toEqual({
       affectedEventIds: [],
     });

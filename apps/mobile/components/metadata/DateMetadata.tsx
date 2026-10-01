@@ -6,6 +6,7 @@ import { radius, spacing, typography } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
 import { Clock3, X } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 export type DateValue = {
@@ -17,6 +18,8 @@ type DateMetadataProps = {
   value: DateValue;
   onChange: (value: DateValue) => void;
   disabled?: boolean;
+  dateReviewAction?: ReactNode;
+  timeReviewAction?: ReactNode;
 };
 
 type PickerMode = 'date' | 'time';
@@ -67,6 +70,8 @@ export default function DateMetadata({
   value,
   onChange,
   disabled = false,
+  dateReviewAction,
+  timeReviewAction,
 }: DateMetadataProps) {
   const { colors } = useTheme();
   const [iosPickerMode, setIosPickerMode] = useState<PickerMode | null>(null);
@@ -117,60 +122,65 @@ export default function DateMetadata({
   return (
     <View style={styles.root}>
       <View style={styles.controls}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Change date, currently ${formattedDate}`}
-          disabled={disabled}
-          onPress={() => openPicker('date')}
-          style={({ pressed }) => [
-            styles.valueButton,
-            {
-              borderColor: colors.border,
-              opacity: disabled ? 0.55 : 1,
-            },
-            pressed && { backgroundColor: colors.interactivePressed },
-          ]}
-        >
-          <Text style={[styles.valueText, { color: colors.textSecondary }]}>
-            {formattedDate}
-          </Text>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={
-            value.time ? `Change time, currently ${value.time}` : 'Add time'
-          }
-          disabled={disabled}
-          onPress={() => openPicker('time')}
-          style={({ pressed }) => [
-            styles.timeButton,
-            pressed && { backgroundColor: colors.interactivePressed },
-          ]}
-        >
-          <Clock3 color={colors.textMuted} size={14} strokeWidth={2} />
-          <Text style={[styles.valueText, { color: colors.textSecondary }]}>
-            {value.time ?? 'Add time'}
-          </Text>
-        </Pressable>
-
-        {value.time && !disabled && (
+        <View style={styles.controlGroup}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Remove time"
-            hitSlop={spacing[2]}
-            onPress={() => {
-              setIosPickerMode(null);
-              onChange({ date: value.date });
-            }}
+            accessibilityLabel={`Change date, currently ${formattedDate}`}
+            disabled={disabled}
+            onPress={() => openPicker('date')}
             style={({ pressed }) => [
-              styles.removeTimeButton,
+              styles.valueButton,
+              {
+                borderColor: colors.border,
+                opacity: disabled ? 0.55 : 1,
+              },
               pressed && { backgroundColor: colors.interactivePressed },
             ]}
           >
-            <X color={colors.textMuted} size={14} strokeWidth={2} />
+            <Text style={[styles.valueText, { color: colors.textSecondary }]}>
+              {formattedDate}
+            </Text>
           </Pressable>
-        )}
+          {dateReviewAction}
+        </View>
+        <View style={styles.controlGroup}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={
+              value.time ? `Change time, currently ${value.time}` : 'Add time'
+            }
+            disabled={disabled}
+            onPress={() => openPicker('time')}
+            style={({ pressed }) => [
+              styles.timeButton,
+              pressed && { backgroundColor: colors.interactivePressed },
+            ]}
+          >
+            <Clock3 color={colors.textMuted} size={14} strokeWidth={2} />
+            <Text style={[styles.valueText, { color: colors.textSecondary }]}>
+              {value.time ?? 'Add time'}
+            </Text>
+          </Pressable>
+          {timeReviewAction}
+
+          {value.time && !disabled && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Remove time"
+              hitSlop={spacing[2]}
+              onPress={() => {
+                setIosPickerMode(null);
+                onChange({ date: value.date });
+              }}
+              style={({ pressed }) => [
+                styles.removeTimeButton,
+                pressed && { backgroundColor: colors.interactivePressed },
+              ]}
+            >
+              <X color={colors.textMuted} size={14} strokeWidth={2} />
+            </Pressable>
+          )}
+        </View>
       </View>
 
       {Platform.OS === 'ios' && iosPickerMode && (
@@ -211,7 +221,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[2],
     paddingVertical: spacing[1],
   },
+  controlGroup: { flexDirection: 'row', alignItems: 'center', flexShrink: 1 },
   valueButton: {
+    flexShrink: 1,
     minHeight: 34,
     justifyContent: 'center',
     borderWidth: 1,

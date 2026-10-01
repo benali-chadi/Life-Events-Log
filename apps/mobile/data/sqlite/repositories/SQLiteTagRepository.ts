@@ -27,7 +27,8 @@ import {
   normalizeMetadataName,
 } from '@/data/repositories/metadataName';
 import type { Tag, UUID } from '@/models';
-import type { AppDatabase } from '../database';
+import type { AppDatabase, SyncTransaction } from '../database';
+import { applyPendingOperation } from '../sync/pending/applyPendingOperation';
 import { events, eventTags, tagModelColumns, tags } from '../schema';
 
 export class SQLiteTagRepository implements TagRepository {
@@ -55,7 +56,9 @@ export class SQLiteTagRepository implements TagRepository {
       .where(
         and(
           isNull(tags.deletedAt),
-          search ? sql`instr(${tags.normalizedName}, ${search}) > 0` : undefined
+          search
+            ? sql`(instr(${tags.normalizedName}, ${search}) > 0 OR instr(lower(${tagModelColumns.displayName}), ${search}) > 0)`
+            : undefined
         )
       )
       .orderBy(asc(tags.normalizedName), asc(tags.id))
@@ -81,7 +84,9 @@ export class SQLiteTagRepository implements TagRepository {
       .where(
         and(
           isNull(tags.deletedAt),
-          search ? sql`instr(${tags.normalizedName}, ${search}) > 0` : undefined
+          search
+            ? sql`(instr(${tags.normalizedName}, ${search}) > 0 OR instr(lower(${tagModelColumns.displayName}), ${search}) > 0)`
+            : undefined
         )
       )
       .groupBy(tags.id)
@@ -91,7 +96,6 @@ export class SQLiteTagRepository implements TagRepository {
 
   async create(input: CreateNamedMetadataInput): Promise<Tag> {
     const name = this.validName(input.name);
-    this.assertUniqueName(name);
 
     const id = this.dependencies.createId();
     const existing = this.database
@@ -115,18 +119,26 @@ export class SQLiteTagRepository implements TagRepository {
       deletedAt: null,
     };
 
-    this.database
-      .insert(tags)
-      .values({ ...tag, normalizedName: comparableMetadataName(tag.name) })
-      .run();
+    this.database.transaction((tx) => {
+      this.assertUniqueName(name, undefined, tx);
+      const { id: entityId, deletedAt: _deletedAt, ...payload } = tag;
+      applyPendingOperation(
+        {
+          operationType: 'entity.create',
+          entityType: 'tag',
+          entityId,
+          payload,
+        },
+        tx
+      );
+    });
 
-    return tag;
+    return (await this.getById(id))!;
   }
 
   async update(id: UUID, input: UpdateNamedMetadataInput): Promise<Tag> {
     const existing = this.activeTagOrThrow(id);
     const name = this.validName(input.name);
-    this.assertUniqueName(name, id);
 
     const updated: Tag = {
       ...existing,
@@ -134,17 +146,26 @@ export class SQLiteTagRepository implements TagRepository {
       updatedAt: this.dependencies.now(),
     };
 
-    this.database
-      .update(tags)
-      .set({
-        name: updated.name,
-        normalizedName: comparableMetadataName(updated.name),
-        updatedAt: updated.updatedAt,
-      })
-      .where(eq(tags.id, id))
-      .run();
+    this.database.transaction((tx) => {
+      if (
+        comparableMetadataName(name) !== comparableMetadataName(existing.name)
+      )
+        this.assertUniqueName(name, id, tx);
+      applyPendingOperation(
+        {
+          operationType: 'entity.patch',
+          entityType: 'tag',
+          entityId: id,
+          payload: {
+            changes: { name: updated.name },
+            updatedAt: updated.updatedAt,
+          },
+        },
+        tx
+      );
+    });
 
-    return updated;
+    return (await this.getById(id))!;
   }
 
   async softDelete(id: UUID): Promise<SoftDeleteMetadataResult> {
@@ -167,23 +188,15 @@ export class SQLiteTagRepository implements TagRepository {
         .sort();
       const timestamp = this.dependencies.now();
 
-      transaction
-        .update(tags)
-        .set({ updatedAt: timestamp, deletedAt: timestamp })
-        .where(and(eq(tags.id, id), isNull(tags.deletedAt)))
-        .run();
-      transaction
-        .update(eventTags)
-        .set({ updatedAt: timestamp, deletedAt: timestamp })
-        .where(and(eq(eventTags.tagId, id), isNull(eventTags.deletedAt)))
-        .run();
-      if (affectedEventIds.length > 0) {
+      applyPendingOperation(
+        {
+          operationType: 'entity.delete',
+          entityType: 'tag',
+          entityId: id,
+          payload: { deletedAt: timestamp },
+        },
         transaction
-          .update(events)
-          .set({ updatedAt: timestamp })
-          .where(inArray(events.id, affectedEventIds))
-          .run();
-      }
+      );
 
       return { affectedEventIds };
     });
@@ -225,8 +238,12 @@ export class SQLiteTagRepository implements TagRepository {
     return name;
   }
 
-  private assertUniqueName(name: string, excludedId?: UUID) {
-    const duplicate = this.database
+  private assertUniqueName(
+    name: string,
+    excludedId: UUID | undefined,
+    tx: SyncTransaction
+  ) {
+    const duplicate = tx
       .select({ id: tags.id })
       .from(tags)
       .where(

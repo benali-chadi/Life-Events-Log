@@ -1,0 +1,1 @@
+ALTER TABLE `event_attachments` ADD `content_hash` text;

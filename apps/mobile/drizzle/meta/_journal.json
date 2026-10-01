@@ -22,6 +22,48 @@
       "when": 1787327660569,
       "tag": "0002_regular_firebird",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1789054315360,
+      "tag": "0003_flippant_liz_osborn",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1789159582081,
+      "tag": "0004_short_madame_web",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1789159593591,
+      "tag": "0005_natural_omega_sentinel",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1789759340963,
+      "tag": "0006_complete_blizzard",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1789833157104,
+      "tag": "0007_icy_shriek",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1790109708172,
+      "tag": "0008_wandering_malice",
+      "breakpoints": true
     }
   ]
 }

@@ -10,6 +10,7 @@ import {
 import type { EventAttachment, UUID } from '@/models';
 import type { AppDatabase } from '../database';
 import { eventAttachments, events } from '../schema';
+import { applyPendingOperation } from '../sync/pending/applyPendingOperation';
 
 export class SQLiteAttachmentRepository implements AttachmentRepository {
   constructor(
@@ -76,9 +77,20 @@ export class SQLiteAttachmentRepository implements AttachmentRepository {
       deletedAt: null,
     };
 
-    this.database.insert(eventAttachments).values(attachment).run();
+    this.database.transaction((tx) => {
+      const { id: entityId, deletedAt: _deletedAt, ...payload } = attachment;
+      applyPendingOperation(
+        {
+          operationType: 'attachment.create',
+          entityType: 'attachment',
+          entityId,
+          payload,
+        },
+        tx
+      );
+    });
 
-    return attachment;
+    return (await this.getById(id))!;
   }
 
   async reorder(
@@ -134,22 +146,16 @@ export class SQLiteAttachmentRepository implements AttachmentRepository {
 
       const timestamp = this.dependencies.now();
 
-      orderedIds.forEach((id, sortOrder) => {
-        if (attachmentsById.get(id)?.sortOrder !== sortOrder) {
-          transaction
-            .update(eventAttachments)
-            .set({ sortOrder, updatedAt: timestamp })
-            .where(eq(eventAttachments.id, id))
-            .run();
-        }
-      });
-
-      return orderedIds.map((id, sortOrder) => {
-        const attachment = attachmentsById.get(id)!;
-        return attachment.sortOrder === sortOrder
-          ? attachment
-          : { ...attachment, sortOrder, updatedAt: timestamp };
-      });
+      applyPendingOperation(
+        {
+          operationType: 'event.attachment.reorder',
+          entityType: 'event',
+          entityId: eventId,
+          payload: { orderedAttachmentIds: orderedIds, updatedAt: timestamp },
+        },
+        transaction
+      );
+      return this.activeAttachmentsForEvent(eventId, transaction);
     });
   }
 
@@ -200,16 +206,17 @@ export class SQLiteAttachmentRepository implements AttachmentRepository {
       if (activeIds.length === 0) return;
 
       const timestamp = this.dependencies.now();
-      transaction
-        .update(eventAttachments)
-        .set({ updatedAt: timestamp, deletedAt: timestamp })
-        .where(
-          and(
-            inArray(eventAttachments.id, activeIds),
-            isNull(eventAttachments.deletedAt)
-          )
-        )
-        .run();
+      for (const id of activeIds) {
+        applyPendingOperation(
+          {
+            operationType: 'attachment.delete',
+            entityType: 'attachment',
+            entityId: id,
+            payload: { deletedAt: timestamp },
+          },
+          transaction
+        );
+      }
     });
   }
 
@@ -245,13 +252,13 @@ export class SQLiteAttachmentRepository implements AttachmentRepository {
   }
 
   private validatedInput(input: CreateAttachmentInput) {
-    const relativePath = input.relativePath.trim();
+    const contentHash = input.contentHash.trim();
     const filename = input.filename.trim();
     const mimeType = input.mimeType?.trim().toLowerCase() || null;
 
-    if (!relativePath) {
+    if (!/^[0-9a-f]{64}$/.test(contentHash)) {
       throw new ModelValidationError(
-        'Attachment relative path cannot be empty.'
+        'Attachment content hash must be a lowercase SHA-256 digest.'
       );
     }
     if (!filename) {
@@ -263,7 +270,7 @@ export class SQLiteAttachmentRepository implements AttachmentRepository {
     this.assertOptionalNonNegativeInteger(input.fileSize, 'file size');
 
     return {
-      relativePath,
+      contentHash,
       filename,
       mimeType,
       width: input.width,

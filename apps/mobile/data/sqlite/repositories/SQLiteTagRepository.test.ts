@@ -1,3 +1,4 @@
+import { recordSealedCreation } from '../testing/recordSealedCreation';
 import type { Database } from 'sql.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
@@ -11,6 +12,7 @@ import type { AppDatabase } from '../database';
 import { events, eventTags, tags } from '../schema';
 import { createTestDatabase } from '../testing/createTestDatabase';
 import { SQLiteTagRepository } from './SQLiteTagRepository';
+import { SQLiteEventRepository } from './SQLiteEventRepository';
 
 const NOW = '2026-08-18T10:00:00.000Z';
 const TAG_ID = '10000000-0000-4000-8000-000000000001';
@@ -69,7 +71,9 @@ describe('SQLiteTagRepository', () => {
   let repository: SQLiteTagRepository;
 
   beforeEach(async () => {
-    ({ sqlite, database } = await createTestDatabase());
+    ({ sqlite, database } = await createTestDatabase({
+      initializeSyncState: true,
+    }));
     repository = new SQLiteTagRepository(database, dependencies);
     database
       .insert(tags)
@@ -92,6 +96,7 @@ describe('SQLiteTagRepository', () => {
     expect(created).toEqual({
       id: GENERATED_ID,
       name: 'Big Trips',
+      displayName: 'Big Trips',
       createdAt: NOW,
       updatedAt: NOW,
       deletedAt: null,
@@ -140,12 +145,22 @@ describe('SQLiteTagRepository', () => {
     ]);
   });
 
-  it('tombstones the tag and its active relationships transactionally', async () => {
+  it('tombstones the tag while preserving relationships and events', async () => {
     insertEvent(database, 'event-1');
     insertEvent(database, 'event-2');
     attachTag(database, 'event-1', TAG_ID);
     attachTag(database, 'event-2', TAG_ID, '2026-08-02T10:00:00.000Z');
 
+    const originalRelations = database.select().from(eventTags).all();
+    const originalEvents = database.select().from(events).all();
+    const eventRepository = new SQLiteEventRepository(database, dependencies);
+    await expect(
+      eventRepository.getDetailsById('event-1')
+    ).resolves.toMatchObject({
+      tags: [expect.objectContaining({ id: TAG_ID })],
+    });
+
+    recordSealedCreation(database, 'tag', TAG_ID);
     await expect(repository.softDelete(TAG_ID)).resolves.toEqual({
       affectedEventIds: ['event-1'],
     });
@@ -154,8 +169,8 @@ describe('SQLiteTagRepository', () => {
       expect.objectContaining({
         eventId: 'event-1',
         tagId: TAG_ID,
-        deletedAt: NOW,
-        updatedAt: NOW,
+        deletedAt: null,
+        updatedAt: '2026-08-01T10:00:00.000Z',
       }),
       expect.objectContaining({
         eventId: 'event-2',
@@ -164,12 +179,23 @@ describe('SQLiteTagRepository', () => {
       }),
     ]);
     expect(database.select().from(events).all()).toEqual([
-      expect.objectContaining({ id: 'event-1', updatedAt: NOW }),
+      expect.objectContaining({
+        id: 'event-1',
+        updatedAt: '2026-08-01T10:00:00.000Z',
+      }),
       expect.objectContaining({
         id: 'event-2',
         updatedAt: '2026-08-01T10:00:00.000Z',
       }),
     ]);
+    expect(database.select().from(eventTags).all()).toEqual(originalRelations);
+    expect(database.select().from(events).all()).toEqual(originalEvents);
+    await expect(
+      eventRepository.getDetailsById('event-1')
+    ).resolves.toMatchObject({
+      tags: [],
+    });
+    await expect(repository.listWithUsage()).resolves.toEqual([]);
     await expect(repository.softDelete(TAG_ID)).resolves.toEqual({
       affectedEventIds: [],
     });

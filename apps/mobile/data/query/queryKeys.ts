@@ -28,6 +28,14 @@ export const eventKeys = {
   detail: (id: UUID) => ['events', 'detail', id] as const,
 };
 
+export const conflictKeys = {
+  all: ['conflicts'] as const,
+  eventIds: ['conflicts', 'event-ids'] as const,
+  type: (entityType: string) => ['conflicts', entityType] as const,
+  entity: (entityType: string, entityId: UUID) =>
+    ['conflicts', entityType, entityId] as const,
+};
+
 export const attachmentKeys = {
   all: ['attachments'] as const,
   lists: () => ['attachments', 'list'] as const,

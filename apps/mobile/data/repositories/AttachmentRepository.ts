@@ -2,7 +2,7 @@ import type { EventAttachment, UUID } from '@/models';
 
 export type CreateAttachmentInput = {
   eventId: UUID;
-  relativePath: string;
+  contentHash: string;
   filename: string;
   mimeType: string | null;
   width: number | null;

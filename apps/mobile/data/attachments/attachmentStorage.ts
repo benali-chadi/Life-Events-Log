@@ -1,12 +1,14 @@
 import { randomUUID } from 'expo-crypto';
 import { Directory, File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import { attachmentExtension, safeExportFilename } from './attachmentPath';
+import { safeExportFilename } from './attachmentPath';
+import { bytesToHex } from '@noble/hashes/utils.js';
+import * as Crypto from 'expo-crypto';
 
 const ATTACHMENTS_DIRECTORY = 'attachments';
 
 export type StoredAttachmentFile = {
-  relativePath: string;
+  contentHash: string;
   uri: string;
 };
 
@@ -15,25 +17,22 @@ export type ResolvedAttachmentFile = {
   isAvailable: boolean;
 };
 
-export function copyAttachmentIntoStorage({
+export async function copyAttachmentIntoStorage({
   sourceUri,
   filename,
-  mimeType,
 }: {
   sourceUri: string;
   filename: string;
   mimeType: string | null;
-}): StoredAttachmentFile {
+}): Promise<StoredAttachmentFile> {
   const directory = new Directory(Paths.document, ATTACHMENTS_DIRECTORY);
   directory.create({ idempotent: true, intermediates: true });
 
-  const storedFilename = `${randomUUID()}${attachmentExtension(
-    filename,
-    mimeType
-  )}`;
-  const relativePath = `${ATTACHMENTS_DIRECTORY}/${storedFilename}`;
   const source = new File(sourceUri);
-  const destination = new File(Paths.document, relativePath);
+  const staging = new Directory(Paths.cache, 'attachment-staging');
+  staging.create({ idempotent: true, intermediates: true });
+  const temporary = new File(staging, randomUUID());
+  let promoted = false;
 
   if (!source.exists) {
     throw new Error(
@@ -42,29 +41,61 @@ export function copyAttachmentIntoStorage({
   }
 
   try {
-    source.copy(destination);
-  } catch (error) {
-    if (destination.exists) destination.delete();
-    throw error;
+    source.copy(temporary);
+    const contentHash = await hashAttachmentFile(temporary);
+    const destination = new File(directory, contentHash);
+    if (!destination.exists) {
+      temporary.move(destination);
+      promoted = true;
+    }
+    return { contentHash, uri: destination.uri };
+  } finally {
+    if (!promoted && temporary.exists) temporary.delete();
   }
+}
 
-  return { relativePath, uri: destination.uri };
+/** Native SHA-256 over the full file; holds the file bytes in memory. */
+export async function hashAttachmentFile(file: File): Promise<string> {
+  const bytes = await file.bytes();
+  const digest = await Crypto.digest(
+    Crypto.CryptoDigestAlgorithm.SHA256,
+    bytes
+  );
+  return bytesToHex(new Uint8Array(digest));
 }
 
 export function resolveAttachmentFile(
-  relativePath: string
+  contentHash: string
 ): ResolvedAttachmentFile {
-  if (!isManagedAttachmentPath(relativePath)) {
+  if (!/^[0-9a-f]{64}$/.test(contentHash)) {
     return { uri: '', isAvailable: false };
   }
 
-  const file = new File(Paths.document, relativePath);
+  const file = new File(Paths.document, ATTACHMENTS_DIRECTORY, contentHash);
   return { uri: file.uri, isAvailable: file.exists };
 }
 
-export function removeImportedAttachment(relativePath: string) {
-  if (!isManagedAttachmentPath(relativePath)) return;
+/** Copies legacy content before the database commits; retries keep the source. */
+export async function migrateLegacyAttachmentFile(
+  relativePath: string
+): Promise<string | null> {
+  if (!isManagedAttachmentPath(relativePath))
+    throw new Error('Invalid legacy attachment path.');
+  const file = new File(Paths.document, relativePath);
+  if (!file.exists) return null;
+  const result = await copyAttachmentIntoStorage({
+    sourceUri: file.uri,
+    filename: file.name,
+    mimeType: null,
+  });
+  return result.contentHash;
+}
 
+export function removeLegacyAttachmentFile(relativePath: string) {
+  if (!isManagedAttachmentPath(relativePath))
+    throw new Error('Invalid legacy attachment path.');
+  // Never delete a content-addressed blob, even if an old row points at one.
+  if (/^attachments\/[0-9a-f]{64}$/.test(relativePath)) return;
   const file = new File(Paths.document, relativePath);
   if (file.exists) file.delete();
 }

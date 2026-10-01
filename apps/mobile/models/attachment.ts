@@ -4,7 +4,7 @@ export type EventAttachment = {
   id: UUID;
   eventId: UUID;
 
-  relativePath: string;
+  contentHash: string;
   filename: string;
   mimeType: string | null;
 

@@ -38,6 +38,9 @@ importers:
       '@lel/design':
         specifier: workspace:*
         version: link:../../packages/design
+      '@noble/hashes':
+        specifier: ^2.0.0
+        version: 2.4.0
       '@react-native-community/datetimepicker':
         specifier: 8.4.4
         version: 8.4.4(expo@54.0.35)(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
@@ -53,6 +56,9 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.101.4
         version: 5.101.4(react@19.1.0)
+      canonicalize:
+        specifier: ^2.0.0
+        version: 2.1.0
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(@types/sql.js@1.4.11)(expo-sqlite@16.0.10(expo@54.0.35)(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(sql.js@1.14.2)
@@ -68,6 +74,9 @@ importers:
       expo-document-picker:
         specifier: ~14.0.8
         version: 14.0.8(expo@54.0.35)
+      expo-drizzle-studio-plugin:
+        specifier: ^0.2.1
+        version: 0.2.1(expo-sqlite@16.0.10(expo@54.0.35)(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(expo@54.0.35)
       expo-file-system:
         specifier: ~19.0.23
         version: 19.0.23(expo@54.0.35)(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))
@@ -110,6 +119,9 @@ importers:
       expo-web-browser:
         specifier: ~15.0.11
         version: 15.0.11(expo@54.0.35)(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))
+      fflate:
+        specifier: ^0.8.3
+        version: 0.8.3
       ical.js:
         specifier: ^2.2.1
         version: 2.2.1
@@ -149,6 +161,9 @@ importers:
       react-native-worklets:
         specifier: 0.5.1
         version: 0.5.1(@babel/core@7.29.7)(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
+      react-native-zip-archive:
+        specifier: 9.5.2
+        version: 9.5.2(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
     devDependencies:
       '@types/react':
         specifier: ~19.1.0
@@ -1430,6 +1445,10 @@ packages:
       '@emnapi/core': ^1.7.1
       '@emnapi/runtime': ^1.7.1
 
+  '@noble/hashes@2.4.0':
+    resolution: {integrity: sha512-X5XaVWZIBCT7HHZGm5I7ZQXDwLG+bGXuSrMQAW+7Zvl87h1kmc1ZB1VSRJcpUfoUrGQp4Fkoxm5kZ+Ms+aW+eA==}
+    engines: {node: '>= 20.19.0'}
+
   '@nolyfill/is-core-module@1.0.39':
     resolution: {integrity: sha512-nn5ozdjYQpUCZlWGuxcJY/KpxkWQs4DcbMCmKojjyrYDEAGy4Ce19NN4v5MduafTwJlbKc99UA8YhSVqq9yPZA==}
     engines: {node: '>=12.4.0'}
@@ -2500,6 +2519,10 @@ packages:
   caniuse-lite@1.0.30001802:
     resolution: {integrity: sha512-vmv8ub2xwTNmljSKf82mtCk5JH7hC+YgzLj3P5zotvA0tPQ9016tdNNOG8WRca1IxOnhSsivB+J0z5FeE5LOUw==}
 
+  canonicalize@2.1.0:
+    resolution: {integrity: sha512-F705O3xrsUtgt98j7leetNhTWPe+5S72rlL5O4jA1pKqBVQ/dT1O1D6PFxmSXvc0SUOinWS57DKx0I3CHrXJHQ==}
+    hasBin: true
+
   chai@6.2.2:
     resolution: {integrity: sha512-NUPRluOfOiTKBKvWPtSD4PhFvWCqOi0BGStNWs57X9js7XGTprSmFoz5F0tWhR4WPjNeR9jXqdC7/UpSJTnlRg==}
     engines: {node: '>=18'}
@@ -3126,6 +3149,12 @@ packages:
     peerDependencies:
       expo: '*'
 
+  expo-drizzle-studio-plugin@0.2.1:
+    resolution: {integrity: sha512-AjMC7SOutMAv/MkeJSp/26gnHLAA17SG8EtsjIKW6tDcBkq4plDVhjMLusoGe9f0vzYK8KrOvWjEWZ/R+KvIGg==}
+    peerDependencies:
+      expo: '>=53.0.5'
+      expo-sqlite: '>=15.2.9'
+
   expo-file-system@19.0.23:
     resolution: {integrity: sha512-MeGkid9OeNILfT/qonaXHp4f2c15xaB28U/bcN7pqZej0Kx0+6+V7e9ZIXpPHm07zVatxA+QkMTPQEGfmvVOxA==}
     peerDependencies:
@@ -3319,6 +3348,9 @@ packages:
     peerDependenciesMeta:
       picomatch:
         optional: true
+
+  fflate@0.8.3:
+    resolution: {integrity: sha512-tbZNuJrLwGUp3zshBtdy4W+ORxZuIh8a5ilyIEQDC5rY1f3U20JMry0Ll3WBzU58EZKsEuJFXhb5gwv8CsPvgA==}
 
   file-entry-cache@8.0.0:
     resolution: {integrity: sha512-XXTUwCvisa5oacNGRP9SfNtYBNAMi+RPwBFmblZEF7N7swHYQS6/Zfk7SRwx4D5j3CH211YNRco1DEMNVfZCnQ==}
@@ -4554,6 +4586,12 @@ packages:
       '@babel/core': ^7.0.0-0
       react: '*'
       react-native: '*'
+
+  react-native-zip-archive@9.5.2:
+    resolution: {integrity: sha512-wspfJPc101fX1/6voa5nurMxoCXCRFs1UqVlnbQtQp7phbt9UFCTLy8uGDotBBaC5UVfgK3IUgPyV8t/HRGN3A==}
+    peerDependencies:
+      react: '>=18.0.0'
+      react-native: '>=0.70.0'
 
   react-native@0.81.5:
     resolution: {integrity: sha512-1w+/oSjEXZjMqsIvmkCRsOc8UBYv163bTWKTI8+1mxztvQPhCRYGTvZ/PL1w16xXHneIj/SLGfxWg2GWN2uexw==}
@@ -6799,6 +6837,8 @@ snapshots:
       '@tybys/wasm-util': 0.10.3
     optional: true
 
+  '@noble/hashes@2.4.0': {}
+
   '@nolyfill/is-core-module@1.0.39': {}
 
   '@oxc-project/types@0.139.0': {}
@@ -7931,6 +7971,8 @@ snapshots:
 
   caniuse-lite@1.0.30001802: {}
 
+  canonicalize@2.1.0: {}
+
   chai@6.2.2: {}
 
   chalk@2.4.2:
@@ -8662,6 +8704,11 @@ snapshots:
     dependencies:
       expo: 54.0.35(@babel/core@7.29.7)(@expo/metro-runtime@6.1.2)(expo-router@6.0.24)(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)(typescript@5.9.3)
 
+  expo-drizzle-studio-plugin@0.2.1(expo-sqlite@16.0.10(expo@54.0.35)(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(expo@54.0.35):
+    dependencies:
+      expo: 54.0.35(@babel/core@7.29.7)(@expo/metro-runtime@6.1.2)(expo-router@6.0.24)(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)(typescript@5.9.3)
+      expo-sqlite: 16.0.10(expo@54.0.35)(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
+
   expo-file-system@19.0.23(expo@54.0.35)(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0)):
     dependencies:
       expo: 54.0.35(@babel/core@7.29.7)(@expo/metro-runtime@6.1.2)(expo-router@6.0.24)(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)(typescript@5.9.3)
@@ -8883,6 +8930,8 @@ snapshots:
   fdir@6.5.0(picomatch@4.0.5):
     optionalDependencies:
       picomatch: 4.0.5
+
+  fflate@0.8.3: {}
 
   file-entry-cache@8.0.0:
     dependencies:
@@ -10356,6 +10405,11 @@ snapshots:
       semver: 7.7.2
     transitivePeerDependencies:
       - supports-color
+
+  react-native-zip-archive@9.5.2(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0):
+    dependencies:
+      react: 19.1.0
+      react-native: 0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0)
 
   react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0):
     dependencies:

@@ -22,6 +22,8 @@ export type Category = {
   id: UUID;
 
   name: string;
+  /** Derived read-model label; never persisted or synced. */
+  displayName?: string;
   color: CategoryColor;
 
   createdAt: Timestamp;

@@ -12,6 +12,8 @@ import type {
   ParsedIcsEvent,
 } from './types';
 
+import { isValidLocalDate } from '@/models/validation';
+
 type IcalComponent = InstanceType<typeof ICAL.Component>;
 type IcalEvent = InstanceType<typeof ICAL.Event>;
 type IcalTime = InstanceType<typeof ICAL.Time>;
@@ -288,22 +290,13 @@ function dateKey(time: IcalTime): string {
 function validateRange(range?: IcsRecurrenceRange) {
   if (!range) return;
   if (
-    !isCalendarDate(range.to) ||
+    !isValidLocalDate(range.to) ||
     (range.from !== undefined &&
-      (!isCalendarDate(range.from) || range.from > range.to))
+      (!isValidLocalDate(range.from) || range.from > range.to))
   ) {
     throw new IcsRecurrenceExpansionError(
       'invalid-range',
       'The recurrence range must contain valid ordered YYYY-MM-DD dates.'
     );
-  }
-}
-
-function isCalendarDate(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  try {
-    return ICAL.Time.fromDateString(value).toString() === value;
-  } catch {
-    return false;
   }
 }

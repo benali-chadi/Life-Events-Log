@@ -91,7 +91,7 @@ const EventsHeader = forwardRef<EventsHeaderHandle, EventsHeaderProps>(
         },
         ...(categoriesQuery.data ?? []).map((category) => ({
           id: category.id,
-          label: category.name,
+          label: category.displayName ?? category.name,
           color: eventColors[category.color][isDark ? 'dark' : 'light'],
         })),
       ],
@@ -115,21 +115,24 @@ const EventsHeader = forwardRef<EventsHeaderHandle, EventsHeaderProps>(
         },
         ...(locationsQuery.data ?? []).map((location) => ({
           id: location.id,
-          label: location.name,
+          label: location.displayName ?? location.name,
         })),
       ],
       [locationsQuery.data]
     );
     const tagOptions = useMemo(
       () =>
-        (tagsQuery.data ?? []).map((tag) => ({ id: tag.id, label: tag.name })),
+        (tagsQuery.data ?? []).map((tag) => ({
+          id: tag.id,
+          label: tag.displayName ?? tag.name,
+        })),
       [tagsQuery.data]
     );
     const peopleOptions = useMemo(
       () =>
         (peopleQuery.data ?? []).map((person) => ({
           id: person.id,
-          label: person.name,
+          label: person.displayName ?? person.name,
         })),
       [peopleQuery.data]
     );

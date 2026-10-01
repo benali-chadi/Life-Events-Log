@@ -31,7 +31,7 @@ function attachment(
   return {
     id,
     eventId: EVENT_ID,
-    relativePath: `attachments/${id}.jpg`,
+    contentHash: 'a'.repeat(64),
     filename: `${id}.jpg`,
     mimeType: 'image/jpeg',
     width: 100,
@@ -64,7 +64,7 @@ function validInput(
 ): CreateAttachmentInput {
   return {
     eventId: EVENT_ID,
-    relativePath: '  attachments/photo.jpg  ',
+    contentHash: '  ' + 'a'.repeat(64) + '  ',
     filename: '  photo.jpg  ',
     mimeType: ' IMAGE/JPEG ',
     width: 1_200,
@@ -89,7 +89,7 @@ describe('InMemoryAttachmentRepository', () => {
     expect(created).toEqual({
       id: ATTACHMENT_ID,
       eventId: EVENT_ID,
-      relativePath: 'attachments/photo.jpg',
+      contentHash: 'a'.repeat(64),
       filename: 'photo.jpg',
       mimeType: 'image/jpeg',
       width: 1_200,
@@ -242,7 +242,7 @@ describe('InMemoryAttachmentRepository', () => {
   });
 
   it.each([
-    ['empty path', { relativePath: '   ' }],
+    ['empty path', { contentHash: '   ' }],
     ['empty filename', { filename: '   ' }],
     ['invalid width', { width: 0 }],
     ['invalid height', { height: -1 }],

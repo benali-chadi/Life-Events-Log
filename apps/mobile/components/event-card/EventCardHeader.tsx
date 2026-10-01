@@ -2,6 +2,7 @@ import type { useTheme } from '@lel/design/useTheme';
 import { useEffect, useState } from 'react';
 import type { NativeSyntheticEvent, TextLayoutEventData } from 'react-native';
 import { Text, View } from 'react-native';
+import { GitCompareArrows } from 'lucide-react-native';
 import {
   significanceLevels,
   type getSignificanceStyle,
@@ -12,6 +13,7 @@ import type { EventSignificance } from '@/models';
 const COLLAPSED_TITLE_LINE_LIMIT = 2;
 
 type EventCardHeaderProps = {
+  hasConflicts?: boolean;
   title: string;
   time?: string;
   significance: EventSignificance;
@@ -22,6 +24,7 @@ type EventCardHeaderProps = {
 };
 
 export default function EventCardHeader({
+  hasConflicts = false,
   title,
   time,
   significance,
@@ -62,6 +65,15 @@ export default function EventCardHeader({
         {title}
       </Text>
       <View style={styles.headerMeta}>
+        {hasConflicts && (
+          <View
+            pointerEvents="none"
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          >
+            <GitCompareArrows size={18} color={colors.warning} />
+          </View>
+        )}
         {time && (
           <Text style={[styles.date, { color: colors.textMuted }]}>{time}</Text>
         )}

@@ -26,9 +26,12 @@ import { eventPersonKey, eventTagKey } from '../relationshipKeys';
 import type { InMemoryDatabase } from '../types';
 import {
   cloneMetadataEntity,
+  metadataWithDisplayName,
   compareMetadataNames,
   normalizeMetadataName,
 } from '@/data/repositories/metadataName';
+
+import { isValidLocalDate, isValidLocalTime } from '@/models/validation';
 
 type ValidatedEventValues = Omit<CreateEventInput, 'tagIds' | 'peopleIds'> & {
   tagIds: UUID[];
@@ -48,9 +51,6 @@ const VALIDATE_ALL_REFERENCES: ReferenceValidation = {
   tags: true,
   people: true,
 };
-
-const LOCAL_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const LOCAL_TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 const NOTES_PREVIEW_LENGTH = 160;
 
 type EventCursor = {
@@ -546,28 +546,15 @@ export class InMemoryEventRepository implements EventRepository {
   }
 
   private assertValidDate(date: LocalDate) {
-    if (!LOCAL_DATE_PATTERN.test(date)) {
+    if (!isValidLocalDate(date)) {
       throw new ModelValidationError(
         `Invalid event date “${date}”. Expected YYYY-MM-DD.`
       );
     }
-
-    const year = Number(date.slice(0, 4));
-    const month = Number(date.slice(5, 7));
-    const day = Number(date.slice(8, 10));
-    const parsed = new Date(Date.UTC(year, month - 1, day));
-
-    if (
-      parsed.getUTCFullYear() !== year ||
-      parsed.getUTCMonth() !== month - 1 ||
-      parsed.getUTCDate() !== day
-    ) {
-      throw new ModelValidationError(`Invalid event date “${date}”.`);
-    }
   }
 
   private assertValidTime(time: LocalTime | null) {
-    if (time !== null && !LOCAL_TIME_PATTERN.test(time)) {
+    if (time !== null && !isValidLocalTime(time)) {
       throw new ModelValidationError(
         `Invalid event time “${time}”. Expected HH:mm.`
       );
@@ -627,12 +614,14 @@ export class InMemoryEventRepository implements EventRepository {
     const tags = this.tagIdsForEvent(event.id)
       .map((id) => this.database.tags.get(id))
       .filter((tag) => tag?.deletedAt === null)
-      .map((tag) => cloneMetadataEntity(tag!))
+      .map((tag) => metadataWithDisplayName(tag!, this.database.tags.values()))
       .sort(compareMetadataNames);
     const people = this.peopleIdsForEvent(event.id)
       .map((id) => this.database.people.get(id))
       .filter((person) => person?.deletedAt === null)
-      .map((person) => cloneMetadataEntity(person!))
+      .map((person) =>
+        metadataWithDisplayName(person!, this.database.people.values())
+      )
       .sort(compareMetadataNames);
     const attachments = [...this.database.attachments.values()]
       .filter(
@@ -649,9 +638,13 @@ export class InMemoryEventRepository implements EventRepository {
     return {
       event: cloneEvent(event),
       category:
-        category?.deletedAt === null ? cloneMetadataEntity(category) : null,
+        category?.deletedAt === null
+          ? metadataWithDisplayName(category, this.database.categories.values())
+          : null,
       location:
-        location?.deletedAt === null ? cloneMetadataEntity(location) : null,
+        location?.deletedAt === null
+          ? metadataWithDisplayName(location, this.database.locations.values())
+          : null,
       tags,
       people,
       attachments,

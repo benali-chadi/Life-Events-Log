@@ -5,12 +5,14 @@ import type {
   UpdateEventInput,
 } from '@/data/repositories';
 import type { UUID } from '@/models';
+import { useAttachmentStorageAccess } from '@/data/attachments/AttachmentStorageAccessProvider';
 import {
   useEventImportRepository,
   useEventRepository,
 } from '@/data/RepositoryProvider';
 import {
   cacheEventDetails,
+  invalidateConflicts,
   invalidateEventLists,
   invalidateMetadataLists,
   invalidateMetadataUsageLists,
@@ -76,6 +78,7 @@ export function useUpdateEventMutation() {
     onSuccess: async (details) => {
       cacheEventDetails(queryClient, details);
       await Promise.all([
+        invalidateConflicts(queryClient),
         invalidateEventLists(queryClient),
         invalidateMetadataUsageLists(queryClient),
       ]);
@@ -84,15 +87,20 @@ export function useUpdateEventMutation() {
 }
 
 export function useDeleteEventMutation() {
+  const storageAccess = useAttachmentStorageAccess();
   const repository = useEventRepository();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: UUID) => repository.softDelete(id),
+    mutationFn: async (id: UUID) => {
+      await repository.softDelete(id);
+      storageAccess.requestCleanup();
+    },
     onSuccess: async (_, id) => {
       queryClient.setQueryData(eventKeys.record(id), null);
       queryClient.setQueryData(eventKeys.detail(id), null);
       await Promise.all([
+        invalidateConflicts(queryClient),
         invalidateEventLists(queryClient),
         invalidateMetadataUsageLists(queryClient),
       ]);
@@ -101,17 +109,22 @@ export function useDeleteEventMutation() {
 }
 
 export function useDeleteManyEventsMutation() {
+  const storageAccess = useAttachmentStorageAccess();
   const repository = useEventRepository();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (ids: readonly UUID[]) => repository.softDeleteMany(ids),
+    mutationFn: async (ids: readonly UUID[]) => {
+      await repository.softDeleteMany(ids);
+      storageAccess.requestCleanup();
+    },
     onSuccess: async (_, ids) => {
       ids.forEach((id) => {
         queryClient.setQueryData(eventKeys.record(id), null);
         queryClient.setQueryData(eventKeys.detail(id), null);
       });
       await Promise.all([
+        invalidateConflicts(queryClient),
         invalidateEventLists(queryClient),
         invalidateMetadataUsageLists(queryClient),
       ]);

@@ -15,6 +15,7 @@ import type { EventListItem } from '@/data/repositories';
 
 type EventCardContentProps = {
   event: EventListItem;
+  hasConflicts?: boolean;
   significance: EventSignificance;
   colors: ReturnType<typeof useTheme>['colors'];
   isDark: boolean;
@@ -28,6 +29,7 @@ type EventCardContentProps = {
 
 export default function EventCardContent({
   event,
+  hasConflicts = false,
   significance,
   colors,
   isDark,
@@ -38,8 +40,10 @@ export default function EventCardContent({
   onToggleExpanded,
   onTitleOverflowChange,
 }: EventCardContentProps) {
-  const tags = event.tags.map((tag) => tag.name);
-  const people = event.people.map((person) => person.name);
+  const tags = event.tags.map((tag) => tag.displayName ?? tag.name);
+  const people = event.people.map(
+    (person) => person.displayName ?? person.name
+  );
   const significanceStyle = getSignificanceStyle(significance, colors);
   const categoryColor = event.category
     ? eventColors[event.category.color][isDark ? 'dark' : 'light']
@@ -48,7 +52,7 @@ export default function EventCardContent({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Open ${event.event.title}, ${significanceLabels[significance]} significance`}
+      accessibilityLabel={`Open ${event.event.title}, ${significanceLabels[significance]} significance${hasConflicts ? ', has unresolved conflicts' : ''}`}
       onPress={onOpen}
       onLongPress={onLongPress}
       style={({ pressed }) => [
@@ -76,6 +80,7 @@ export default function EventCardContent({
       )}
 
       <EventCardHeader
+        hasConflicts={hasConflicts}
         title={event.event.title}
         time={event.event.time ?? undefined}
         significance={significance}
@@ -107,7 +112,7 @@ export default function EventCardContent({
             color={colors.textMuted}
           />
           <Text style={[styles.locationText, { color: colors.textSecondary }]}>
-            {event.location.name}
+            {event.location.displayName ?? event.location.name}
           </Text>
         </View>
       )}

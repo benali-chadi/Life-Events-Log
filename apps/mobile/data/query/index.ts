@@ -4,5 +4,6 @@ export * from './useAttachmentMutations';
 export * from './useAttachmentQueries';
 export * from './useEventMutations';
 export * from './useEventQueries';
+export * from './useConflictQueries';
 export * from './useMetadataMutations';
 export * from './useMetadataQueries';

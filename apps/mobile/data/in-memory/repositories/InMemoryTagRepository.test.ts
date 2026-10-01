@@ -54,8 +54,14 @@ describe('InMemoryTagRepository', () => {
     });
 
     await expect(repository.listWithUsage()).resolves.toEqual([
-      { metadata: developmentTag, eventCount: 0 },
-      { metadata: localFirstTag, eventCount: 0 },
+      {
+        metadata: { ...developmentTag, displayName: developmentTag.name },
+        eventCount: 0,
+      },
+      {
+        metadata: { ...localFirstTag, displayName: localFirstTag.name },
+        eventCount: 0,
+      },
     ]);
   });
 
@@ -67,6 +73,7 @@ describe('InMemoryTagRepository', () => {
     expect(created).toEqual({
       id: '90000000-0000-4000-8000-000000000001',
       name: 'data ownership',
+      displayName: 'data ownership',
       createdAt: '2026-07-30T10:00:00.000Z',
       updatedAt: '2026-07-30T10:00:00.000Z',
       deletedAt: null,
@@ -115,7 +122,7 @@ describe('InMemoryTagRepository', () => {
     ).rejects.toBeInstanceOf(RepositoryError);
   });
 
-  it('tombstones a tag and its relationships', async () => {
+  it('tombstones a tag while preserving relationships and events', async () => {
     const { database, repository } = createRepository();
     const tagId = DEVELOPMENT_SEED.tags[0].id;
     const affectedIds = [...database.eventTags.values()]
@@ -131,6 +138,8 @@ describe('InMemoryTagRepository', () => {
       deletedAt: '2026-08-01T10:00:00.000Z',
     });
 
+    const relationsBefore = structuredClone([...database.eventTags.entries()]);
+    const eventsBefore = structuredClone([...database.events.entries()]);
     const result = await repository.softDelete(tagId);
 
     expect(result.affectedEventIds).toEqual(affectedIds);
@@ -139,24 +148,16 @@ describe('InMemoryTagRepository', () => {
       deletedAt: '2026-07-30T10:00:00.000Z',
     });
     await expect(repository.getById(tagId)).resolves.toBeNull();
-    expect(
-      [...database.eventTags.values()]
-        .filter((relationship) => relationship.tagId === tagId)
-        .every(
-          (relationship) =>
-            relationship.deletedAt === '2026-07-30T10:00:00.000Z'
-        )
-    ).toBe(true);
+    expect([...database.eventTags.entries()]).toEqual(relationsBefore);
+    expect([...database.events.entries()]).toEqual(eventsBefore);
     expect(
       [...database.eventTags.values()].filter(
         (relationship) => relationship.tagId !== tagId
       )
     ).toEqual(unrelatedRelationships);
-    for (const eventId of affectedIds) {
-      expect(database.events.get(eventId)?.updatedAt).toBe(
-        '2026-07-30T10:00:00.000Z'
-      );
-    }
+    await expect(repository.softDelete(tagId)).resolves.toEqual({
+      affectedEventIds: [],
+    });
     expect(database.events.get(affectedIds[0]!)?.deletedAt).toBe(
       '2026-08-01T10:00:00.000Z'
     );

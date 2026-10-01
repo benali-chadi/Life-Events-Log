@@ -20,6 +20,7 @@ import {
   View,
 } from 'react-native';
 import { shareAttachment } from '@/data/attachments';
+import { useAttachmentStorageAccess } from '@/data/attachments/AttachmentStorageAccessProvider';
 import type { AttachmentPreview } from './types';
 import ZoomableAttachmentImage from './ZoomableAttachmentImage';
 
@@ -37,6 +38,7 @@ export default function AttachmentViewer({
   onClose,
 }: AttachmentViewerProps) {
   const { width, height } = useWindowDimensions();
+  const storageAccess = useAttachmentStorageAccess();
   const listRef = useRef<FlatList<AttachmentPreview>>(null);
   const [activeIndex, setActiveIndex] = useState(initialIndex);
   const [controlsVisible, setControlsVisible] = useState(true);
@@ -96,7 +98,7 @@ export default function AttachmentViewer({
 
     setIsSharing(true);
     try {
-      await shareAttachment(activeAttachment);
+      await storageAccess.withAccess(() => shareAttachment(activeAttachment));
     } catch {
       Alert.alert(
         'Couldn’t share attachment',

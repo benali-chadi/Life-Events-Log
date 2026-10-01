@@ -23,6 +23,8 @@ const MENU_WIDTH = 230;
 
 type TimelineOverflowMenuProps = {
   exportDisabled?: boolean;
+  onImportSyncPackage?: () => void;
+  onExportSyncPackage?: () => void;
   showFilteredExport?: boolean;
   onExportAll?: () => void;
   onExportFiltered?: () => void;
@@ -30,6 +32,8 @@ type TimelineOverflowMenuProps = {
 
 export default function TimelineOverflowMenu({
   exportDisabled = false,
+  onImportSyncPackage,
+  onExportSyncPackage,
   showFilteredExport = false,
   onExportAll,
   onExportFiltered,
@@ -130,7 +134,7 @@ export default function TimelineOverflowMenu({
                 {
                   backgroundColor: colors.surfaceElevated,
                   borderColor: colors.border,
-                  shadowColor: colors.text,
+                  shadowColor: colors.shadow,
                 },
               ]}
             >
@@ -166,6 +170,27 @@ export default function TimelineOverflowMenu({
                 </Text>
               </Pressable>
 
+              {onImportSyncPackage && (
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={exportDisabled}
+                  onPress={() => exportEvents(onImportSyncPackage)}
+                  style={({ pressed }) => [
+                    styles.menuItem,
+                    pressed && { backgroundColor: colors.interactivePressed },
+                    exportDisabled && styles.disabled,
+                  ]}
+                >
+                  <FileUp
+                    color={colors.textSecondary}
+                    size={18}
+                    strokeWidth={2}
+                  />
+                  <Text style={[styles.menuItemText, { color: colors.text }]}>
+                    Import sync package
+                  </Text>
+                </Pressable>
+              )}
               {onExportAll && (
                 <Pressable
                   accessibilityRole="button"
@@ -184,6 +209,27 @@ export default function TimelineOverflowMenu({
                   />
                   <Text style={[styles.menuItemText, { color: colors.text }]}>
                     Export all to calendar file
+                  </Text>
+                </Pressable>
+              )}
+              {onExportSyncPackage && (
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={exportDisabled}
+                  onPress={() => exportEvents(onExportSyncPackage)}
+                  style={({ pressed }) => [
+                    styles.menuItem,
+                    pressed && { backgroundColor: colors.interactivePressed },
+                    exportDisabled && styles.disabled,
+                  ]}
+                >
+                  <Download
+                    color={colors.textSecondary}
+                    size={18}
+                    strokeWidth={2}
+                  />
+                  <Text style={[styles.menuItemText, { color: colors.text }]}>
+                    Export sync package
                   </Text>
                 </Pressable>
               )}

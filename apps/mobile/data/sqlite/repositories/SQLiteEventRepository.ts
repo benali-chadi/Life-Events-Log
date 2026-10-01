@@ -46,7 +46,8 @@ import {
   normalizeMetadataName,
   normalizeSearchText,
 } from '@/data/repositories/metadataName';
-import type { AppDatabase } from '../database';
+import type { AppDatabase, SyncTransaction } from '../database';
+import { applyPendingOperation } from '../sync/pending/applyPendingOperation';
 import {
   categories,
   categoryModelColumns,
@@ -62,12 +63,12 @@ import {
   tags,
   tagModelColumns,
 } from '../schema';
+import { isValidLocalDate, isValidLocalTime } from '@/models/validation';
 
 type Values = Omit<CreateEventInput, 'tagIds' | 'peopleIds'> & {
   tagIds: UUID[];
   peopleIds: UUID[];
 };
-type WritableDatabase = Pick<AppDatabase, 'select' | 'insert' | 'update'>;
 type Cursor = {
   version: 1;
   date: LocalDate;
@@ -84,8 +85,6 @@ type EventListProjection = {
   attachmentCount: number;
   attachmentPreviewJson: string | null;
 };
-const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 const NOTES_PREVIEW_LENGTH = 160;
 
 export class SQLiteEventRepository implements EventRepository {
@@ -120,6 +119,7 @@ export class SQLiteEventRepository implements EventRepository {
           SELECT json_group_array(json_object(
             'id', ${tags.id},
             'name', ${tags.name},
+            'displayName', ${tagModelColumns.displayName},
             'createdAt', ${tags.createdAt},
             'updatedAt', ${tags.updatedAt},
             'deletedAt', ${tags.deletedAt}
@@ -134,6 +134,7 @@ export class SQLiteEventRepository implements EventRepository {
           SELECT json_group_array(json_object(
             'id', ${people.id},
             'name', ${people.name},
+            'displayName', ${personModelColumns.displayName},
             'createdAt', ${people.createdAt},
             'updatedAt', ${people.updatedAt},
             'deletedAt', ${people.deletedAt}
@@ -154,7 +155,7 @@ export class SQLiteEventRepository implements EventRepository {
           SELECT json_object(
             'id', ${eventAttachments.id},
             'eventId', ${eventAttachments.eventId},
-            'relativePath', ${eventAttachments.relativePath},
+            'contentHash', ${eventAttachments.contentHash},
             'filename', ${eventAttachments.filename},
             'mimeType', ${eventAttachments.mimeType},
             'width', ${eventAttachments.width},
@@ -246,12 +247,16 @@ export class SQLiteEventRepository implements EventRepository {
       deletedAt: null,
     };
     this.database.transaction((tx) => {
-      tx.insert(events)
-        .values({
-          ...event,
-          normalizedTitle: normalizeSearchText(event.title),
-        })
-        .run();
+      const { id: entityId, deletedAt: _deletedAt, ...payload } = event;
+      applyPendingOperation(
+        {
+          operationType: 'entity.create',
+          entityType: 'event',
+          entityId,
+          payload,
+        },
+        tx
+      );
       this.replaceTags(id, values.tagIds, timestamp, tx);
       this.replacePeople(id, values.peopleIds, timestamp, tx);
     });
@@ -315,13 +320,32 @@ export class SQLiteEventRepository implements EventRepository {
       updatedAt: this.dependencies.now(),
     };
     this.database.transaction((tx) => {
-      tx.update(events)
-        .set({
-          ...updated,
-          normalizedTitle: normalizeSearchText(updated.title),
-        })
-        .where(eq(events.id, id))
-        .run();
+      if (eventChanged) {
+        const changes = {
+          ...(updated.title !== existing.title ? { title: updated.title } : {}),
+          ...(updated.date !== existing.date ? { date: updated.date } : {}),
+          ...(updated.time !== existing.time ? { time: updated.time } : {}),
+          ...(updated.significance !== existing.significance
+            ? { significance: updated.significance }
+            : {}),
+          ...(updated.categoryId !== existing.categoryId
+            ? { categoryId: updated.categoryId }
+            : {}),
+          ...(updated.locationId !== existing.locationId
+            ? { locationId: updated.locationId }
+            : {}),
+          ...(updated.notes !== existing.notes ? { notes: updated.notes } : {}),
+        };
+        applyPendingOperation(
+          {
+            operationType: 'entity.patch',
+            entityType: 'event',
+            entityId: id,
+            payload: { changes, updatedAt: updated.updatedAt },
+          },
+          tx
+        );
+      }
       if (tagsChanged)
         this.replaceTags(id, values.tagIds, updated.updatedAt, tx);
       if (peopleChanged)
@@ -358,11 +382,17 @@ export class SQLiteEventRepository implements EventRepository {
       if (activeIds.length === 0) return;
 
       const timestamp = this.dependencies.now();
-      transaction
-        .update(events)
-        .set({ updatedAt: timestamp, deletedAt: timestamp })
-        .where(and(inArray(events.id, activeIds), isNull(events.deletedAt)))
-        .run();
+      for (const id of activeIds) {
+        applyPendingOperation(
+          {
+            operationType: 'entity.delete',
+            entityType: 'event',
+            entityId: id,
+            payload: { deletedAt: timestamp },
+          },
+          transaction
+        );
+      }
     });
   }
 
@@ -513,9 +543,9 @@ export class SQLiteEventRepository implements EventRepository {
     eventId: UUID,
     ids: readonly UUID[],
     at: string,
-    db: WritableDatabase
+    tx: SyncTransaction
   ) {
-    const existing = db
+    const existing = tx
       .select()
       .from(eventTags)
       .where(eq(eventTags.eventId, eventId))
@@ -523,36 +553,35 @@ export class SQLiteEventRepository implements EventRepository {
     const desired = new Set(ids);
     for (const relation of existing) {
       if (relation.deletedAt === null && !desired.has(relation.tagId)) {
-        db.update(eventTags)
-          .set({ updatedAt: at, deletedAt: at })
-          .where(
-            and(
-              eq(eventTags.eventId, eventId),
-              eq(eventTags.tagId, relation.tagId)
-            )
-          )
-          .run();
+        applyPendingOperation(
+          {
+            operationType: 'relation.remove',
+            entityType: 'event_tag',
+            entityId: JSON.stringify([eventId, relation.tagId]),
+            payload: { eventId, tagId: relation.tagId, deletedAt: at },
+          },
+          tx
+        );
       }
     }
-    for (const tagId of ids) {
-      if (existing.some((relation) => relation.tagId === tagId)) {
-        db.update(eventTags)
-          .set({ updatedAt: at, deletedAt: null })
-          .where(
-            and(eq(eventTags.eventId, eventId), eq(eventTags.tagId, tagId))
-          )
-          .run();
-      } else {
-        db.insert(eventTags)
-          .values({
+    for (const tagId of desired) {
+      const previous = existing.find((relation) => relation.tagId === tagId);
+      // Skip only an already-active link. A tombstone has a non-null timestamp.
+      if (previous?.deletedAt === null) continue;
+      applyPendingOperation(
+        {
+          operationType: 'relation.add',
+          entityType: 'event_tag',
+          entityId: JSON.stringify([eventId, tagId]),
+          payload: {
             eventId,
             tagId,
-            createdAt: at,
+            createdAt: previous?.createdAt ?? at,
             updatedAt: at,
-            deletedAt: null,
-          })
-          .run();
-      }
+          },
+        },
+        tx
+      );
     }
   }
 
@@ -560,9 +589,9 @@ export class SQLiteEventRepository implements EventRepository {
     eventId: UUID,
     ids: readonly UUID[],
     at: string,
-    db: WritableDatabase
+    tx: SyncTransaction
   ) {
-    const existing = db
+    const existing = tx
       .select()
       .from(eventPeople)
       .where(eq(eventPeople.eventId, eventId))
@@ -570,39 +599,37 @@ export class SQLiteEventRepository implements EventRepository {
     const desired = new Set(ids);
     for (const relation of existing) {
       if (relation.deletedAt === null && !desired.has(relation.personId)) {
-        db.update(eventPeople)
-          .set({ updatedAt: at, deletedAt: at })
-          .where(
-            and(
-              eq(eventPeople.eventId, eventId),
-              eq(eventPeople.personId, relation.personId)
-            )
-          )
-          .run();
+        applyPendingOperation(
+          {
+            operationType: 'relation.remove',
+            entityType: 'event_person',
+            entityId: JSON.stringify([eventId, relation.personId]),
+            payload: { eventId, personId: relation.personId, deletedAt: at },
+          },
+          tx
+        );
       }
     }
-    for (const personId of ids) {
-      if (existing.some((relation) => relation.personId === personId)) {
-        db.update(eventPeople)
-          .set({ updatedAt: at, deletedAt: null })
-          .where(
-            and(
-              eq(eventPeople.eventId, eventId),
-              eq(eventPeople.personId, personId)
-            )
-          )
-          .run();
-      } else {
-        db.insert(eventPeople)
-          .values({
+    for (const personId of desired) {
+      const previous = existing.find(
+        (relation) => relation.personId === personId
+      );
+      // Missing rows and tombstones both need an addition/reactivation operation.
+      if (previous?.deletedAt === null) continue;
+      applyPendingOperation(
+        {
+          operationType: 'relation.add',
+          entityType: 'event_person',
+          entityId: JSON.stringify([eventId, personId]),
+          payload: {
             eventId,
             personId,
-            createdAt: at,
+            createdAt: previous?.createdAt ?? at,
             updatedAt: at,
-            deletedAt: null,
-          })
-          .run();
-      }
+          },
+        },
+        tx
+      );
     }
   }
 
@@ -826,23 +853,13 @@ export class SQLiteEventRepository implements EventRepository {
   }
 
   private validDate(date: LocalDate) {
-    if (!DATE_PATTERN.test(date))
+    if (!isValidLocalDate(date))
       throw new ModelValidationError(
         `Invalid event date “${date}”. Expected YYYY-MM-DD.`
       );
-    const year = +date.slice(0, 4),
-      month = +date.slice(5, 7),
-      day = +date.slice(8, 10);
-    const parsed = new Date(Date.UTC(year, month - 1, day));
-    if (
-      parsed.getUTCFullYear() !== year ||
-      parsed.getUTCMonth() !== month - 1 ||
-      parsed.getUTCDate() !== day
-    )
-      throw new ModelValidationError(`Invalid event date “${date}”.`);
   }
   private validTime(time: LocalTime | null) {
-    if (time !== null && !TIME_PATTERN.test(time))
+    if (time !== null && !isValidLocalTime(time))
       throw new ModelValidationError(
         `Invalid event time “${time}”. Expected HH:mm.`
       );

@@ -7,12 +7,14 @@ type MetadataRowProps = {
   children: ReactNode;
   icon: ReactNode;
   label: string;
+  trailingAction?: ReactNode;
 };
 
 export default function MetadataRow({
   children,
   icon,
   label,
+  trailingAction,
 }: MetadataRowProps) {
   const { colors } = useTheme();
 
@@ -22,6 +24,7 @@ export default function MetadataRow({
       <View style={styles.content}>
         <Text style={[styles.label, { color: colors.text }]}>{label}</Text>
         <View style={styles.control}>{children}</View>
+        {trailingAction}
       </View>
     </View>
   );

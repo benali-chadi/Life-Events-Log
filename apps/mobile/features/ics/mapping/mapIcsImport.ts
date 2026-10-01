@@ -24,6 +24,8 @@ import type {
 } from './types';
 import type { ExpandedIcsEvent } from '../parsing/types';
 
+import { isValidLocalDate } from '@/models/validation';
+
 export function mapIcsImport(
   events: readonly ExpandedIcsEvent[],
   metadata: IcsImportMetadataSnapshot
@@ -222,26 +224,12 @@ function eventSkipReason(event: ExpandedIcsEvent): IcsImportSkipReason | null {
 }
 
 function validStart(value: string, isDate: boolean): boolean {
-  if (isDate) return validDate(value);
+  if (isDate) return isValidLocalDate(value);
   const match =
     /^(\d{4}-\d{2}-\d{2})T(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?Z?$/.exec(
       value
     );
-  return !!match && validDate(match[1]!);
-}
-
-function validDate(value: string): boolean {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!match) return false;
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  return (
-    date.getUTCFullYear() === year &&
-    date.getUTCMonth() === month - 1 &&
-    date.getUTCDate() === day
-  );
+  return !!match && isValidLocalDate(match[1]!);
 }
 
 function mappedTitle(

@@ -1,0 +1,1116 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "66584dd4-55a6-4005-a021-434e4c91a9bc",
+  "prevId": "35058b35-972b-4399-8524-f675686c9515",
+  "tables": {
+    "categories": {
+      "name": "categories",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "normalized_name": {
+          "name": "normalized_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "color": {
+          "name": "color",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "categories_active_normalized_name_unique": {
+          "name": "categories_active_normalized_name_unique",
+          "columns": [
+            "normalized_name"
+          ],
+          "isUnique": true,
+          "where": "\"categories\".\"deleted_at\" IS NULL"
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "categories_color_check": {
+          "name": "categories_color_check",
+          "value": "\"categories\".\"color\" IN ('blue', 'green', 'rose', 'amber', 'violet', 'teal', 'cyan', 'coral', 'olive', 'brown', 'slate', 'navy', 'magenta')"
+        }
+      }
+    },
+    "event_attachments": {
+      "name": "event_attachments",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "event_id": {
+          "name": "event_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "relative_path": {
+          "name": "relative_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "content_hash": {
+          "name": "content_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "filename": {
+          "name": "filename",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "mime_type": {
+          "name": "mime_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "width": {
+          "name": "width",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "height": {
+          "name": "height",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "file_size": {
+          "name": "file_size",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "event_attachments_event_order_idx": {
+          "name": "event_attachments_event_order_idx",
+          "columns": [
+            "event_id",
+            "deleted_at",
+            "sort_order",
+            "id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "event_attachments_event_id_events_id_fk": {
+          "name": "event_attachments_event_id_events_id_fk",
+          "tableFrom": "event_attachments",
+          "tableTo": "events",
+          "columnsFrom": [
+            "event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "event_attachments_width_check": {
+          "name": "event_attachments_width_check",
+          "value": "\"event_attachments\".\"width\" IS NULL OR \"event_attachments\".\"width\" >= 0"
+        },
+        "event_attachments_height_check": {
+          "name": "event_attachments_height_check",
+          "value": "\"event_attachments\".\"height\" IS NULL OR \"event_attachments\".\"height\" >= 0"
+        },
+        "event_attachments_file_size_check": {
+          "name": "event_attachments_file_size_check",
+          "value": "\"event_attachments\".\"file_size\" IS NULL OR \"event_attachments\".\"file_size\" >= 0"
+        },
+        "event_attachments_sort_order_check": {
+          "name": "event_attachments_sort_order_check",
+          "value": "\"event_attachments\".\"sort_order\" >= 0"
+        }
+      }
+    },
+    "event_people": {
+      "name": "event_people",
+      "columns": {
+        "event_id": {
+          "name": "event_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "person_id": {
+          "name": "person_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "event_people_person_idx": {
+          "name": "event_people_person_idx",
+          "columns": [
+            "person_id",
+            "deleted_at",
+            "event_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "event_people_event_id_events_id_fk": {
+          "name": "event_people_event_id_events_id_fk",
+          "tableFrom": "event_people",
+          "tableTo": "events",
+          "columnsFrom": [
+            "event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "event_people_person_id_people_id_fk": {
+          "name": "event_people_person_id_people_id_fk",
+          "tableFrom": "event_people",
+          "tableTo": "people",
+          "columnsFrom": [
+            "person_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "event_people_event_id_person_id_pk": {
+          "columns": [
+            "event_id",
+            "person_id"
+          ],
+          "name": "event_people_event_id_person_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "event_tags": {
+      "name": "event_tags",
+      "columns": {
+        "event_id": {
+          "name": "event_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tag_id": {
+          "name": "tag_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "event_tags_tag_idx": {
+          "name": "event_tags_tag_idx",
+          "columns": [
+            "tag_id",
+            "deleted_at",
+            "event_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "event_tags_event_id_events_id_fk": {
+          "name": "event_tags_event_id_events_id_fk",
+          "tableFrom": "event_tags",
+          "tableTo": "events",
+          "columnsFrom": [
+            "event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "event_tags_tag_id_tags_id_fk": {
+          "name": "event_tags_tag_id_tags_id_fk",
+          "tableFrom": "event_tags",
+          "tableTo": "tags",
+          "columnsFrom": [
+            "tag_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "event_tags_event_id_tag_id_pk": {
+          "columns": [
+            "event_id",
+            "tag_id"
+          ],
+          "name": "event_tags_event_id_tag_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "events": {
+      "name": "events",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "normalized_title": {
+          "name": "normalized_title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "date": {
+          "name": "date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "time": {
+          "name": "time",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "significance": {
+          "name": "significance",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "category_id": {
+          "name": "category_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "location_id": {
+          "name": "location_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "events_timeline_idx": {
+          "name": "events_timeline_idx",
+          "columns": [
+            "deleted_at",
+            "date",
+            "time",
+            "created_at",
+            "id"
+          ],
+          "isUnique": false
+        },
+        "events_category_idx": {
+          "name": "events_category_idx",
+          "columns": [
+            "category_id",
+            "deleted_at"
+          ],
+          "isUnique": false
+        },
+        "events_location_idx": {
+          "name": "events_location_idx",
+          "columns": [
+            "location_id",
+            "deleted_at"
+          ],
+          "isUnique": false
+        },
+        "events_normalized_title_idx": {
+          "name": "events_normalized_title_idx",
+          "columns": [
+            "normalized_title",
+            "deleted_at"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "events_category_id_categories_id_fk": {
+          "name": "events_category_id_categories_id_fk",
+          "tableFrom": "events",
+          "tableTo": "categories",
+          "columnsFrom": [
+            "category_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "events_location_id_locations_id_fk": {
+          "name": "events_location_id_locations_id_fk",
+          "tableFrom": "events",
+          "tableTo": "locations",
+          "columnsFrom": [
+            "location_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "events_title_length_check": {
+          "name": "events_title_length_check",
+          "value": "length(\"events\".\"title\") <= 100"
+        },
+        "events_significance_check": {
+          "name": "events_significance_check",
+          "value": "\"events\".\"significance\" IN ('ordinary', 'notable', 'major', 'turning-point')"
+        }
+      }
+    },
+    "locations": {
+      "name": "locations",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "normalized_name": {
+          "name": "normalized_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "locations_active_normalized_name_unique": {
+          "name": "locations_active_normalized_name_unique",
+          "columns": [
+            "normalized_name"
+          ],
+          "isUnique": true,
+          "where": "\"locations\".\"deleted_at\" IS NULL"
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "people": {
+      "name": "people",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "normalized_name": {
+          "name": "normalized_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "people_active_normalized_name_unique": {
+          "name": "people_active_normalized_name_unique",
+          "columns": [
+            "normalized_name"
+          ],
+          "isUnique": true,
+          "where": "\"people\".\"deleted_at\" IS NULL"
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "sync_conflicts": {
+      "name": "sync_conflicts",
+      "columns": {
+        "conflict_id": {
+          "name": "conflict_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "entity_type": {
+          "name": "entity_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "entity_id": {
+          "name": "entity_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "field_name": {
+          "name": "field_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "winning_device_id": {
+          "name": "winning_device_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "winning_sequence": {
+          "name": "winning_sequence",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "losing_device_id": {
+          "name": "losing_device_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "losing_sequence": {
+          "name": "losing_sequence",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "resolution_device_id": {
+          "name": "resolution_device_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "resolution_sequence": {
+          "name": "resolution_sequence",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "sync_conflicts_status_check": {
+          "name": "sync_conflicts_status_check",
+          "value": "\"sync_conflicts\".\"status\" IN ('pending', 'resolved')"
+        },
+        "sync_conflicts_resolution_check": {
+          "name": "sync_conflicts_resolution_check",
+          "value": "(\"sync_conflicts\".\"resolution_device_id\" IS NULL AND \"sync_conflicts\".\"resolution_sequence\" IS NULL) OR (\"sync_conflicts\".\"resolution_device_id\" IS NOT NULL AND \"sync_conflicts\".\"resolution_sequence\" > 0 AND \"sync_conflicts\".\"resolution_sequence\" IS NOT NULL)"
+        },
+        "sync_conflicts_sequences_check": {
+          "name": "sync_conflicts_sequences_check",
+          "value": "\"sync_conflicts\".\"winning_sequence\" > 0 AND \"sync_conflicts\".\"losing_sequence\" > 0"
+        }
+      }
+    },
+    "sync_field_versions": {
+      "name": "sync_field_versions",
+      "columns": {
+        "entity_type": {
+          "name": "entity_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "entity_id": {
+          "name": "entity_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "field_name": {
+          "name": "field_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "winner_device_id": {
+          "name": "winner_device_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "winner_sequence": {
+          "name": "winner_sequence",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "winner_lamport": {
+          "name": "winner_lamport",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "sync_field_versions_entity_type_entity_id_field_name_pk": {
+          "columns": [
+            "entity_type",
+            "entity_id",
+            "field_name"
+          ],
+          "name": "sync_field_versions_entity_type_entity_id_field_name_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "sync_field_versions_sequence_check": {
+          "name": "sync_field_versions_sequence_check",
+          "value": "\"sync_field_versions\".\"winner_sequence\" > 0"
+        },
+        "sync_field_versions_lamport_check": {
+          "name": "sync_field_versions_lamport_check",
+          "value": "\"sync_field_versions\".\"winner_lamport\" > 0"
+        }
+      }
+    },
+    "sync_frontiers": {
+      "name": "sync_frontiers",
+      "columns": {
+        "origin_device_id": {
+          "name": "origin_device_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "processed_sequence": {
+          "name": "processed_sequence",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "sync_frontiers_sequence_check": {
+          "name": "sync_frontiers_sequence_check",
+          "value": "\"sync_frontiers\".\"processed_sequence\" >= 0"
+        }
+      }
+    },
+    "sync_local_state": {
+      "name": "sync_local_state",
+      "columns": {
+        "device_id": {
+          "name": "device_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "observed_lamport": {
+          "name": "observed_lamport",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "sync_local_state_singleton": {
+          "name": "sync_local_state_singleton",
+          "columns": [
+            "(1)"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "sync_local_state_lamport_check": {
+          "name": "sync_local_state_lamport_check",
+          "value": "\"sync_local_state\".\"observed_lamport\" >= 0"
+        }
+      }
+    },
+    "sync_operations": {
+      "name": "sync_operations",
+      "columns": {
+        "origin_device_id": {
+          "name": "origin_device_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "origin_sequence": {
+          "name": "origin_sequence",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "lamport": {
+          "name": "lamport",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "causal_context": {
+          "name": "causal_context",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "operation_type": {
+          "name": "operation_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "entity_type": {
+          "name": "entity_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "entity_id": {
+          "name": "entity_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "payload": {
+          "name": "payload",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "operation_hash": {
+          "name": "operation_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "received_at": {
+          "name": "received_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "applied_at": {
+          "name": "applied_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "sync_operations_origin_device_id_origin_sequence_pk": {
+          "columns": [
+            "origin_device_id",
+            "origin_sequence"
+          ],
+          "name": "sync_operations_origin_device_id_origin_sequence_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "sync_operations_sequence_check": {
+          "name": "sync_operations_sequence_check",
+          "value": "\"sync_operations\".\"origin_sequence\" > 0"
+        },
+        "sync_operations_lamport_check": {
+          "name": "sync_operations_lamport_check",
+          "value": "\"sync_operations\".\"lamport\" > 0"
+        }
+      }
+    },
+    "tags": {
+      "name": "tags",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "normalized_name": {
+          "name": "normalized_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "tags_active_normalized_name_unique": {
+          "name": "tags_active_normalized_name_unique",
+          "columns": [
+            "normalized_name"
+          ],
+          "isUnique": true,
+          "where": "\"tags\".\"deleted_at\" IS NULL"
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {
+      "sync_local_state_singleton": {
+        "columns": {
+          "(1)": {
+            "isExpression": true
+          }
+        }
+      }
+    }
+  }
+}

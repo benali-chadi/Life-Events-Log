@@ -249,7 +249,7 @@ describe('InMemoryEventRepository', () => {
     const eventId = DEVELOPMENT_SEED.events[0].id;
     const attachmentBase = {
       eventId,
-      relativePath: 'attachments/image.jpg',
+      contentHash: 'a'.repeat(64),
       filename: 'image.jpg',
       mimeType: 'image/jpeg',
       width: 100,
@@ -594,7 +594,7 @@ describe('InMemoryEventRepository', () => {
     database.attachments.set('preview-attachment', {
       id: 'preview-attachment',
       eventId: event.id,
-      relativePath: 'attachments/preview.jpg',
+      contentHash: 'a'.repeat(64),
       filename: 'preview.jpg',
       mimeType: 'image/jpeg',
       width: 100,

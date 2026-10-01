@@ -34,10 +34,13 @@ import { useAppToast } from '@/components/ui/AppToastProvider';
 import {
   type EventListQueryInput,
   useEventCountQuery,
+  useConflictedEventIdsQuery,
   useInfiniteEventListQuery,
 } from '@/data/query';
 import type { EventListItem, EventExportQuery } from '@/data/repositories';
 import { useEventExportRepository } from '@/data/RepositoryProvider';
+import SyncTransferProgressModal from '@/features/sync/SyncTransferProgressModal';
+import { useSyncPackageTransfer } from '@/features/sync/useSyncPackageTransfer';
 import { exportEventsAsIcs, type IcsExportSource } from '@/features/ics';
 import type { LocalDate, UUID } from '@/models';
 
@@ -57,76 +60,17 @@ const INITIAL_FILTERS: TimelineFilters = {
   timeRange: {},
 };
 
-function useDebouncedValue<T>(value: T, delay: number) {
-  const [debouncedValue, setDebouncedValue] = useState(value);
-
-  useEffect(() => {
-    const timeout = setTimeout(() => setDebouncedValue(value), delay);
-
-    return () => clearTimeout(timeout);
-  }, [delay, value]);
-
-  return debouncedValue;
-}
-
-function localDateToday(): LocalDate {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-
-  return `${year}-${month}-${day}` as LocalDate;
-}
-
-function shiftLocalDate(date: LocalDate, days: number): LocalDate {
-  const year = Number(date.slice(0, 4));
-  const month = Number(date.slice(5, 7));
-  const day = Number(date.slice(8, 10));
-  const shifted = new Date(year, month - 1, day + days);
-  const shiftedMonth = String(shifted.getMonth() + 1).padStart(2, '0');
-  const shiftedDay = String(shifted.getDate()).padStart(2, '0');
-
-  return `${shifted.getFullYear()}-${shiftedMonth}-${shiftedDay}` as LocalDate;
-}
-
-function formatSectionDate(date: LocalDate) {
-  const today = localDateToday();
-
-  if (date === today) return 'Today';
-  if (date === shiftLocalDate(today, -1)) return 'Yesterday';
-
-  const year = Number(date.slice(0, 4));
-  const month = Number(date.slice(5, 7));
-  const day = Number(date.slice(8, 10));
-  return new Intl.DateTimeFormat(undefined, {
-    day: 'numeric',
-    month: 'long',
-    year: year === new Date().getFullYear() ? undefined : 'numeric',
-  }).format(new Date(year, month - 1, day, 12));
-}
-
-function groupEventsByDate(items: EventListItem[]) {
-  const groups = new Map<LocalDate, EventListItem[]>();
-
-  for (const item of items) {
-    const existing = groups.get(item.event.date);
-
-    if (existing) existing.push(item);
-    else groups.set(item.event.date, [item]);
-  }
-
-  return Array.from(groups, ([date, data]) => ({
-    date,
-    title: formatSectionDate(date),
-    data,
-  }));
-}
-
 export default function Index() {
   const { colors } = useTheme();
   const navigation = useNavigation();
   const { showToast } = useAppToast();
   const eventExportRepository = useEventExportRepository();
+  const syncTransfer = useSyncPackageTransfer();
+  const {
+    status: syncStatus,
+    exportPackage: exportSyncPackage,
+    importPackage: importSyncPackage,
+  } = syncTransfer;
   const eventsHeaderRef = useRef<EventsHeaderHandle>(null);
   const [filters, setFilters] = useState<TimelineFilters>(INITIAL_FILTERS);
   const [selectedEventIds, setSelectedEventIds] = useState<Set<UUID>>(
@@ -185,6 +129,11 @@ export default function Index() {
     Boolean(filters.timeRange.from || filters.timeRange.to);
   const hasActiveExportFilters = hasSearch || hasTimelineFilters;
   const eventsQuery = useInfiniteEventListQuery(eventListQuery);
+  const conflictsQuery = useConflictedEventIdsQuery();
+  const conflictedEventIds = useMemo(
+    () => new Set(conflictsQuery.data ?? []),
+    [conflictsQuery.data]
+  );
   const eventCountQuery = useEventCountQuery(eventListQuery);
   const sections = useMemo(
     () =>
@@ -225,7 +174,9 @@ export default function Index() {
     navigation.setOptions({
       headerRight: () => (
         <TimelineOverflowMenu
-          exportDisabled={isExporting}
+          exportDisabled={isExporting || syncStatus !== 'idle'}
+          onExportSyncPackage={() => void exportSyncPackage()}
+          onImportSyncPackage={() => void importSyncPackage()}
           onExportAll={() => void exportEvents({ kind: 'query', query: {} })}
           onExportFiltered={() =>
             void exportEvents({ kind: 'query', query: eventExportQuery })
@@ -237,6 +188,9 @@ export default function Index() {
   }, [
     eventExportQuery,
     exportEvents,
+    syncStatus,
+    exportSyncPackage,
+    importSyncPackage,
     hasActiveExportFilters,
     isExporting,
     navigation,
@@ -298,9 +252,20 @@ export default function Index() {
     }
   };
 
+  const syncTransferModal = (
+    <SyncTransferProgressModal
+      progress={syncTransfer.progress}
+      error={syncTransfer.error}
+      onCancel={syncTransfer.cancel}
+      onRetry={syncTransfer.retry}
+      onClose={syncTransfer.closeError}
+    />
+  );
+
   if (eventsQuery.isPending) {
     return (
       <View style={[styles.centeredState, { backgroundColor: colors.bg }]}>
+        {syncTransferModal}
         <ActivityIndicator color={colors.primary} />
         <Text style={[styles.stateText, { color: colors.textMuted }]}>
           Loading events…
@@ -312,6 +277,7 @@ export default function Index() {
   if (eventsQuery.isError) {
     return (
       <View style={[styles.centeredState, { backgroundColor: colors.bg }]}>
+        {syncTransferModal}
         <Text style={[styles.stateTitle, { color: colors.text }]}>
           Couldn’t load events
         </Text>
@@ -335,6 +301,7 @@ export default function Index() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
+      {syncTransferModal}
       {selectionMode ? (
         <View
           accessibilityLiveRegion="polite"
@@ -430,6 +397,17 @@ export default function Index() {
           }
         />
       )}
+      {conflictsQuery.isError && (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => void conflictsQuery.refetch()}
+          style={{ padding: spacing[4] }}
+        >
+          <Text style={{ color: colors.warning }}>
+            Couldn’t load conflict indicators. Tap to retry.
+          </Text>
+        </Pressable>
+      )}
       <SectionList
         sections={sections}
         contentContainerStyle={[
@@ -440,6 +418,7 @@ export default function Index() {
         renderItem={({ item }) => (
           <EventCard
             event={item}
+            hasConflicts={conflictedEventIds.has(item.event.id)}
             isSelected={selectedEventIds.has(item.event.id)}
             selectionMode={selectionMode}
             onSelect={() => toggleEventSelection(item.event.id)}
@@ -447,8 +426,14 @@ export default function Index() {
         )}
         onEndReached={loadMore}
         onEndReachedThreshold={0.4}
-        onRefresh={() => void eventsQuery.refetch()}
-        refreshing={eventsQuery.isRefetching && !eventsQuery.isFetchingNextPage}
+        onRefresh={() => {
+          void eventsQuery.refetch();
+          void conflictsQuery.refetch();
+        }}
+        refreshing={
+          (eventsQuery.isRefetching && !eventsQuery.isFetchingNextPage) ||
+          conflictsQuery.isRefetching
+        }
         onScrollBeginDrag={closeOpenSwipe}
         showsVerticalScrollIndicator={false}
         renderSectionHeader={({ section: { title } }) => (
@@ -811,3 +796,68 @@ const styles = StyleSheet.create({
     borderRadius: radius.xl,
   },
 });
+
+function useDebouncedValue<T>(value: T, delay: number) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => setDebouncedValue(value), delay);
+
+    return () => clearTimeout(timeout);
+  }, [delay, value]);
+
+  return debouncedValue;
+}
+
+function localDateToday(): LocalDate {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}` as LocalDate;
+}
+
+function shiftLocalDate(date: LocalDate, days: number): LocalDate {
+  const year = Number(date.slice(0, 4));
+  const month = Number(date.slice(5, 7));
+  const day = Number(date.slice(8, 10));
+  const shifted = new Date(year, month - 1, day + days);
+  const shiftedMonth = String(shifted.getMonth() + 1).padStart(2, '0');
+  const shiftedDay = String(shifted.getDate()).padStart(2, '0');
+
+  return `${shifted.getFullYear()}-${shiftedMonth}-${shiftedDay}` as LocalDate;
+}
+
+function formatSectionDate(date: LocalDate) {
+  const today = localDateToday();
+
+  if (date === today) return 'Today';
+  if (date === shiftLocalDate(today, -1)) return 'Yesterday';
+
+  const year = Number(date.slice(0, 4));
+  const month = Number(date.slice(5, 7));
+  const day = Number(date.slice(8, 10));
+  return new Intl.DateTimeFormat(undefined, {
+    day: 'numeric',
+    month: 'long',
+    year: year === new Date().getFullYear() ? undefined : 'numeric',
+  }).format(new Date(year, month - 1, day, 12));
+}
+
+function groupEventsByDate(items: EventListItem[]) {
+  const groups = new Map<LocalDate, EventListItem[]>();
+
+  for (const item of items) {
+    const existing = groups.get(item.event.date);
+
+    if (existing) existing.push(item);
+    else groups.set(item.event.date, [item]);
+  }
+
+  return Array.from(groups, ([date, data]) => ({
+    date,
+    title: formatSectionDate(date),
+    data,
+  }));
+}

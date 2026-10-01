@@ -18,6 +18,10 @@ import {
   locations,
   people,
   tags,
+  syncOperations,
+  syncPendingOperations,
+  syncFieldVersions,
+  syncFrontiers,
 } from '../schema';
 import { createTestDatabase } from '../testing/createTestDatabase';
 import { SQLiteEventRepository } from './SQLiteEventRepository';
@@ -58,9 +62,61 @@ describe('SQLiteEventRepository', () => {
   let repository: SQLiteEventRepository;
   let queries: string[];
 
+  it('records remove/re-add transitions without duplicating unchanged active relations', async () => {
+    await repository.create(validInput());
+    await repository.update(EVENT_ID, {
+      tagIds: [TAG_ID],
+      peopleIds: [PERSON_ID],
+    });
+    expect(database.select().from(syncPendingOperations).all()).toHaveLength(3);
+    await repository.update(EVENT_ID, { tagIds: [], peopleIds: [] });
+    expect(database.select().from(eventTags).get()?.deletedAt).toBe(NOW);
+    expect(database.select().from(eventPeople).get()?.deletedAt).toBe(NOW);
+    await repository.update(EVENT_ID, {
+      tagIds: [TAG_ID],
+      peopleIds: [PERSON_ID],
+    });
+    expect(
+      database
+        .select()
+        .from(syncPendingOperations)
+        .all()
+        .map((operation) => operation.operationType)
+    ).toEqual(['entity.create', 'relation.add', 'relation.add']);
+    expect(database.select().from(eventTags).get()).toMatchObject({
+      createdAt: NOW,
+      deletedAt: null,
+    });
+    expect(database.select().from(eventPeople).get()).toMatchObject({
+      createdAt: NOW,
+      deletedAt: null,
+    });
+  });
+
+  it('records event creation and dependent relation additions in the same transaction', async () => {
+    await repository.create(validInput());
+    const operations = database.select().from(syncPendingOperations).all();
+    expect(operations).toHaveLength(3);
+    expect(
+      operations.slice(1).map((operation) => operation.operationType)
+    ).toEqual(['relation.add', 'relation.add']);
+    expect(operations[0]).toMatchObject({
+      operationType: 'entity.create',
+      entityType: 'event',
+      entityId: EVENT_ID,
+      payload: { title: 'Family trip' },
+    });
+    expect(database.select().from(syncFieldVersions).all()).toEqual([]);
+    expect(database.select().from(syncFrontiers).all()).toEqual([]);
+    expect(database.select().from(syncOperations).all()).toEqual([]);
+    expect(database.select().from(eventTags).all()).toHaveLength(1);
+    expect(database.select().from(eventPeople).all()).toHaveLength(1);
+  });
+
   beforeEach(async () => {
     queries = [];
     ({ sqlite, database } = await createTestDatabase({
+      initializeSyncState: true,
       logger: {
         logQuery: (query) => queries.push(query),
       },
@@ -218,7 +274,7 @@ describe('SQLiteEventRepository', () => {
       .values({
         id: 'attachment-1',
         eventId: EVENT_ID,
-        relativePath: 'attachments/a.jpg',
+        contentHash: 'a'.repeat(64),
         filename: 'a.jpg',
         mimeType: 'image/jpeg',
         width: 100,
@@ -277,17 +333,13 @@ describe('SQLiteEventRepository', () => {
     ]);
   });
 
-  it('soft deletes and restores without deleting owned rows', async () => {
+  it('cancels an unsealed event and removes its owned rows', async () => {
     await repository.create(validInput());
     await repository.softDelete(EVENT_ID);
     await expect(repository.getById(EVENT_ID)).resolves.toBeNull();
-    expect(database.select().from(eventTags).all()).toHaveLength(1);
-
-    await repository.restore(EVENT_ID);
-    await expect(repository.getById(EVENT_ID)).resolves.toMatchObject({
-      deletedAt: null,
-      updatedAt: NOW,
-    });
+    expect(database.select().from(eventTags).all()).toEqual([]);
+    expect(database.select().from(eventPeople).all()).toEqual([]);
+    expect(database.select().from(syncPendingOperations).all()).toEqual([]);
   });
 
   it('validates values and active references before writing', async () => {

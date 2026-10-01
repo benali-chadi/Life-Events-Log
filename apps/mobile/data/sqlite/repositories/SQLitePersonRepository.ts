@@ -27,7 +27,8 @@ import {
   normalizeMetadataName,
 } from '@/data/repositories/metadataName';
 import type { Person, UUID } from '@/models';
-import type { AppDatabase } from '../database';
+import type { AppDatabase, SyncTransaction } from '../database';
+import { applyPendingOperation } from '../sync/pending/applyPendingOperation';
 import { eventPeople, events, people, personModelColumns } from '../schema';
 
 export class SQLitePersonRepository implements PersonRepository {
@@ -56,7 +57,7 @@ export class SQLitePersonRepository implements PersonRepository {
         and(
           isNull(people.deletedAt),
           search
-            ? sql`instr(${people.normalizedName}, ${search}) > 0`
+            ? sql`(instr(${people.normalizedName}, ${search}) > 0 OR instr(lower(${personModelColumns.displayName}), ${search}) > 0)`
             : undefined
         )
       )
@@ -84,7 +85,7 @@ export class SQLitePersonRepository implements PersonRepository {
         and(
           isNull(people.deletedAt),
           search
-            ? sql`instr(${people.normalizedName}, ${search}) > 0`
+            ? sql`(instr(${people.normalizedName}, ${search}) > 0 OR instr(lower(${personModelColumns.displayName}), ${search}) > 0)`
             : undefined
         )
       )
@@ -99,7 +100,6 @@ export class SQLitePersonRepository implements PersonRepository {
 
   async create(input: CreateNamedMetadataInput): Promise<Person> {
     const name = this.validName(input.name);
-    this.assertUniqueName(name);
 
     const id = this.dependencies.createId();
     const existing = this.database
@@ -123,21 +123,26 @@ export class SQLitePersonRepository implements PersonRepository {
       deletedAt: null,
     };
 
-    this.database
-      .insert(people)
-      .values({
-        ...person,
-        normalizedName: comparableMetadataName(person.name),
-      })
-      .run();
+    this.database.transaction((tx) => {
+      this.assertUniqueName(name, undefined, tx);
+      const { id: entityId, deletedAt: _deletedAt, ...payload } = person;
+      applyPendingOperation(
+        {
+          operationType: 'entity.create',
+          entityType: 'person',
+          entityId,
+          payload,
+        },
+        tx
+      );
+    });
 
-    return person;
+    return (await this.getById(id))!;
   }
 
   async update(id: UUID, input: UpdateNamedMetadataInput): Promise<Person> {
     const existing = this.activePersonOrThrow(id);
     const name = this.validName(input.name);
-    this.assertUniqueName(name, id);
 
     const updated: Person = {
       ...existing,
@@ -145,17 +150,26 @@ export class SQLitePersonRepository implements PersonRepository {
       updatedAt: this.dependencies.now(),
     };
 
-    this.database
-      .update(people)
-      .set({
-        name: updated.name,
-        normalizedName: comparableMetadataName(updated.name),
-        updatedAt: updated.updatedAt,
-      })
-      .where(eq(people.id, id))
-      .run();
+    this.database.transaction((tx) => {
+      if (
+        comparableMetadataName(name) !== comparableMetadataName(existing.name)
+      )
+        this.assertUniqueName(name, id, tx);
+      applyPendingOperation(
+        {
+          operationType: 'entity.patch',
+          entityType: 'person',
+          entityId: id,
+          payload: {
+            changes: { name: updated.name },
+            updatedAt: updated.updatedAt,
+          },
+        },
+        tx
+      );
+    });
 
-    return updated;
+    return (await this.getById(id))!;
   }
 
   async softDelete(id: UUID): Promise<SoftDeleteMetadataResult> {
@@ -178,23 +192,15 @@ export class SQLitePersonRepository implements PersonRepository {
         .sort();
       const timestamp = this.dependencies.now();
 
-      transaction
-        .update(people)
-        .set({ updatedAt: timestamp, deletedAt: timestamp })
-        .where(and(eq(people.id, id), isNull(people.deletedAt)))
-        .run();
-      transaction
-        .update(eventPeople)
-        .set({ updatedAt: timestamp, deletedAt: timestamp })
-        .where(and(eq(eventPeople.personId, id), isNull(eventPeople.deletedAt)))
-        .run();
-      if (affectedEventIds.length > 0) {
+      applyPendingOperation(
+        {
+          operationType: 'entity.delete',
+          entityType: 'person',
+          entityId: id,
+          payload: { deletedAt: timestamp },
+        },
         transaction
-          .update(events)
-          .set({ updatedAt: timestamp })
-          .where(inArray(events.id, affectedEventIds))
-          .run();
-      }
+      );
 
       return { affectedEventIds };
     });
@@ -236,8 +242,12 @@ export class SQLitePersonRepository implements PersonRepository {
     return name;
   }
 
-  private assertUniqueName(name: string, excludedId?: UUID) {
-    const duplicate = this.database
+  private assertUniqueName(
+    name: string,
+    excludedId: UUID | undefined,
+    tx: SyncTransaction
+  ) {
+    const duplicate = tx
       .select({ id: people.id })
       .from(people)
       .where(
