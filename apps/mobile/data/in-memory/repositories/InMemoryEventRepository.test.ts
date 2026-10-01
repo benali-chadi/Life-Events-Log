@@ -614,7 +614,21 @@ describe('InMemoryEventRepository', () => {
     expect(item?.event).not.toHaveProperty('notes');
     expect(item?.event.notesPreview).toBe('Bold documentation next step');
     expect(item?.attachmentCount).toBe(1);
-    expect(item?.attachmentPreview?.id).toBe('preview-attachment');
+    expect(item?.attachmentPreviews[0]?.id).toBe('preview-attachment');
+    const original = database.attachments.get('preview-attachment')!;
+    for (const attachment of [
+      { ...original, id: 'preview-c', sortOrder: 1 },
+      { ...original, id: 'preview-b', sortOrder: 1 },
+      { ...original, id: 'deleted-first', sortOrder: 0, deletedAt: NOW },
+    ])
+      database.attachments.set(attachment.id, attachment);
+    const updated = (await repository.list({ limit: 10 })).items.find(
+      (candidate) => candidate.event.id === event.id
+    )!;
+    expect(updated.attachmentCount).toBe(3);
+    expect(
+      updated.attachmentPreviews.map((attachment) => attachment.id)
+    ).toEqual(['preview-attachment', 'preview-b']);
   });
 
   it('rejects invalid list limits, ranges, modes, and cursors', async () => {

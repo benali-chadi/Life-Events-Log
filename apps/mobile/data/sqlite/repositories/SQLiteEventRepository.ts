@@ -83,7 +83,7 @@ type EventListProjection = {
   tagsJson: string;
   peopleJson: string;
   attachmentCount: number;
-  attachmentPreviewJson: string | null;
+  attachmentPreviewsJson: string;
 };
 const NOTES_PREVIEW_LENGTH = 160;
 
@@ -151,7 +151,8 @@ export class SQLiteEventRepository implements EventRepository {
           WHERE ${eventAttachments.eventId} = ${events.id}
             AND ${eventAttachments.deletedAt} IS NULL
         )`,
-        attachmentPreviewJson: sql<string | null>`(
+        attachmentPreviewsJson: sql<string>`(
+          SELECT json_group_array(json(preview)) FROM (
           SELECT json_object(
             'id', ${eventAttachments.id},
             'eventId', ${eventAttachments.eventId},
@@ -165,12 +166,13 @@ export class SQLiteEventRepository implements EventRepository {
             'createdAt', ${eventAttachments.createdAt},
             'updatedAt', ${eventAttachments.updatedAt},
             'deletedAt', ${eventAttachments.deletedAt}
-          )
+          ) AS preview
           FROM ${eventAttachments}
           WHERE ${eventAttachments.eventId} = ${events.id}
             AND ${eventAttachments.deletedAt} IS NULL
           ORDER BY ${eventAttachments.sortOrder}, ${eventAttachments.id}
-          LIMIT 1
+          LIMIT 2
+          )
         )`,
       })
       .from(events)
@@ -525,9 +527,9 @@ export class SQLiteEventRepository implements EventRepository {
         compareMetadataNames
       ),
       attachmentCount: row.attachmentCount,
-      attachmentPreview: row.attachmentPreviewJson
-        ? this.parseJson<EventAttachment>(row.attachmentPreviewJson)
-        : null,
+      attachmentPreviews: this.parseJsonArray<EventAttachment>(
+        row.attachmentPreviewsJson
+      ),
     };
   }
 

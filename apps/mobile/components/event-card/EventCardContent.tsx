@@ -23,6 +23,7 @@ type EventCardContentProps = {
   hasExpandableContent: boolean;
   isExpanded: boolean;
   onOpen: () => void;
+  onOpenAttachment?: (id: string) => void;
   onLongPress?: () => void;
   onToggleExpanded: () => void;
   onTitleOverflowChange: (hasOverflow: boolean) => void;
@@ -37,6 +38,7 @@ export default function EventCardContent({
   hasExpandableContent,
   isExpanded,
   onOpen,
+  onOpenAttachment,
   onLongPress,
   onToggleExpanded,
   onTitleOverflowChange,
@@ -88,9 +90,10 @@ export default function EventCardContent({
           {event.event.notesPreview}
         </Text>
       )}
-      {event.attachmentPreview && (
+      {event.attachmentPreviews?.length > 0 && (
         <EventCardAttachmentPreview
-          attachment={event.attachmentPreview}
+          attachments={event.attachmentPreviews}
+          onOpen={onOpenAttachment ?? onOpen}
           attachmentCount={event.attachmentCount}
           colors={colors}
           prominent={

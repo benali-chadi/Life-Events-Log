@@ -9,6 +9,7 @@ import { confirmEventDeletion } from '../event-deletion/confirmEventDeletion';
 import SwipeReveal, { closeOpenSwipe } from '../ui/SwipeReveal';
 import { useAppToast } from '../ui/AppToastProvider';
 import EventCardContent from './EventCardContent';
+import TimelineAttachmentViewer from './TimelineAttachmentViewer';
 import { eventCardStyles as styles } from './eventCardStyles';
 import type { EventListItem } from '@/data/repositories';
 
@@ -33,6 +34,7 @@ export default function EventCard({
   const { showToast } = useAppToast();
   const suppressNextOpenRef = useRef(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [attachmentId, setAttachmentId] = useState<string | null>(null);
   const [hasTitleOverflow, setHasTitleOverflow] = useState(false);
 
   const significance = event.event.significance;
@@ -175,6 +177,11 @@ export default function EventCard({
               isExpanded={isExpanded}
               onLongPress={selectionMode ? undefined : startSelection}
               onOpen={openEvent}
+              onOpenAttachment={(id) => {
+                if (closeOpenSwipe()) return;
+                if (selectionMode) onSelect?.();
+                else setAttachmentId(id);
+              }}
               onToggleExpanded={
                 selectionMode
                   ? () => onSelect?.()
@@ -185,6 +192,13 @@ export default function EventCard({
           </SwipeReveal>
         </View>
       </View>
+      {attachmentId !== null && (
+        <TimelineAttachmentViewer
+          eventId={event.event.id}
+          attachmentId={attachmentId}
+          onClose={() => setAttachmentId(null)}
+        />
+      )}
     </View>
   );
 }

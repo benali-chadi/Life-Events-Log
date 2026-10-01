@@ -313,10 +313,36 @@ describe('SQLiteEventRepository', () => {
     expect(first.items[0]).toMatchObject({
       event: { id: EVENT_ID, notesPreview: 'A lovely day with everyone.' },
       attachmentCount: 1,
-      attachmentPreview: { id: 'attachment-1' },
+      attachmentPreviews: [{ id: 'attachment-1' }],
     });
     expect(first.nextCursor).toBeNull();
     expect(queries).toHaveLength(1);
+
+    const originalAttachment = database
+      .select()
+      .from(eventAttachments)
+      .all()[0]!;
+    database
+      .insert(eventAttachments)
+      .values([
+        { ...originalAttachment, id: 'attachment-3', sortOrder: 1 },
+        { ...originalAttachment, id: 'attachment-2', sortOrder: 1 },
+        {
+          ...originalAttachment,
+          id: 'deleted-first',
+          sortOrder: 0,
+          deletedAt: NOW,
+        },
+      ])
+      .run();
+    queries = [];
+    const withStrip = await repository.list({ limit: 10 });
+    expect(queries).toHaveLength(1);
+    expect(withStrip.items[0]?.attachmentCount).toBe(3);
+    expect(
+      withStrip.items[0]?.attachmentPreviews.map((item) => item.id)
+    ).toEqual(['attachment-1', 'attachment-2']);
+    expect(withStrip.items[1]?.attachmentPreviews).toEqual([]);
 
     const pageOne = await repository.list({ limit: 1 });
     const pageTwo = await repository.list({
