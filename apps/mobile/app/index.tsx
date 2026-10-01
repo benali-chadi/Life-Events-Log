@@ -1,4 +1,5 @@
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { timelineItemKey } from '@/components/event-card/timelineViewability';
 import { groupEventsByDate } from '@/components/event-card/groupEventsByDate';
 import { radius, spacing, typography } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
@@ -22,6 +23,14 @@ import {
   View,
 } from 'react-native';
 import EventCard from '@/components/event-card';
+import TimelineDateStrip, {
+  type TimelineDateStripHandle,
+} from '@/components/event-card/TimelineDateStrip';
+import type {
+  ViewToken,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
+} from 'react-native';
 import { useEventDeletion } from '@/components/event-deletion/EventDeletionProvider';
 import { confirmManyEventsDeletion } from '@/components/event-deletion/confirmEventDeletion';
 import EventsHeader, {
@@ -46,7 +55,7 @@ import { useSyncPackageTransfer } from '@/features/sync/useSyncPackageTransfer';
 import { exportEventsAsIcs, type IcsExportSource } from '@/features/ics';
 import type { UUID } from '@/models';
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 20;
 const SEARCH_DEBOUNCE_MS = 300;
 
 const INITIAL_FILTERS: TimelineFilters = {
@@ -75,6 +84,24 @@ export default function Index() {
     importPackage: importSyncPackage,
   } = syncTransfer;
   const eventsHeaderRef = useRef<EventsHeaderHandle>(null);
+  const dateStripRef = useRef<TimelineDateStripHandle>(null);
+  const viewabilityConfig = useRef({
+    viewAreaCoveragePercentThreshold: 0,
+  }).current;
+  const onViewableItemsChanged = useCallback(
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      dateStripRef.current?.updateVisibleItems(viewableItems);
+    },
+    []
+  );
+  const onTimelineScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      dateStripRef.current?.updateScrollOffset(
+        event.nativeEvent.contentOffset.y
+      );
+    },
+    []
+  );
   const [filters, setFilters] = useState<TimelineFilters>(INITIAL_FILTERS);
   const [selectedEventIds, setSelectedEventIds] = useState<Set<UUID>>(
     () => new Set()
@@ -411,7 +438,12 @@ export default function Index() {
           </Text>
         </Pressable>
       )}
+      <TimelineDateStrip ref={dateStripRef} sections={sections} />
       <SectionList
+        onScroll={onTimelineScroll}
+        scrollEventThrottle={32}
+        viewabilityConfig={viewabilityConfig}
+        onViewableItemsChanged={onViewableItemsChanged}
         sections={sections}
         removeClippedSubviews={false}
         contentContainerStyle={[
@@ -419,7 +451,7 @@ export default function Index() {
           { paddingBottom: 96 + insets.bottom },
           sections.length === 0 && styles.emptyListContent,
         ]}
-        keyExtractor={(item) => item.event.id}
+        keyExtractor={timelineItemKey}
         renderItem={({ item }) => (
           <EventCard
             event={item}
@@ -430,7 +462,7 @@ export default function Index() {
           />
         )}
         onEndReached={loadMore}
-        onEndReachedThreshold={0.4}
+        onEndReachedThreshold={1}
         onRefresh={() => {
           void eventsQuery.refetch();
           void conflictsQuery.refetch();
@@ -500,7 +532,7 @@ export default function Index() {
           ) : null
         }
         style={styles.list}
-        stickySectionHeadersEnabled
+        stickySectionHeadersEnabled={false}
       />
       {!selectionMode && (
         <Pressable

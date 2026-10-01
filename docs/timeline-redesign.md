@@ -178,3 +178,61 @@ to the available safe area and allow scrolling on short screens.
 Fast-scroll layout disturbance is still under investigation. Current pages hold
 10 events; reaching the end requests the next page. No page-size, prefetch, query
 or list-engine change is part of this visual update without further discussion.
+
+## Pagination experiment (approved)
+
+Use 20 events per page and an onEndReachedThreshold of 1 (one viewport ahead).
+Preserve the user’s removal of the Add event label. This is an experiment, not
+a confirmed fix: disturbance also occurs while scrolling upward. Expansion and
+title-overflow state currently live in each row; virtualization can reset them
+on remount, potentially changing row height. Investigate this separately before
+changing state ownership or list rendering. No such changes in this experiment.
+
+## Fast-scroll reproduction (2026-10-01)
+
+Reproduced on the connected Android device: after a fast upward swipe through
+already visited dates, only the date/month header remained visible above a blank
+list area. The page-size/threshold experiment did not resolve the user report.
+This does not establish a specific root cause, but pagination alone is insufficient
+to explain it. Proposed next isolation: disable stickySectionHeadersEnabled,
+leaving queries, rows and pagination unchanged. User approved the temporary behavior change. stickySectionHeadersEnabled is
+now false for the controlled on-device test.
+
+With sticky headers disabled, the inspected screens after downward/upward flings
+and repeated upward swipes contained event rows rather than the dates-only blank
+state. This limited observation supports further testing of the sticky-header
+path, but does not prove the bouncing is fixed. Leave the flag false for the
+user’s comparison; no other rendering/query settings changed in this isolation.
+
+## Independent pinned date (approved)
+
+Goal: retain visible date context without the native sticky-header path that
+reproduced missing rows on Android. Keep normal section headings in the list.
+
+Flow: show the first section date initially; use the first visible event's date
+while scrolling, including partially visible tall expanded events. Ignore header
+and footer tokens. On empty results hide the strip; after filtering or deletion,
+fall back to the first available section if the tracked event is no longer present.
+Transient empty viewability reports retain the last valid date. No new queries,
+animations, gestures or changes to event actions.
+
+Responsibilities: SectionList reports visibility; a separate pinned-date component
+owns the displayed label. Its imperative update method lets visibility updates
+change only the strip, avoiding rerendering the list. Native sticky headers stay
+disabled. Height is constant across dates, adjusted only for system font scale.
+
+Interface: TimelineDateStrip({ sections }, ref); ref.updateVisibleItems(tokens).
+Use the existing section titles for Today/Yesterday and year formatting.
+
+Choice: one small sibling component rather than a custom sticky-header engine or
+new list dependency; negligible ID-to-title map storage over already loaded rows,
+no disk work. The label switches without push-off animation. Verify headers-only
+reports, tall rows, date boundaries, filtering, empty results and fast swipes.
+
+Pinned-date accuracy refinement: explicitly select the first available date at
+scroll offset zero (including overscroll). Away from the top, rank visible event
+IDs by their order in the current sections instead of relying on callback order;
+ignore IDs absent from current results. Scroll updates affect only strip state,
+not parent/list rendering. Regression tests cover stale dates at the top,
+unordered tokens, removed events and empty results. Typecheck/lint/tests pass;
+the follow-up device check was declined, so on-device accuracy is unverified.

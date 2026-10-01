@@ -1,5 +1,10 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import {
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider,
+} from '@react-navigation/native';
 import React, { useEffect, useMemo } from 'react';
 import { Image, StyleSheet } from 'react-native';
 import 'react-native-reanimated';
@@ -39,6 +44,20 @@ export default function RootLayout() {
 
 function AppLayout() {
   const { isDark, colors } = useTheme();
+  const navigationTheme = useMemo(() => {
+    const baseTheme = isDark ? DarkTheme : DefaultTheme;
+    return {
+      ...baseTheme,
+      colors: {
+        ...baseTheme.colors,
+        background: colors.bg,
+        card: colors.surface,
+        text: colors.text,
+        border: colors.border,
+        primary: colors.primary,
+      },
+    };
+  }, [isDark, colors]);
   const sqlite = useSQLiteContext();
   const repositories = useMemo(() => createAppRepositories(sqlite), [sqlite]);
   const storageAccess = useMemo(
@@ -63,73 +82,78 @@ function AppLayout() {
     <AttachmentStorageAccessProvider access={storageAccess}>
       <RepositoryProvider repositories={repositories}>
         <QueryClientProvider client={appQueryClient}>
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <AppToastProvider>
-              <EventDeletionProvider>
-                <Stack
-                  screenOptions={{
-                    headerStyle: {
-                      backgroundColor: colors.surface,
-                    },
-                    headerTintColor: colors.text,
-                    headerTitleStyle: {
-                      color: colors.text,
-                    },
-                  }}
-                >
-                  <Stack.Screen
-                    name="index"
-                    options={{
-                      headerTitle: () => (
-                        <Image
-                          accessibilityLabel="Life Events Log"
-                          accessible
-                          resizeMode="contain"
-                          source={
-                            // require('@/assets/images/adaptive-icon-foreground.png')
-                            isDark
-                              ? require('@/assets/images/logo-lockup-dark.png')
-                              : require('@/assets/images/logo-lockup.png')
-                          }
-                          style={styles.timelineLockup}
-                        />
-                      ),
+          <ThemeProvider value={navigationTheme}>
+            <GestureHandlerRootView
+              style={{ flex: 1, backgroundColor: colors.bg }}
+            >
+              <AppToastProvider>
+                <EventDeletionProvider>
+                  <Stack
+                    screenOptions={{
+                      contentStyle: { backgroundColor: colors.bg },
+                      headerStyle: {
+                        backgroundColor: colors.surface,
+                      },
+                      headerTintColor: colors.text,
+                      headerTitleStyle: {
+                        color: colors.text,
+                      },
                     }}
-                  />
-                  <Stack.Screen
-                    name="[eventId]"
-                    options={{
-                      title: 'Event',
-                      headerBackTitle: 'Back',
-                    }}
-                  />
-                  <Stack.Screen
-                    name="new"
-                    options={{
-                      presentation: 'modal',
-                      headerShown: false,
-                    }}
-                  />
-                  <Stack.Screen
-                    name="metadata"
-                    options={{
-                      title: 'Manage metadata',
-                      headerBackTitle: 'Back',
-                    }}
-                  />
-                  <Stack.Screen
-                    name="import-ics"
-                    options={{
-                      title: 'Import calendar',
-                      headerBackTitle: 'Back',
-                    }}
-                  />
-                </Stack>
+                  >
+                    <Stack.Screen
+                      name="index"
+                      options={{
+                        headerTitle: () => (
+                          <Image
+                            accessibilityLabel="Life Events Log"
+                            accessible
+                            resizeMode="contain"
+                            source={
+                              // require('@/assets/images/adaptive-icon-foreground.png')
+                              isDark
+                                ? require('@/assets/images/logo-lockup-dark.png')
+                                : require('@/assets/images/logo-lockup.png')
+                            }
+                            style={styles.timelineLockup}
+                          />
+                        ),
+                      }}
+                    />
+                    <Stack.Screen
+                      name="[eventId]"
+                      options={{
+                        title: 'Event',
+                        headerBackTitle: 'Back',
+                      }}
+                    />
+                    <Stack.Screen
+                      name="new"
+                      options={{
+                        presentation: 'modal',
+                        headerShown: false,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="metadata"
+                      options={{
+                        title: 'Manage metadata',
+                        headerBackTitle: 'Back',
+                      }}
+                    />
+                    <Stack.Screen
+                      name="import-ics"
+                      options={{
+                        title: 'Import calendar',
+                        headerBackTitle: 'Back',
+                      }}
+                    />
+                  </Stack>
 
-                <StatusBar style={isDark ? 'light' : 'dark'} />
-              </EventDeletionProvider>
-            </AppToastProvider>
-          </GestureHandlerRootView>
+                  <StatusBar style={isDark ? 'light' : 'dark'} />
+                </EventDeletionProvider>
+              </AppToastProvider>
+            </GestureHandlerRootView>
+          </ThemeProvider>
         </QueryClientProvider>
       </RepositoryProvider>
     </AttachmentStorageAccessProvider>
