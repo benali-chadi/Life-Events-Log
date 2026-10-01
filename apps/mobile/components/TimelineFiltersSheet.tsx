@@ -473,10 +473,10 @@ function InlineMultiSelectSection({
                   style={({ pressed }) => [
                     styles.option,
                     {
-                      backgroundColor: colors.interactiveMuted,
-                      borderColor: colors.borderStrong,
+                      backgroundColor: colors.primary,
+                      borderColor: colors.primary,
                     },
-                    pressed && { backgroundColor: colors.interactivePressed },
+                    pressed && { backgroundColor: colors.primaryPressed },
                   ]}
                 >
                   {option.color && (
@@ -488,11 +488,11 @@ function InlineMultiSelectSection({
                     />
                   )}
                   <Text
-                    style={[styles.optionText, { color: colors.textSecondary }]}
+                    style={[styles.optionText, { color: colors.onPrimary }]}
                   >
                     {option.label}
                   </Text>
-                  <X color={colors.textMuted} size={14} strokeWidth={2.25} />
+                  <X color={colors.onPrimary} size={14} strokeWidth={2.25} />
                 </Pressable>
               ))}
               {selectedOptions.length > SELECTED_OPTION_LIMIT && (
@@ -617,12 +617,14 @@ function InlineMultiSelectSection({
                 style={({ pressed }) => [
                   styles.option,
                   {
-                    backgroundColor: selected
-                      ? colors.interactiveMuted
-                      : colors.surface,
-                    borderColor: selected ? colors.borderStrong : colors.border,
+                    backgroundColor: selected ? colors.primary : colors.surface,
+                    borderColor: selected ? colors.primary : colors.border,
                   },
-                  pressed && { backgroundColor: colors.interactivePressed },
+                  pressed && {
+                    backgroundColor: selected
+                      ? colors.primaryPressed
+                      : colors.interactivePressed,
+                  },
                 ]}
               >
                 {option.color && (
@@ -634,10 +636,15 @@ function InlineMultiSelectSection({
                   />
                 )}
                 {selected && (
-                  <Check color={colors.text} size={14} strokeWidth={2.5} />
+                  <Check color={colors.onPrimary} size={14} strokeWidth={2.5} />
                 )}
                 <Text
-                  style={[styles.optionText, { color: colors.textSecondary }]}
+                  style={[
+                    styles.optionText,
+                    {
+                      color: selected ? colors.onPrimary : colors.textSecondary,
+                    },
+                  ]}
                 >
                   {option.label}
                 </Text>
@@ -869,7 +876,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing[2],
   },
-  title: { ...typography.h3 },
+  title: { ...typography.h3, fontSize: 22, lineHeight: 30, fontWeight: '500' },
   activeCount: { ...typography.caption },
   headerActions: {
     flexDirection: 'row',
@@ -884,15 +891,15 @@ const styles = StyleSheet.create({
   },
   headerButtonText: { ...typography.small, fontWeight: '600' },
   closeButton: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.md,
   },
   content: { paddingHorizontal: spacing[4], paddingBottom: spacing[8] },
   section: {
-    paddingVertical: spacing[5],
+    paddingVertical: spacing[4],
     gap: spacing[3],
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
@@ -907,7 +914,7 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
     gap: spacing[2],
   },
-  sectionTitle: { ...typography.h3 },
+  sectionTitle: { ...typography.small, fontWeight: '600' },
   sectionCount: { ...typography.caption },
   clearSection: {
     minHeight: 32,

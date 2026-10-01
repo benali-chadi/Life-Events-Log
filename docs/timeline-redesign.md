@@ -127,8 +127,9 @@ if the preview contract changes; visually review the screen on the mobile target
 
 First slice implements the journal layout, stable day keys, non-clipped rows,
 full metadata expansion and lazy full notes with top/bottom collapse controls.
-It retains one attachment preview; two-preview repository changes and direct
-attachment viewer integration remain the subsequent slice.
+The subsequent attachment slice now supplies two bounded previews and opens
+the existing viewer on demand. Expanded-card margins removed by the user remain
+unchanged.
 
 ## List investigation (first slice)
 
@@ -140,3 +141,27 @@ unbounded title layout before truncation. These address concrete risks, not a
 confirmed reproduction of the reported transient missing rows. FlatList shares
 VirtualizedList and is not inherently a fix. Defer replacing the list engine until
 reproduction/profiling justifies the extra dependency or custom header logic.
+
+## Attachment slice (approved)
+
+Replace singular attachmentPreview with attachmentPreviews (maximum two, ordered
+by sortOrder then id, excluding deleted attachments) in both repositories. SQLite
+keeps one list query using a bounded JSON subquery. Count remains the total.
+Thumbnail taps mount an on-demand attachment query and the existing viewer;
+resolve the initial image by ID so reordering cannot select the wrong image.
+Loading and failure are dismissible; failures offer retry. Selection mode routes
+thumbnail taps to event selection instead. No migration or new image cache.
+
+Attachment validation covers zero/one/many previews, stable sort-order ties,
+deleted files, one SQLite query per page, viewer loading/cancellation/retry,
+and resolving the tapped image after reordering. Native visual review remains
+outstanding.
+
+## Header/filter polish (approved)
+
+Keep the logo, overflow menu, fixed header placement and all existing filter
+controls/semantics. Do not add a timeline title. Soften search and active chips,
+quiet the Filters button, retain its active-group badge, and display the existing
+count query result beneath controls (with loading/updating/unavailable wording).
+Refine sheet spacing/headings and use high-contrast selected options. No new
+queries, filter types, gestures, or changes to chip clearing and sheet dismissal.
