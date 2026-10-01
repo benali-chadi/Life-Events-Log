@@ -33,22 +33,25 @@ export const eventCardStyles = StyleSheet.create({
   card: {
     minHeight: 50,
     position: 'relative',
-    overflow: 'hidden',
-    borderRadius: radius.sm,
+    paddingTop: spacing[2],
     gap: spacing[2],
   },
   ordinaryCard: {
-    padding: spacing[2],
+    paddingBottom: 24,
+  },
+  expandedCard: {
+    paddingHorizontal: spacing[2],
+    borderRadius: radius.sm,
   },
   notableCard: {
-    padding: 10,
+    paddingBottom: 30,
   },
   majorCard: {
-    padding: spacing[3],
+    paddingBottom: 38,
     gap: spacing[3],
   },
   turningPointCard: {
-    padding: spacing[4],
+    paddingBottom: 46,
     gap: spacing[3],
   },
   turningPointInnerBorder: {
@@ -61,13 +64,10 @@ export const eventCardStyles = StyleSheet.create({
     borderRadius: radius.sm,
   },
   headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     gap: spacing[2],
-    alignItems: 'flex-start',
   },
   title: {
-    flex: 1,
+    flexShrink: 1,
   },
   ordinaryTitle: {
     ...typography.body,
@@ -78,19 +78,20 @@ export const eventCardStyles = StyleSheet.create({
     fontWeight: '500',
   },
   majorTitle: {
-    fontSize: 19,
-    lineHeight: 27,
+    fontSize: 23,
+    lineHeight: 31,
     fontWeight: '600',
   },
   turningPointTitle: {
-    fontSize: 22,
-    lineHeight: 30,
-    fontWeight: '700',
+    fontSize: 30,
+    lineHeight: 36,
+    fontWeight: '500',
   },
   headerMeta: {
     flexShrink: 0,
-    alignItems: 'flex-end',
-    gap: spacing[1],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
   },
   date: {
     ...typography.caption,
@@ -187,7 +188,7 @@ export const eventCardStyles = StyleSheet.create({
   locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-end',
+    alignSelf: 'flex-start',
   },
   locationText: {
     ...typography.caption,

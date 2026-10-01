@@ -22,42 +22,29 @@ export function getSignificanceStyle(
   significance: EventSignificance,
   colors: ThemeColors
 ) {
-  switch (significance) {
-    case 'notable':
-      return {
-        title: eventCardStyles.notableTitle,
-        card: eventCardStyles.notableCard,
-        borderWidth: 1,
-        borderColor: colors.borderStrong,
-        backgroundColor: colors.surface,
-        markerColor: colors.textMuted,
-      };
-    case 'major':
-      return {
-        title: eventCardStyles.majorTitle,
-        card: eventCardStyles.majorCard,
-        borderWidth: 1,
-        borderColor: colors.textMuted,
-        backgroundColor: colors.surfaceElevated,
-        markerColor: colors.textSecondary,
-      };
-    case 'turning-point':
-      return {
-        title: eventCardStyles.turningPointTitle,
-        card: eventCardStyles.turningPointCard,
-        borderWidth: 2,
-        borderColor: colors.textSecondary,
-        backgroundColor: colors.interactiveMuted,
-        markerColor: colors.textSecondary,
-      };
-    default:
-      return {
-        title: eventCardStyles.ordinaryTitle,
-        card: eventCardStyles.ordinaryCard,
-        borderWidth: 0,
-        borderColor: colors.border,
-        backgroundColor: colors.surface,
-        markerColor: colors.textMuted,
-      };
-  }
+  const styles = {
+    ordinary: {
+      title: eventCardStyles.ordinaryTitle,
+      card: eventCardStyles.ordinaryCard,
+    },
+    notable: {
+      title: eventCardStyles.notableTitle,
+      card: eventCardStyles.notableCard,
+    },
+    major: {
+      title: eventCardStyles.majorTitle,
+      card: eventCardStyles.majorCard,
+    },
+    'turning-point': {
+      title: eventCardStyles.turningPointTitle,
+      card: eventCardStyles.turningPointCard,
+    },
+  };
+  return {
+    ...styles[significance],
+    borderWidth: 0,
+    borderColor: colors.border,
+    backgroundColor: colors.bg,
+    markerColor: colors.textMuted,
+  };
 }

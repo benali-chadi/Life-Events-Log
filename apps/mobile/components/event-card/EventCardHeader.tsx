@@ -1,10 +1,10 @@
 import type { useTheme } from '@lel/design/useTheme';
-import { useEffect, useState } from 'react';
+
 import type { NativeSyntheticEvent, TextLayoutEventData } from 'react-native';
 import { Text, View } from 'react-native';
 import { GitCompareArrows } from 'lucide-react-native';
 import {
-  significanceLevels,
+  significanceLabels,
   type getSignificanceStyle,
 } from './eventCardSignificance';
 import { eventCardStyles as styles } from './eventCardStyles';
@@ -33,37 +33,16 @@ export default function EventCardHeader({
   isExpanded,
   onTitleOverflowChange,
 }: EventCardHeaderProps) {
-  const [hasMeasuredTitle, setHasMeasuredTitle] = useState(false);
-
-  useEffect(() => {
-    setHasMeasuredTitle(false);
-    onTitleOverflowChange(false);
-  }, [onTitleOverflowChange, title]);
-
   const handleTitleLayout = (
     event: NativeSyntheticEvent<TextLayoutEventData>
   ) => {
-    if (hasMeasuredTitle) return;
-
     onTitleOverflowChange(
       event.nativeEvent.lines.length > COLLAPSED_TITLE_LINE_LIMIT
     );
-    setHasMeasuredTitle(true);
   };
 
   return (
     <View style={styles.headerRow}>
-      <Text
-        numberOfLines={
-          isExpanded || !hasMeasuredTitle
-            ? undefined
-            : COLLAPSED_TITLE_LINE_LIMIT
-        }
-        onTextLayout={handleTitleLayout}
-        style={[styles.title, significanceStyle.title, { color: colors.text }]}
-      >
-        {title}
-      </Text>
       <View style={styles.headerMeta}>
         {hasConflicts && (
           <View
@@ -77,23 +56,37 @@ export default function EventCardHeader({
         {time && (
           <Text style={[styles.date, { color: colors.textMuted }]}>{time}</Text>
         )}
-        <View
+        {significance !== 'ordinary' && (
+          <Text style={[styles.date, { color: colors.textMuted }]}>
+            {significanceLabels[significance]}
+          </Text>
+        )}
+      </View>
+      <View>
+        <Text
+          numberOfLines={isExpanded ? undefined : COLLAPSED_TITLE_LINE_LIMIT}
+          style={[
+            styles.title,
+            significanceStyle.title,
+            { color: colors.text },
+          ]}
+        >
+          {title}
+        </Text>
+        <Text
+          accessible={false}
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
-          style={styles.significanceMarker}
+          pointerEvents="none"
+          onTextLayout={handleTitleLayout}
+          style={[
+            styles.title,
+            significanceStyle.title,
+            { position: 'absolute', top: 0, left: 0, right: 0, opacity: 0 },
+          ]}
         >
-          {Array.from({ length: significanceLevels[significance] }).map(
-            (_, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.significanceSegment,
-                  { backgroundColor: significanceStyle.markerColor },
-                ]}
-              />
-            )
-          )}
-        </View>
+          {title}
+        </Text>
       </View>
     </View>
   );
