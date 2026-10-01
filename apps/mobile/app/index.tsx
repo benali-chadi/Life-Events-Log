@@ -1,3 +1,4 @@
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { groupEventsByDate } from '@/components/event-card/groupEventsByDate';
 import { radius, spacing, typography } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
@@ -62,6 +63,7 @@ const INITIAL_FILTERS: TimelineFilters = {
 };
 
 export default function Index() {
+  const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const navigation = useNavigation();
   const { showToast } = useAppToast();
@@ -414,6 +416,7 @@ export default function Index() {
         removeClippedSubviews={false}
         contentContainerStyle={[
           styles.listContent,
+          { paddingBottom: 96 + insets.bottom },
           sections.length === 0 && styles.emptyListContent,
         ]}
         keyExtractor={(item) => item.event.id}
@@ -507,11 +510,13 @@ export default function Index() {
           style={({ pressed }) => [
             styles.createButton,
             {
+              bottom: spacing[6] + insets.bottom,
+              right: spacing[5] + insets.right,
               backgroundColor: pressed ? colors.primaryPressed : colors.primary,
             },
           ]}
         >
-          <Plus color={colors.onPrimary} size={26} strokeWidth={2.25} />
+          <Plus color={colors.onPrimary} size={22} strokeWidth={2.25} />
         </Pressable>
       )}
     </View>
@@ -813,12 +818,15 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: spacing[5],
     bottom: spacing[6],
-    width: 56,
-    height: 56,
+    minHeight: 56,
+    flexDirection: 'row',
+    gap: spacing[2],
+    paddingHorizontal: spacing[5],
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radius.xl,
+    borderRadius: '100%',
   },
+  createButtonText: { ...typography.small, fontWeight: '600' },
 });
 
 function useDebouncedValue<T>(value: T, delay: number) {

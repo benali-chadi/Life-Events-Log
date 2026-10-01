@@ -165,3 +165,16 @@ quiet the Filters button, retain its active-group badge, and display the existin
 count query result beneath controls (with loading/updating/unavailable wording).
 Refine sheet spacing/headings and use high-contrast selected options. No new
 queries, filter types, gestures, or changes to chip clearing and sheet dismissal.
+
+## Add action and overflow menu (approved)
+
+Use a bottom-right “+ Add event” pill. Add bottom/right safe-area insets to
+its offsets and bottom inset to the list clearance; retain create navigation
+and selection-mode visibility. Group existing overflow actions under “Sync
+packages” and “Calendar files (ICS)”, keeping metadata separate. Preserve action
+callbacks, disabled states and filtered-export visibility. Constrain menu height
+to the available safe area and allow scrolling on short screens.
+
+Fast-scroll layout disturbance is still under investigation. Current pages hold
+10 events; reaching the end requests the next page. No page-size, prefetch, query
+or list-engine change is part of this visual update without further discussion.
