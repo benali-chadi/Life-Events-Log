@@ -162,7 +162,10 @@ const EventsHeader = forwardRef<EventsHeaderHandle, EventsHeaderProps>(
             clear={() => onChange((current) => ({ ...current, search: '' }))}
             showClear={!!filters.search.length}
             clearButtonMode="while-editing"
-            containerStyle={styles.searchInput}
+            containerStyle={[
+              styles.searchInput,
+              { backgroundColor: colors.interactiveMuted },
+            ]}
             onChangeText={(search) =>
               onChange((current) => ({ ...current, search }))
             }
@@ -176,14 +179,6 @@ const EventsHeader = forwardRef<EventsHeaderHandle, EventsHeaderProps>(
             onPress={() => openSheet()}
             style={({ pressed }) => [
               styles.filterButton,
-              {
-                backgroundColor: activeFilterCount
-                  ? colors.interactiveMuted
-                  : colors.surface,
-                borderColor: activeFilterCount
-                  ? colors.borderStrong
-                  : colors.border,
-              },
               pressed && { backgroundColor: colors.interactivePressed },
             ]}
           >
@@ -224,7 +219,6 @@ const EventsHeader = forwardRef<EventsHeaderHandle, EventsHeaderProps>(
                     styles.chip,
                     {
                       backgroundColor: colors.interactiveMuted,
-                      borderColor: colors.borderStrong,
                     },
                     pressed && { backgroundColor: colors.interactivePressed },
                   ]}
@@ -267,6 +261,17 @@ const EventsHeader = forwardRef<EventsHeaderHandle, EventsHeaderProps>(
             </Pressable>
           </View>
         )}
+
+        <Text
+          accessibilityLiveRegion="polite"
+          style={[styles.resultCount, { color: colors.textSecondary }]}
+        >
+          {eventCount === undefined
+            ? isEventCountFetching
+              ? 'Loading event count…'
+              : 'Event count unavailable'
+            : `${eventCount} ${activeFilterCount > 0 || filters.search.trim() ? 'matching ' : ''}${eventCount === 1 ? 'event' : 'events'}${isEventCountFetching ? ' · Updating…' : ''}`}
+        </Text>
 
         <TimelineFiltersSheet
           categoryOptions={categoryOptions}
@@ -367,19 +372,25 @@ function clearFilterSection(
 }
 
 const styles = StyleSheet.create({
-  root: { gap: spacing[2], paddingTop: spacing[3], paddingBottom: spacing[2] },
+  root: { gap: spacing[2], paddingTop: spacing[3], paddingBottom: spacing[4] },
   toolbar: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
-  searchInput: { flex: 1, minWidth: 0, marginHorizontal: 0, marginBottom: 0 },
+  searchInput: {
+    flex: 1,
+    minWidth: 0,
+    marginHorizontal: 0,
+    marginBottom: 0,
+    borderWidth: 0,
+  },
+  resultCount: { ...typography.caption, marginTop: spacing[1] },
   filterButton: {
     minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing[1],
-    paddingHorizontal: spacing[3],
-    borderWidth: 1,
+    paddingHorizontal: spacing[2],
     borderRadius: radius.md,
   },
-  filterButtonText: { ...typography.small, fontWeight: '600' },
+  filterButtonText: { ...typography.small, fontWeight: '500' },
   filterCount: {
     minWidth: 20,
     height: 20,
@@ -398,20 +409,19 @@ const styles = StyleSheet.create({
   chips: { gap: spacing[2] },
   chip: {
     maxWidth: 220,
-    minHeight: 34,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing[2],
     paddingHorizontal: spacing[3],
-    borderWidth: 1,
     borderRadius: radius.lg,
   },
   chipText: { ...typography.caption, flexShrink: 1 },
   clearAll: {
-    minHeight: 34,
+    minHeight: 44,
     justifyContent: 'center',
     paddingHorizontal: spacing[2],
     borderRadius: radius.sm,
   },
-  clearAllText: { ...typography.caption, fontWeight: '600' },
+  clearAllText: { ...typography.caption, fontWeight: '500' },
 });

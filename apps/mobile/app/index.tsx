@@ -1,3 +1,6 @@
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { timelineItemKey } from '@/components/event-card/timelineViewability';
+import { groupEventsByDate } from '@/components/event-card/groupEventsByDate';
 import { radius, spacing, typography } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
 import { router, useNavigation } from 'expo-router';
@@ -20,6 +23,14 @@ import {
   View,
 } from 'react-native';
 import EventCard from '@/components/event-card';
+import TimelineDateStrip, {
+  type TimelineDateStripHandle,
+} from '@/components/event-card/TimelineDateStrip';
+import type {
+  ViewToken,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
+} from 'react-native';
 import { useEventDeletion } from '@/components/event-deletion/EventDeletionProvider';
 import { confirmManyEventsDeletion } from '@/components/event-deletion/confirmEventDeletion';
 import EventsHeader, {
@@ -37,14 +48,14 @@ import {
   useConflictedEventIdsQuery,
   useInfiniteEventListQuery,
 } from '@/data/query';
-import type { EventListItem, EventExportQuery } from '@/data/repositories';
+import type { EventExportQuery } from '@/data/repositories';
 import { useEventExportRepository } from '@/data/RepositoryProvider';
 import SyncTransferProgressModal from '@/features/sync/SyncTransferProgressModal';
 import { useSyncPackageTransfer } from '@/features/sync/useSyncPackageTransfer';
 import { exportEventsAsIcs, type IcsExportSource } from '@/features/ics';
-import type { LocalDate, UUID } from '@/models';
+import type { UUID } from '@/models';
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 20;
 const SEARCH_DEBOUNCE_MS = 300;
 
 const INITIAL_FILTERS: TimelineFilters = {
@@ -61,6 +72,7 @@ const INITIAL_FILTERS: TimelineFilters = {
 };
 
 export default function Index() {
+  const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const navigation = useNavigation();
   const { showToast } = useAppToast();
@@ -72,6 +84,24 @@ export default function Index() {
     importPackage: importSyncPackage,
   } = syncTransfer;
   const eventsHeaderRef = useRef<EventsHeaderHandle>(null);
+  const dateStripRef = useRef<TimelineDateStripHandle>(null);
+  const viewabilityConfig = useRef({
+    viewAreaCoveragePercentThreshold: 0,
+  }).current;
+  const onViewableItemsChanged = useCallback(
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      dateStripRef.current?.updateVisibleItems(viewableItems);
+    },
+    []
+  );
+  const onTimelineScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      dateStripRef.current?.updateScrollOffset(
+        event.nativeEvent.contentOffset.y
+      );
+    },
+    []
+  );
   const [filters, setFilters] = useState<TimelineFilters>(INITIAL_FILTERS);
   const [selectedEventIds, setSelectedEventIds] = useState<Set<UUID>>(
     () => new Set()
@@ -408,13 +438,20 @@ export default function Index() {
           </Text>
         </Pressable>
       )}
+      <TimelineDateStrip ref={dateStripRef} sections={sections} />
       <SectionList
+        onScroll={onTimelineScroll}
+        scrollEventThrottle={32}
+        viewabilityConfig={viewabilityConfig}
+        onViewableItemsChanged={onViewableItemsChanged}
         sections={sections}
+        removeClippedSubviews={false}
         contentContainerStyle={[
           styles.listContent,
+          { paddingBottom: 96 + insets.bottom },
           sections.length === 0 && styles.emptyListContent,
         ]}
-        keyExtractor={(item) => item.event.id}
+        keyExtractor={timelineItemKey}
         renderItem={({ item }) => (
           <EventCard
             event={item}
@@ -425,7 +462,7 @@ export default function Index() {
           />
         )}
         onEndReached={loadMore}
-        onEndReachedThreshold={0.4}
+        onEndReachedThreshold={1}
         onRefresh={() => {
           void eventsQuery.refetch();
           void conflictsQuery.refetch();
@@ -436,9 +473,33 @@ export default function Index() {
         }
         onScrollBeginDrag={closeOpenSwipe}
         showsVerticalScrollIndicator={false}
-        renderSectionHeader={({ section: { title } }) => (
+        renderSectionHeader={({ section: { title, monthTitle } }) => (
           <View style={[styles.sectionHeader, { backgroundColor: colors.bg }]}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            <View
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                left: 7,
+                top: 0,
+                bottom: 0,
+                width: 1,
+                backgroundColor: colors.border,
+              }}
+            />
+            {monthTitle && (
+              <Text
+                style={{
+                  color: colors.textSecondary,
+                  marginBottom: 14,
+                  letterSpacing: 1,
+                }}
+              >
+                {monthTitle}
+              </Text>
+            )}
+            <Text
+              style={[styles.sectionTitle, { color: colors.textSecondary }]}
+            >
               {title}
             </Text>
           </View>
@@ -471,11 +532,7 @@ export default function Index() {
           ) : null
         }
         style={styles.list}
-        ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
-        SectionSeparatorComponent={() => (
-          <View style={styles.sectionSeparator} />
-        )}
-        stickySectionHeadersEnabled
+        stickySectionHeadersEnabled={false}
       />
       {!selectionMode && (
         <Pressable
@@ -485,11 +542,13 @@ export default function Index() {
           style={({ pressed }) => [
             styles.createButton,
             {
+              bottom: spacing[6] + insets.bottom,
+              right: spacing[5] + insets.right,
               backgroundColor: pressed ? colors.primaryPressed : colors.primary,
             },
           ]}
         >
-          <Plus color={colors.onPrimary} size={26} strokeWidth={2.25} />
+          <Plus color={colors.onPrimary} size={22} strokeWidth={2.25} />
         </Pressable>
       )}
     </View>
@@ -711,10 +770,12 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   sectionHeader: {
-    paddingVertical: spacing[1],
+    paddingLeft: 32,
+    paddingTop: 12,
+    paddingBottom: 16,
   },
   sectionTitle: {
-    ...typography.h3,
+    ...typography.small,
   },
   itemSeparator: {
     height: spacing[1],
@@ -789,12 +850,15 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: spacing[5],
     bottom: spacing[6],
-    width: 56,
-    height: 56,
+    minHeight: 56,
+    flexDirection: 'row',
+    gap: spacing[2],
+    paddingHorizontal: spacing[5],
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radius.xl,
+    borderRadius: '100%',
   },
+  createButtonText: { ...typography.small, fontWeight: '600' },
 });
 
 function useDebouncedValue<T>(value: T, delay: number) {
@@ -807,57 +871,4 @@ function useDebouncedValue<T>(value: T, delay: number) {
   }, [delay, value]);
 
   return debouncedValue;
-}
-
-function localDateToday(): LocalDate {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-
-  return `${year}-${month}-${day}` as LocalDate;
-}
-
-function shiftLocalDate(date: LocalDate, days: number): LocalDate {
-  const year = Number(date.slice(0, 4));
-  const month = Number(date.slice(5, 7));
-  const day = Number(date.slice(8, 10));
-  const shifted = new Date(year, month - 1, day + days);
-  const shiftedMonth = String(shifted.getMonth() + 1).padStart(2, '0');
-  const shiftedDay = String(shifted.getDate()).padStart(2, '0');
-
-  return `${shifted.getFullYear()}-${shiftedMonth}-${shiftedDay}` as LocalDate;
-}
-
-function formatSectionDate(date: LocalDate) {
-  const today = localDateToday();
-
-  if (date === today) return 'Today';
-  if (date === shiftLocalDate(today, -1)) return 'Yesterday';
-
-  const year = Number(date.slice(0, 4));
-  const month = Number(date.slice(5, 7));
-  const day = Number(date.slice(8, 10));
-  return new Intl.DateTimeFormat(undefined, {
-    day: 'numeric',
-    month: 'long',
-    year: year === new Date().getFullYear() ? undefined : 'numeric',
-  }).format(new Date(year, month - 1, day, 12));
-}
-
-function groupEventsByDate(items: EventListItem[]) {
-  const groups = new Map<LocalDate, EventListItem[]>();
-
-  for (const item of items) {
-    const existing = groups.get(item.event.date);
-
-    if (existing) existing.push(item);
-    else groups.set(item.event.date, [item]);
-  }
-
-  return Array.from(groups, ([date, data]) => ({
-    date,
-    title: formatSectionDate(date),
-    data,
-  }));
 }

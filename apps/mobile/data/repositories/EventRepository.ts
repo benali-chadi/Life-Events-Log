@@ -71,7 +71,7 @@ export type EventListItem = {
   tags: Tag[];
   people: Person[];
   attachmentCount: number;
-  attachmentPreview: EventAttachment | null;
+  attachmentPreviews: EventAttachment[];
 };
 
 export type EventPage = {

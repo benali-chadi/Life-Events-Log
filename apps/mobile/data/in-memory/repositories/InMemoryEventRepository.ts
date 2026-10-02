@@ -460,7 +460,7 @@ export class InMemoryEventRepository implements EventRepository {
       tags: details.tags,
       people: details.people,
       attachmentCount: details.attachments.length,
-      attachmentPreview: details.attachments[0] ?? null,
+      attachmentPreviews: details.attachments.slice(0, 2),
     };
   }
 

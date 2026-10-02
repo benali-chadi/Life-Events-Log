@@ -28,6 +28,9 @@ vi.mock('@expo/vector-icons/MaterialIcons', () => ({
 vi.mock('@lel/design', () => ({ eventColors: {} }));
 vi.mock('./eventCardStyles', () => ({ eventCardStyles: {} }));
 vi.mock('./EventCardExpandedContent', () => ({ default: 'Expanded' }));
+vi.mock('./EventCardAttachmentPreview', () => ({
+  default: 'AttachmentPreview',
+}));
 vi.mock('./EventCardMetadata', () => ({ default: 'Metadata' }));
 
 function nodes(node: ReactNode): ReactElement<Record<string, unknown>>[] {

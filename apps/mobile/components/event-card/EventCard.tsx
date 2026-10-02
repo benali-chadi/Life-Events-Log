@@ -1,3 +1,4 @@
+import { eventColors } from '@lel/design';
 import { useTheme } from '@lel/design/useTheme';
 import { useRouter } from 'expo-router';
 import { Check, Trash2 } from 'lucide-react-native';
@@ -8,6 +9,7 @@ import { confirmEventDeletion } from '../event-deletion/confirmEventDeletion';
 import SwipeReveal, { closeOpenSwipe } from '../ui/SwipeReveal';
 import { useAppToast } from '../ui/AppToastProvider';
 import EventCardContent from './EventCardContent';
+import TimelineAttachmentViewer from './TimelineAttachmentViewer';
 import { eventCardStyles as styles } from './eventCardStyles';
 import type { EventListItem } from '@/data/repositories';
 
@@ -32,6 +34,7 @@ export default function EventCard({
   const { showToast } = useAppToast();
   const suppressNextOpenRef = useRef(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [attachmentId, setAttachmentId] = useState<string | null>(null);
   const [hasTitleOverflow, setHasTitleOverflow] = useState(false);
 
   const significance = event.event.significance;
@@ -39,12 +42,7 @@ export default function EventCard({
     hasTitleOverflow ||
     event.tags.length > 2 ||
     event.people.length > 2 ||
-    Boolean(
-      event.category ||
-      event.event.significance ||
-      event.event.notesPreview ||
-      event.attachmentCount
-    );
+    Boolean(event.event.notesPreview);
 
   const handleTitleOverflowChange = useCallback((hasOverflow: boolean) => {
     setHasTitleOverflow(hasOverflow);
@@ -75,88 +73,132 @@ export default function EventCard({
   };
 
   return (
-    <View style={selectionMode && styles.selectionRow}>
-      {selectionMode && (
-        <Pressable
-          accessibilityLabel={`${isSelected ? 'Deselect' : 'Select'} ${event.event.title}`}
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: isSelected }}
-          hitSlop={8}
-          onPress={onSelect}
-          style={[
-            styles.selectionControl,
-            {
-              backgroundColor: isSelected ? colors.primary : colors.bg,
-              borderColor: isSelected ? colors.primary : colors.borderStrong,
-            },
-          ]}
-        >
-          {isSelected && (
-            <Check color={colors.onPrimary} size={16} strokeWidth={3} />
-          )}
-        </Pressable>
-      )}
-      <View style={selectionMode && styles.selectionCard}>
-        <SwipeReveal
-          actionWidth={80}
-          enabled={!selectionMode}
-          action={
-            selectionMode ? null : (
-              <Pressable
-                accessibilityLabel={`Delete ${event.event.title}`}
-                accessibilityRole="button"
-                onPress={() =>
-                  confirmEventDeletion(event.event.title, () => {
-                    void deleteEvent(event.event).catch(() => {
-                      showToast({
-                        message: 'The event was not deleted. Please try again.',
-                        kind: 'error',
+    <View style={{ paddingLeft: 32, position: 'relative' }}>
+      <View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          left: 7,
+          top: 0,
+          bottom: 0,
+          width: 1,
+          backgroundColor: colors.border,
+        }}
+      />
+      <View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          left: 3,
+          top: 14,
+          width: 9,
+          height: 9,
+          borderRadius: significance === 'turning-point' ? 1 : 5,
+          transform:
+            significance === 'turning-point'
+              ? [{ rotate: '45deg' }]
+              : undefined,
+          backgroundColor: event.category
+            ? eventColors[event.category.color][isDark ? 'dark' : 'light']
+            : colors.textMuted,
+        }}
+      />
+      <View style={selectionMode && styles.selectionRow}>
+        {selectionMode && (
+          <Pressable
+            accessibilityLabel={`${isSelected ? 'Deselect' : 'Select'} ${event.event.title}`}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: isSelected }}
+            hitSlop={8}
+            onPress={onSelect}
+            style={[
+              styles.selectionControl,
+              {
+                backgroundColor: isSelected ? colors.primary : colors.bg,
+                borderColor: isSelected ? colors.primary : colors.borderStrong,
+              },
+            ]}
+          >
+            {isSelected && (
+              <Check color={colors.onPrimary} size={16} strokeWidth={3} />
+            )}
+          </Pressable>
+        )}
+        <View style={selectionMode && styles.selectionCard}>
+          <SwipeReveal
+            actionWidth={80}
+            enabled={!selectionMode}
+            action={
+              selectionMode ? null : (
+                <Pressable
+                  accessibilityLabel={`Delete ${event.event.title}`}
+                  accessibilityRole="button"
+                  onPress={() =>
+                    confirmEventDeletion(event.event.title, () => {
+                      void deleteEvent(event.event).catch(() => {
+                        showToast({
+                          message:
+                            'The event was not deleted. Please try again.',
+                          kind: 'error',
+                        });
                       });
-                    });
-                  })
-                }
-                style={({ pressed }) => [
-                  styles.deleteAction,
-                  {
-                    backgroundColor: pressed
-                      ? colors.destructiveSurfacePressed
-                      : colors.destructiveSurface,
-                  },
-                ]}
-              >
-                <Trash2
-                  color={colors.onDestructive}
-                  size={19}
-                  strokeWidth={2}
-                />
-                <Text
-                  style={[styles.deleteText, { color: colors.onDestructive }]}
+                    })
+                  }
+                  style={({ pressed }) => [
+                    styles.deleteAction,
+                    {
+                      backgroundColor: pressed
+                        ? colors.destructiveSurfacePressed
+                        : colors.destructiveSurface,
+                    },
+                  ]}
                 >
-                  Delete
-                </Text>
-              </Pressable>
-            )
-          }
-        >
-          <EventCardContent
-            event={event}
-            hasConflicts={hasConflicts}
-            significance={significance}
-            colors={colors}
-            isDark={isDark}
-            hasExpandableContent={hasExpandableContent}
-            isExpanded={isExpanded}
-            onLongPress={selectionMode ? undefined : startSelection}
-            onOpen={openEvent}
-            onToggleExpanded={
-              selectionMode
-                ? () => onSelect?.()
-                : () => setIsExpanded((current) => !current)
+                  <Trash2
+                    color={colors.onDestructive}
+                    size={19}
+                    strokeWidth={2}
+                  />
+                  <Text
+                    style={[styles.deleteText, { color: colors.onDestructive }]}
+                  >
+                    Delete
+                  </Text>
+                </Pressable>
+              )
             }
-            onTitleOverflowChange={handleTitleOverflowChange}
-          />
-        </SwipeReveal>
+          >
+            <EventCardContent
+              event={event}
+              hasConflicts={hasConflicts}
+              significance={significance}
+              colors={colors}
+              isDark={isDark}
+              hasExpandableContent={hasExpandableContent}
+              isExpanded={isExpanded}
+              onLongPress={selectionMode ? undefined : startSelection}
+              onOpen={openEvent}
+              onOpenAttachment={(id) => {
+                if (closeOpenSwipe()) return;
+                if (selectionMode) onSelect?.();
+                else setAttachmentId(id);
+              }}
+              onToggleExpanded={
+                selectionMode
+                  ? () => onSelect?.()
+                  : () => setIsExpanded((current) => !current)
+              }
+              onTitleOverflowChange={handleTitleOverflowChange}
+            />
+          </SwipeReveal>
+        </View>
       </View>
+      {attachmentId !== null && (
+        <TimelineAttachmentViewer
+          eventId={event.event.id}
+          attachmentId={attachmentId}
+          onClose={() => setAttachmentId(null)}
+        />
+      )}
     </View>
   );
 }

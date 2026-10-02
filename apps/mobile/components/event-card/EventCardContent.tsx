@@ -3,6 +3,7 @@ import { eventColors } from '@lel/design';
 import type { useTheme } from '@lel/design/useTheme';
 import { Pressable, Text, View } from 'react-native';
 import EventCardExpandedContent from './EventCardExpandedContent';
+import EventCardAttachmentPreview from './EventCardAttachmentPreview';
 import EventCardHeader from './EventCardHeader';
 import EventCardMetadata from './EventCardMetadata';
 import {
@@ -22,6 +23,7 @@ type EventCardContentProps = {
   hasExpandableContent: boolean;
   isExpanded: boolean;
   onOpen: () => void;
+  onOpenAttachment?: (id: string) => void;
   onLongPress?: () => void;
   onToggleExpanded: () => void;
   onTitleOverflowChange: (hasOverflow: boolean) => void;
@@ -36,6 +38,7 @@ export default function EventCardContent({
   hasExpandableContent,
   isExpanded,
   onOpen,
+  onOpenAttachment,
   onLongPress,
   onToggleExpanded,
   onTitleOverflowChange,
@@ -58,27 +61,16 @@ export default function EventCardContent({
       style={({ pressed }) => [
         styles.card,
         significanceStyle.card,
+        isExpanded && styles.expandedCard,
         {
           backgroundColor: pressed
             ? colors.interactivePressed
-            : significanceStyle.backgroundColor,
-          borderColor: significanceStyle.borderColor,
-          borderWidth: significanceStyle.borderWidth,
-          borderLeftColor: categoryColor,
-          borderLeftWidth: 5,
+            : isExpanded
+              ? colors.surface
+              : significanceStyle.backgroundColor,
         },
       ]}
     >
-      {significance === 'turning-point' && (
-        <View
-          pointerEvents="none"
-          style={[
-            styles.turningPointInnerBorder,
-            { borderColor: colors.border },
-          ]}
-        />
-      )}
-
       <EventCardHeader
         hasConflicts={hasConflicts}
         title={event.event.title}
@@ -90,6 +82,30 @@ export default function EventCardContent({
         onTitleOverflowChange={onTitleOverflowChange}
       />
 
+      {!isExpanded && event.event.notesPreview && (
+        <Text
+          numberOfLines={significance === 'ordinary' ? 1 : 3}
+          style={[styles.notes, { color: colors.textSecondary }]}
+        >
+          {event.event.notesPreview}
+        </Text>
+      )}
+      {event.attachmentPreviews?.length > 0 && (
+        <EventCardAttachmentPreview
+          attachments={event.attachmentPreviews}
+          onOpen={onOpenAttachment ?? onOpen}
+          attachmentCount={event.attachmentCount}
+          colors={colors}
+          prominent={
+            significance === 'major' || significance === 'turning-point'
+          }
+        />
+      )}
+      {event.category && (
+        <Text style={[styles.metadataText, { color: categoryColor }]}>
+          {event.category.displayName ?? event.category.name}
+        </Text>
+      )}
       <EventCardMetadata
         title={event.event.title}
         tags={tags}
@@ -99,10 +115,6 @@ export default function EventCardContent({
         isExpanded={isExpanded}
         onToggleExpanded={onToggleExpanded}
       />
-
-      {isExpanded && hasExpandableContent && (
-        <EventCardExpandedContent event={event} colors={colors} />
-      )}
 
       {event.location && (
         <View style={styles.locationRow}>
@@ -115,6 +127,26 @@ export default function EventCardContent({
             {event.location.displayName ?? event.location.name}
           </Text>
         </View>
+      )}
+      {isExpanded && (
+        <>
+          <EventCardExpandedContent event={event} colors={colors} />
+          {event.event.notesPreview && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Collapse ${event.event.title} notes`}
+              onPress={(e) => {
+                e.stopPropagation();
+                onToggleExpanded();
+              }}
+              style={{ paddingVertical: 12 }}
+            >
+              <Text style={[styles.metadataText, { color: colors.textMuted }]}>
+                Collapse notes
+              </Text>
+            </Pressable>
+          )}
+        </>
       )}
     </Pressable>
   );
