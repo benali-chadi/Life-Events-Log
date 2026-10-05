@@ -1,0 +1,8 @@
+First release of Life Events Log.
+
+- Record events with photos, notes, categories, tags, people, locations, and significance.
+- Browse and filter your timeline.
+- Exchange sync packages between devices.
+- Import and export calendar files (.ics).
+
+Free, with no ads, cloud backend, or central server.

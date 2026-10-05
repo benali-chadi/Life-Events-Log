@@ -1,0 +1,24 @@
+Life Events Log helps you record, revisit, and make sense of the events in your life.
+
+Capture events with photos and notes, add details such as categories, tags, people, and locations, and indicate how significant they are to you. Filter your events to find the moments you want to revisit, remember their context, and reflect on what happened.
+
+<b>Who is it for?</b>
+I started building this app because I sometimes have trouble remembering events in my own life. If that feels familiar, you might find it useful too.
+
+There’s no prescribed way to use it. Log everyday routines, major milestones, or anything in between. Record as much or as little as you want.
+
+<b>Your life events, your data</b>
+Your life events belong to you. LEL is free and will remain free, with no ads. Your data is stored locally on your device. The app has no cloud backend or central server.
+
+<b>Syncing between devices</b>
+Create a sync package from the overflow menu, transfer it however you prefer, and import it on the receiving device.
+
+The app validates the package and merges its contents with your existing data. It then restores missing attachment files available in the package, including files that were missing before the import. Deleted attachments and attachments belonging to deleted events are skipped. You can cancel attachment repair without undoing the merge.
+
+Created packages remain in the app’s cache so transfers can finish. After your transfers are complete, you can clear the app’s cache in Android settings to reclaim space. Choose Clear cache, not Clear storage/data, which removes the app’s stored data.
+
+<b>Calendar files (.ics)</b>
+Import events from calendar files and export all your events or just a selection. Each calendar import creates new events: importing the same file twice creates duplicates rather than updating existing events. Use sync packages to sync between devices.
+
+<b>AI use</b>
+AI helped with code, design exploration, and documentation during development. The app itself has no AI features and does not send your life events to AI services.
