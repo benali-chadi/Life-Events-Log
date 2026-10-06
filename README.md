@@ -1,6 +1,6 @@
 # Life Events Log
 
-[License](#license)
+[GNU GPLv3](LICENSE)
 
 Life Events Log helps you record, revisit, and make sense of the events in your life.
 
@@ -99,7 +99,7 @@ AI was used to help develop LEL. The app itself has no AI features and does not 
 
 ## Contributing and support
 
-To report a bug, suggest an improvement, or ask for help, [open an issue](https://codeberg.org/benali-chadi/LEL/issues). For bugs, include what happened, what you expected, and steps to reproduce the issue. Use fictional examples rather than sharing private life events.
+To report a bug, suggest an improvement, or ask for help, [open an issue](https://github.com/benali-chadi/Life-Events-Log/issues). For bugs, include what happened, what you expected, and steps to reproduce the issue. Use fictional examples rather than sharing private life events.
 
 AI-assisted contributions are welcome, but you are responsible for what you submit. Review and understand your changes, verify that they work, and explain their purpose.
 
@@ -113,4 +113,4 @@ Donation links: TBD.
 
 ## License
 
-The planned license is [GNU GPLv3](https://www.gnu.org/licenses/gpl-3.0.html). The license file will be added before the public release.
+Life Events Log is licensed under the [GNU General Public License v3.0](LICENSE).
