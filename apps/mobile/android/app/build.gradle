@@ -119,9 +119,10 @@ android {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.release
+            // Build an unsigned APK when release signing credentials are unavailable.
+            signingConfig = project.hasProperty('LEL_RELEASE_STORE_FILE')
+                ? signingConfigs.release
+                : null
             def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
             shrinkResources enableShrinkResources.toBoolean()
             minifyEnabled enableMinifyInReleaseBuilds
