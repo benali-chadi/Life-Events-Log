@@ -22,3 +22,17 @@ allprojects {
 
 apply plugin: "expo-root-project"
 apply plugin: "com.facebook.react.rootproject"
+
+def checkoutRoot = new File(rootDir, "../../..").canonicalPath
+def pathMap = "-ffile-prefix-map=${checkoutRoot}=."
+
+subprojects { project ->
+  ["com.android.library"].each { pluginId ->
+    project.plugins.withId(pluginId) {
+      project.android.defaultConfig.externalNativeBuild.cmake {
+        cFlags pathMap
+        cppFlags pathMap
+      }
+    }
+  }
+}

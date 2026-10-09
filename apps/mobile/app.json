@@ -2,7 +2,7 @@
   "expo": {
     "name": "Life Events Log",
     "slug": "LifeEventsLog",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "orientation": "portrait",
     "backgroundColor": "#FBF6EC",
     "icon": "./assets/images/icon.png",
