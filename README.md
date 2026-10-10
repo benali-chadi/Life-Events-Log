@@ -1,12 +1,24 @@
-# Life Events Log
+<p align="center">
+    <img src="apps/mobile/assets/images/adaptive-icon-foreground.png" width="220" alt="Life Events Log" />
+</p>
+<h1 align="center">Life Events Log</h1>
 
-[GNU GPLv3](LICENSE)
+<p align="center">Life Events Log helps you record, revisit, and make sense of the events in your life.</p>
 
-Life Events Log helps you record, revisit, and make sense of the events in your life.
+<p align="center">
+  <a href="https://github.com/benali-chadi/Life-Events-Log/releases/latest">
+    <img alt="Download for Android" height="28"
+       src="https://img.shields.io/badge/Download-Android-91BFA3?style=for-the-badge&logo=android&logoColor=182126" />
+  </a>
+  <a href="LICENSE"><img alt="License: GNU GPLv3" height="28" src="https://img.shields.io/badge/License-GPLv3-91BFA3?style=for-the-badge" /></a>
+  <a href="https://liberapay.com/ChadiB/donate"><img alt="Donate using Liberapay" height="28" src="https://liberapay.com/assets/widgets/donate.svg" /></a>
+</p>
+
+<p align="center"><strong>Free forever · No ads · Stored on your device</strong></p>
 
 Capture events with photos and notes, add details such as categories, tags, people, and locations, and indicate how significant they are to you. Filter your events to find the moments you want to revisit, remember their context, and reflect on what happened.
 
-<p>
+<p align="center">
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/LEL-timeline-dark.png" width="250" alt="Timeline with everyday events and a pottery photo, in dark theme" />
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/LEL-event-page-dark.png" width="250" alt="Event details with notes, metadata, and a photo, in dark theme" />
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/LEL-filters-dark.png" width="250" alt="Filters for categories, significance, tags, people, locations, and dates, in dark theme" />
@@ -15,7 +27,7 @@ Capture events with photos and notes, add details such as categories, tags, peop
 <details>
 <summary>More screenshots</summary>
 
-<p>
+<p align="center">
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/LEL-filtered-timeline-dark.png" width="250" alt="Timeline filtered to Personal events" />
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/LEL-timeline2-dark.png" width="250" alt="Expanded event in the timeline" />
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/LEL-manage-metadata-dark.png" width="250" alt="Category management with event counts" />
@@ -26,7 +38,7 @@ Capture events with photos and notes, add details such as categories, tags, peop
 <details>
 <summary>Light theme</summary>
 
-<p>
+<p align="center">
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/LEL-timeline-light.png" width="250" alt="Timeline in light theme" />
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/LEL-event-page-light.png" width="250" alt="Event details in light theme" />
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/LEL-filters-light.png" width="250" alt="Filters in light theme" />
@@ -53,8 +65,8 @@ Syncing between devices currently works by creating and exchanging sync packages
 
 ## Getting the app
 
+- **Android APK:** [Download the latest release](https://github.com/benali-chadi/Life-Events-Log/releases/latest).
 - **F-Droid:** Coming soon. The listing link will be added when available.
-- **App releases:** A direct APK download link will be added here for the first public release.
 
 ## Syncing
 
@@ -109,7 +121,7 @@ Unreviewed AI output and other low-effort pull requests will be rejected.
 
 LEL is free and will remain free. If you enjoy the app and find it useful, you can support its development with a donation.
 
-Donation links: TBD.
+[![Donate using Liberapay](https://liberapay.com/assets/widgets/donate.svg)](https://liberapay.com/ChadiB/donate)
 
 ## License
 
