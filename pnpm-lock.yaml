@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  '@react-native/gradle-plugin@0.81.5':
+    hash: 744d00dfc9231c63471e5d15cab71fe6491ee34518183659deec1a0a1f0a7c92
+    path: patches/@react-native__gradle-plugin@0.81.5.patch
+
 importers:
 
   .:
@@ -7147,7 +7152,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@react-native/gradle-plugin@0.81.5': {}
+  '@react-native/gradle-plugin@0.81.5(patch_hash=744d00dfc9231c63471e5d15cab71fe6491ee34518183659deec1a0a1f0a7c92)': {}
 
   '@react-native/js-polyfills@0.81.5': {}
 
@@ -10417,7 +10422,7 @@ snapshots:
       '@react-native/assets-registry': 0.81.5
       '@react-native/codegen': 0.81.5(@babel/core@7.29.7)
       '@react-native/community-cli-plugin': 0.81.5
-      '@react-native/gradle-plugin': 0.81.5
+      '@react-native/gradle-plugin': 0.81.5(patch_hash=744d00dfc9231c63471e5d15cab71fe6491ee34518183659deec1a0a1f0a7c92)
       '@react-native/js-polyfills': 0.81.5
       '@react-native/normalize-colors': 0.81.5
       '@react-native/virtualized-lists': 0.81.5(@types/react@19.1.17)(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)

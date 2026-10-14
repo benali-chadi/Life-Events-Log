@@ -3,6 +3,13 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "private": true,
+  "expo": {
+    "autolinking": {
+      "android": {
+        "buildFromSource": [".*"]
+      }
+    }
+  },
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",

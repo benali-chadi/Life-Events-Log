@@ -1,0 +1,84 @@
+// Shared by developer releases and F-Droid rebuilds. Keep environment-specific
+// paths and linker notes out of the packaged native libraries.
+import org.gradle.process.ExecOperations
+import javax.inject.Inject
+
+interface LelReproducibleExec {
+    @Inject ExecOperations getExecOperations()
+}
+
+def checkoutRoot = new File(rootDir, "../../..").canonicalPath
+def pathMaps = [
+    "-ffile-prefix-map=${checkoutRoot}=.",
+    "-ffile-prefix-map=${gradle.gradleUserHomeDir.canonicalPath}=.gradle"
+]
+def normalizer = rootProject.file("scripts/normalize-glide-indexers.mjs")
+
+subprojects { sub ->
+    ["com.android.application", "com.android.library"].each { pluginId ->
+        sub.plugins.withId(pluginId) {
+            sub.android.defaultConfig.externalNativeBuild.cmake {
+                cFlags(*pathMaps)
+                cppFlags(*pathMaps)
+            }
+        }
+    }
+
+    // Glide 4.16's Java generator already sorts registration calls. Only its
+    // index annotation and derived class name depend on KAPT discovery order.
+    // Run after annotation processing, before javac consumes the generated Java.
+    if (sub.name == "expo-image") {
+        sub.tasks.matching { it.name ==~ /kapt(?!GenerateStubs).+Kotlin/ }.configureEach { kaptTask ->
+            def runner = sub.objects.newInstance(LelReproducibleExec)
+            def variant = kaptTask.name.substring(4, kaptTask.name.length() - 6)
+            variant = variant[0].toLowerCase() + variant.substring(1)
+            def generated = new File(sub.layout.buildDirectory.get().asFile, "generated/source/kapt/${variant}")
+            kaptTask.doLast {
+                runner.execOperations.exec {
+                    commandLine "node", normalizer.absolutePath, generated.absolutePath
+                }
+            }
+        }
+    }
+
+    sub.plugins.withId("com.android.application") {
+        def configureNativeBuildIds = {
+            sub.android.applicationVariants.all { variant ->
+                if (variant.buildType.name != "release") return
+                def capitalized = variant.name.capitalize()
+                def mergeTask = sub.tasks.named("merge${capitalized}NativeLibs")
+                def runner = sub.objects.newInstance(LelReproducibleExec)
+                def host = System.getProperty("os.name").toLowerCase()
+                def hostTag = host.contains("linux") ? "linux-x86_64" : host.contains("mac") ? "darwin-x86_64" : "windows-x86_64"
+                def executable = host.contains("windows") ? "llvm-strip.exe" : "llvm-strip"
+                def strip = new File(sub.android.sdkDirectory,
+                    "ndk/${sub.android.ndkVersion}/toolchains/llvm/prebuilt/${hostTag}/bin/${executable}")
+                def libraries = sub.layout.buildDirectory.dir("intermediates/merged_native_libs/${variant.name}/merge${capitalized}NativeLibs/out/lib").get().asFile
+                def stripTask = sub.tasks.register("normalize${capitalized}NativeBuildIds") {
+                    dependsOn mergeTask
+                    doLast {
+                        def files = sub.fileTree(libraries) { include "**/*.so" }.files.sort()
+                        if (!files.empty) {
+                            if (!strip.isFile()) throw new GradleException("NDK llvm-strip not found: ${strip}")
+                            runner.execOperations.exec {
+                                commandLine([strip.absolutePath, "--remove-section=.note.gnu.build-id"] + files.collect { it.absolutePath })
+                            }
+                        }
+                    }
+                }
+                // Both consumers must see normalised merge output, including
+                // when Gradle considers the merge task itself up to date.
+                sub.tasks.matching {
+                    it.name in ["strip${capitalized}DebugSymbols", "package${capitalized}", "extract${capitalized}NativeSymbolTables"]
+                }.configureEach { dependsOn stripTask }
+            }
+        }
+        // React Native can evaluate :app before this root script is applied.
+        // Register immediately in that case; otherwise wait for AGP's tasks.
+        if (sub.state.executed) {
+            configureNativeBuildIds()
+        } else {
+            sub.afterEvaluate { configureNativeBuildIds() }
+        }
+    }
+}

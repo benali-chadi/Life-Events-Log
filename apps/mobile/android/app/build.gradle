@@ -97,14 +97,6 @@ android {
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
 
-        externalNativeBuild {
-            cmake {
-                def checkoutRoot = new File(rootDir, "../../..").canonicalPath
-                def pathMap = "-ffile-prefix-map=${checkoutRoot}=."
-                cFlags pathMap
-                cppFlags pathMap
-            }
-        }
     }
     signingConfigs {
         debug {
@@ -129,9 +121,9 @@ android {
         }
         release {
             // Build an unsigned APK when release signing credentials are unavailable.
-            signingConfig = project.hasProperty('LEL_RELEASE_STORE_FILE')
-                ? signingConfigs.release
-                : null
+            if (project.hasProperty('LEL_RELEASE_STORE_FILE')) {
+                signingConfig signingConfigs.release
+            }
             def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
             shrinkResources enableShrinkResources.toBoolean()
             minifyEnabled enableMinifyInReleaseBuilds
