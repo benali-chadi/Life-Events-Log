@@ -8,7 +8,6 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import Markdown from 'react-native-markdown-display';
@@ -40,7 +39,6 @@ export default function EventNotes({
 }: EventNotesProps) {
   const { colors } = useTheme();
   const { showToast } = useAppToast();
-  const { height: windowHeight } = useWindowDimensions();
   const inputRef = useRef<TextInput>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -292,13 +290,12 @@ export default function EventNotes({
             style={[
               styles.editor,
               {
-                maxHeight: Math.max(260, windowHeight * 0.5),
                 color: colors.text,
                 backgroundColor: colors.surface,
                 borderColor: colors.focus,
               },
             ]}
-            scrollEnabled
+            scrollEnabled={false}
             textAlignVertical="top"
             value={draftValue}
           />

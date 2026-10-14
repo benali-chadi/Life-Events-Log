@@ -1,3 +1,4 @@
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import MetadataRow from '@/components/metadata/MetadataRow';
 import CategoryMetadata from '@/components/metadata/CategoryMetadata';
 import DateMetadata, {
@@ -41,10 +42,7 @@ import {
 import { useRef, useState } from 'react';
 import {
   Alert,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -262,147 +260,145 @@ export default function NewEventScreen() {
         </View>
       </SafeAreaView>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      <KeyboardAwareScrollView
         style={styles.contentArea}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        bottomOffset={16}
       >
-        <ScrollView
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
-        >
-          <Text style={[styles.prompt, { color: colors.text }]}>
-            What happened?
+        <Text style={[styles.prompt, { color: colors.text }]}>
+          What happened?
+        </Text>
+        <TextInput
+          accessibilityLabel="Event title"
+          autoFocus
+          editable={!isCreating}
+          maxLength={EVENT_TITLE_MAX_LENGTH}
+          onChangeText={setTitle}
+          onSubmitEditing={() => void createEvent()}
+          placeholder="Event title"
+          placeholderTextColor={colors.textMuted}
+          returnKeyType="done"
+          selectionColor={colors.focus}
+          style={[
+            styles.titleInput,
+            {
+              color: colors.text,
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+            },
+          ]}
+          value={title}
+        />
+        {title.length >= 80 && (
+          <Text style={[styles.titleCounter, { color: colors.textMuted }]}>
+            {title.length}/{EVENT_TITLE_MAX_LENGTH}
           </Text>
-          <TextInput
-            accessibilityLabel="Event title"
-            autoFocus
-            editable={!isCreating}
-            maxLength={EVENT_TITLE_MAX_LENGTH}
-            onChangeText={setTitle}
-            onSubmitEditing={() => void createEvent()}
-            placeholder="Event title"
-            placeholderTextColor={colors.textMuted}
-            returnKeyType="done"
-            selectionColor={colors.focus}
-            style={[
-              styles.titleInput,
-              {
-                color: colors.text,
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-              },
-            ]}
-            value={title}
-          />
-          {title.length >= 80 && (
-            <Text style={[styles.titleCounter, { color: colors.textMuted }]}>
-              {title.length}/{EVENT_TITLE_MAX_LENGTH}
-            </Text>
-          )}
+        )}
 
-          <View style={styles.metadata}>
-            <MetadataRow
-              label="Date"
-              icon={<Calendar color={colors.textMuted} size={16} />}
-            >
-              <DateMetadata value={date} onChange={setDate} />
-            </MetadataRow>
-          </View>
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ expanded: showMoreDetails }}
-            onPress={() => setShowMoreDetails((current) => !current)}
-            style={({ pressed }) => [
-              styles.moreDetailsButton,
-              { borderColor: colors.border },
-              pressed && { backgroundColor: colors.interactiveMuted },
-            ]}
+        <View style={styles.metadata}>
+          <MetadataRow
+            label="Date"
+            icon={<Calendar color={colors.textMuted} size={16} />}
           >
-            <Text style={[styles.moreDetailsText, { color: colors.text }]}>
-              {showMoreDetails ? 'Hide details' : 'More details'}
-            </Text>
-            {showMoreDetails ? (
-              <ChevronUp color={colors.textSecondary} size={20} />
-            ) : (
-              <ChevronDown color={colors.textSecondary} size={20} />
-            )}
-          </Pressable>
+            <DateMetadata value={date} onChange={setDate} />
+          </MetadataRow>
+        </View>
 
-          {showMoreDetails && (
-            <View style={styles.moreDetails}>
-              <MetadataRow
-                label="Category"
-                icon={<Shapes color={colors.textMuted} size={16} />}
-              >
-                <CategoryMetadata value={category} onChange={setCategory} />
-              </MetadataRow>
-              <MetadataRow
-                label="Significance"
-                icon={<BadgeAlert color={colors.textMuted} size={16} />}
-              >
-                <SignificanceMetadata
-                  value={significance}
-                  onChange={setSignificance}
-                />
-              </MetadataRow>
-              <MetadataRow
-                label="Tags"
-                icon={<Tags color={colors.textMuted} size={16} />}
-              >
-                <TagsMetadata value={tags} onChange={setTags} />
-              </MetadataRow>
-              <MetadataRow
-                label="People"
-                icon={<UsersRound color={colors.textMuted} size={16} />}
-              >
-                <PeopleMetadata value={people} onChange={setPeople} />
-              </MetadataRow>
-              <MetadataRow
-                label="Location"
-                icon={<MapPin color={colors.textMuted} size={16} />}
-              >
-                <LocationMetadata value={location} onChange={setLocation} />
-              </MetadataRow>
-
-              <View style={styles.contentSection}>
-                <Text style={[styles.sectionHeading, { color: colors.text }]}>
-                  Notes
-                </Text>
-                <TextInput
-                  accessibilityLabel="Event notes"
-                  editable={!isCreating}
-                  multiline
-                  onChangeText={setNotes}
-                  placeholder="Add notes…"
-                  placeholderTextColor={colors.textMuted}
-                  selectionColor={colors.focus}
-                  style={[
-                    styles.notesInput,
-                    {
-                      color: colors.text,
-                      backgroundColor: colors.surface,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                  textAlignVertical="top"
-                  value={notes}
-                />
-              </View>
-
-              <View style={styles.contentSection}>
-                <EventAttachments
-                  attachments={attachmentPreviews}
-                  draftMode
-                  onAdd={addAttachmentDrafts}
-                  onRemove={removeAttachmentDraft}
-                  onReorder={reorderAttachmentDrafts}
-                />
-              </View>
-            </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: showMoreDetails }}
+          onPress={() => setShowMoreDetails((current) => !current)}
+          style={({ pressed }) => [
+            styles.moreDetailsButton,
+            { borderColor: colors.border },
+            pressed && { backgroundColor: colors.interactiveMuted },
+          ]}
+        >
+          <Text style={[styles.moreDetailsText, { color: colors.text }]}>
+            {showMoreDetails ? 'Hide details' : 'More details'}
+          </Text>
+          {showMoreDetails ? (
+            <ChevronUp color={colors.textSecondary} size={20} />
+          ) : (
+            <ChevronDown color={colors.textSecondary} size={20} />
           )}
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </Pressable>
+
+        {showMoreDetails && (
+          <View style={styles.moreDetails}>
+            <MetadataRow
+              label="Category"
+              icon={<Shapes color={colors.textMuted} size={16} />}
+            >
+              <CategoryMetadata value={category} onChange={setCategory} />
+            </MetadataRow>
+            <MetadataRow
+              label="Significance"
+              icon={<BadgeAlert color={colors.textMuted} size={16} />}
+            >
+              <SignificanceMetadata
+                value={significance}
+                onChange={setSignificance}
+              />
+            </MetadataRow>
+            <MetadataRow
+              label="Tags"
+              icon={<Tags color={colors.textMuted} size={16} />}
+            >
+              <TagsMetadata value={tags} onChange={setTags} />
+            </MetadataRow>
+            <MetadataRow
+              label="People"
+              icon={<UsersRound color={colors.textMuted} size={16} />}
+            >
+              <PeopleMetadata value={people} onChange={setPeople} />
+            </MetadataRow>
+            <MetadataRow
+              label="Location"
+              icon={<MapPin color={colors.textMuted} size={16} />}
+            >
+              <LocationMetadata value={location} onChange={setLocation} />
+            </MetadataRow>
+
+            <View style={styles.contentSection}>
+              <Text style={[styles.sectionHeading, { color: colors.text }]}>
+                Notes
+              </Text>
+              <TextInput
+                accessibilityLabel="Event notes"
+                editable={!isCreating}
+                multiline
+                scrollEnabled={false}
+                onChangeText={setNotes}
+                placeholder="Add notes…"
+                placeholderTextColor={colors.textMuted}
+                selectionColor={colors.focus}
+                style={[
+                  styles.notesInput,
+                  {
+                    color: colors.text,
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                  },
+                ]}
+                textAlignVertical="top"
+                value={notes}
+              />
+            </View>
+
+            <View style={styles.contentSection}>
+              <EventAttachments
+                attachments={attachmentPreviews}
+                draftMode
+                onAdd={addAttachmentDrafts}
+                onRemove={removeAttachmentDraft}
+                onReorder={reorderAttachmentDrafts}
+              />
+            </View>
+          </View>
+        )}
+      </KeyboardAwareScrollView>
     </View>
   );
 }

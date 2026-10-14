@@ -1,14 +1,12 @@
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useTheme } from '@lel/design/useTheme';
 import { Stack, useLocalSearchParams, router } from 'expo-router';
 import { useNavigation, usePreventRemove } from '@react-navigation/native';
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -477,192 +475,170 @@ function LoadedEventScreen({ details }: { details: EventDetails }) {
       />
 
       {/* Event content */}
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      <KeyboardAwareScrollView
         style={[styles.root, { backgroundColor: colors.bg }]}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        bottomOffset={16}
       >
-        <ScrollView
-          style={{ backgroundColor: colors.bg }}
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={styles.titleSection}>
-            <View style={styles.titleEditor}>
-              <EventTitleEditor
-                value={draftTitle}
-                savedValue={title}
-                isEditing={isEditingTitle}
-                isSaving={isSavingTitle}
-                onBeginEditing={beginTitleEditing}
-                onChange={setDraftTitle}
-                onSave={() => void saveTitle()}
-                onCancel={cancelTitleEditing}
-              />
-            </View>
-            {!isEditingTitle && reviewAction('title')}
-          </View>
-
-          {conflicts.isError && (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => void conflicts.refetch()}
-              style={styles.conflictError}
-            >
-              <Text style={{ color: colors.warning }}>
-                Couldn’t load conflicts. Tap to retry.
-              </Text>
-            </Pressable>
-          )}
-
-          <View>
-            <MetadataRow
-              label="Date"
-              icon={
-                <Calendar size={14} strokeWidth={2} color={colors.textMuted} />
-              }
-            >
-              <DateMetadata
-                value={eventDate}
-                dateReviewAction={reviewAction('date')}
-                timeReviewAction={reviewAction('time')}
-                onChange={(nextDate) =>
-                  void saveImmediate(
-                    'date',
-                    nextDate,
-                    eventDate,
-                    setEventDate,
-                    {
-                      date: nextDate.date as LocalDate,
-                      time: (nextDate.time as LocalTime | undefined) ?? null,
-                    }
-                  )
-                }
-              />
-            </MetadataRow>
-            <MetadataRow
-              label="Category"
-              icon={
-                <Shapes size={14} strokeWidth={2} color={colors.textMuted} />
-              }
-            >
-              <CategoryMetadata
-                value={category}
-                onChange={(nextCategory) =>
-                  void saveImmediate(
-                    'category',
-                    nextCategory,
-                    category,
-                    setCategory,
-                    { categoryId: nextCategory?.id ?? null }
-                  )
-                }
-              />
-            </MetadataRow>
-            <MetadataRow
-              label="Significance"
-              trailingAction={reviewAction('significance')}
-              icon={
-                <BadgeAlert
-                  size={14}
-                  strokeWidth={2}
-                  color={colors.textMuted}
-                />
-              }
-            >
-              <SignificanceMetadata
-                value={significance}
-                onChange={(nextSignificance) => {
-                  if (!nextSignificance) return;
-
-                  void saveImmediate(
-                    'significance',
-                    nextSignificance,
-                    significance,
-                    setSignificance,
-                    {
-                      significance: nextSignificance.id as EventSignificance,
-                    }
-                  );
-                }}
-              />
-            </MetadataRow>
-            <MetadataRow
-              label="Tags"
-              icon={<Tags size={14} strokeWidth={2} color={colors.textMuted} />}
-            >
-              <TagsMetadata
-                maxVisibleValues={3}
-                value={tags}
-                onChange={(nextTags) =>
-                  void saveImmediate('tags', nextTags, tags, setTags, {
-                    tagIds: nextTags.map((tag) => tag.id),
-                  })
-                }
-              />
-            </MetadataRow>
-            <MetadataRow
-              label="People"
-              icon={
-                <UsersRound
-                  size={14}
-                  strokeWidth={2}
-                  color={colors.textMuted}
-                />
-              }
-            >
-              <PeopleMetadata
-                maxVisibleValues={3}
-                value={people}
-                onChange={(nextPeople) =>
-                  void saveImmediate('people', nextPeople, people, setPeople, {
-                    peopleIds: nextPeople.map((person) => person.id),
-                  })
-                }
-              />
-            </MetadataRow>
-            <MetadataRow
-              label="Location"
-              icon={
-                <MapPin size={14} strokeWidth={2} color={colors.textMuted} />
-              }
-            >
-              <LocationMetadata
-                value={location}
-                onChange={(nextLocation) =>
-                  void saveImmediate(
-                    'location',
-                    nextLocation,
-                    location,
-                    setLocation,
-                    { locationId: nextLocation?.id ?? null }
-                  )
-                }
-              />
-            </MetadataRow>
-          </View>
-
-          <View style={styles.contentSection}>
-            <EventNotes
-              reviewAction={reviewAction('notes')}
-              committedValue={committedNotes}
-              draftValue={draftNotes}
-              onDraftChange={setDraftNotes}
-              onSave={saveNotes}
-              onCancel={() => setDraftNotes(committedNotes)}
+        <View style={styles.titleSection}>
+          <View style={styles.titleEditor}>
+            <EventTitleEditor
+              value={draftTitle}
+              savedValue={title}
+              isEditing={isEditingTitle}
+              isSaving={isSavingTitle}
+              onBeginEditing={beginTitleEditing}
+              onChange={setDraftTitle}
+              onSave={() => void saveTitle()}
+              onCancel={cancelTitleEditing}
             />
           </View>
+          {!isEditingTitle && reviewAction('title')}
+        </View>
 
-          <View style={styles.contentSection}>
-            <EventAttachments
-              attachments={attachments}
-              onAdd={addAttachments}
-              onRemove={removeAttachment}
-              onRemoveMany={removeAttachments}
-              onReorder={reorderEventAttachments}
+        {conflicts.isError && (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => void conflicts.refetch()}
+            style={styles.conflictError}
+          >
+            <Text style={{ color: colors.warning }}>
+              Couldn’t load conflicts. Tap to retry.
+            </Text>
+          </Pressable>
+        )}
+
+        <View>
+          <MetadataRow
+            label="Date"
+            icon={
+              <Calendar size={14} strokeWidth={2} color={colors.textMuted} />
+            }
+          >
+            <DateMetadata
+              value={eventDate}
+              dateReviewAction={reviewAction('date')}
+              timeReviewAction={reviewAction('time')}
+              onChange={(nextDate) =>
+                void saveImmediate('date', nextDate, eventDate, setEventDate, {
+                  date: nextDate.date as LocalDate,
+                  time: (nextDate.time as LocalTime | undefined) ?? null,
+                })
+              }
             />
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+          </MetadataRow>
+          <MetadataRow
+            label="Category"
+            icon={<Shapes size={14} strokeWidth={2} color={colors.textMuted} />}
+          >
+            <CategoryMetadata
+              value={category}
+              onChange={(nextCategory) =>
+                void saveImmediate(
+                  'category',
+                  nextCategory,
+                  category,
+                  setCategory,
+                  { categoryId: nextCategory?.id ?? null }
+                )
+              }
+            />
+          </MetadataRow>
+          <MetadataRow
+            label="Significance"
+            trailingAction={reviewAction('significance')}
+            icon={
+              <BadgeAlert size={14} strokeWidth={2} color={colors.textMuted} />
+            }
+          >
+            <SignificanceMetadata
+              value={significance}
+              onChange={(nextSignificance) => {
+                if (!nextSignificance) return;
+
+                void saveImmediate(
+                  'significance',
+                  nextSignificance,
+                  significance,
+                  setSignificance,
+                  {
+                    significance: nextSignificance.id as EventSignificance,
+                  }
+                );
+              }}
+            />
+          </MetadataRow>
+          <MetadataRow
+            label="Tags"
+            icon={<Tags size={14} strokeWidth={2} color={colors.textMuted} />}
+          >
+            <TagsMetadata
+              maxVisibleValues={3}
+              value={tags}
+              onChange={(nextTags) =>
+                void saveImmediate('tags', nextTags, tags, setTags, {
+                  tagIds: nextTags.map((tag) => tag.id),
+                })
+              }
+            />
+          </MetadataRow>
+          <MetadataRow
+            label="People"
+            icon={
+              <UsersRound size={14} strokeWidth={2} color={colors.textMuted} />
+            }
+          >
+            <PeopleMetadata
+              maxVisibleValues={3}
+              value={people}
+              onChange={(nextPeople) =>
+                void saveImmediate('people', nextPeople, people, setPeople, {
+                  peopleIds: nextPeople.map((person) => person.id),
+                })
+              }
+            />
+          </MetadataRow>
+          <MetadataRow
+            label="Location"
+            icon={<MapPin size={14} strokeWidth={2} color={colors.textMuted} />}
+          >
+            <LocationMetadata
+              value={location}
+              onChange={(nextLocation) =>
+                void saveImmediate(
+                  'location',
+                  nextLocation,
+                  location,
+                  setLocation,
+                  { locationId: nextLocation?.id ?? null }
+                )
+              }
+            />
+          </MetadataRow>
+        </View>
+
+        <View style={styles.contentSection}>
+          <EventNotes
+            reviewAction={reviewAction('notes')}
+            committedValue={committedNotes}
+            draftValue={draftNotes}
+            onDraftChange={setDraftNotes}
+            onSave={saveNotes}
+            onCancel={() => setDraftNotes(committedNotes)}
+          />
+        </View>
+
+        <View style={styles.contentSection}>
+          <EventAttachments
+            attachments={attachments}
+            onAdd={addAttachments}
+            onRemove={removeAttachment}
+            onRemoveMany={removeAttachments}
+            onReorder={reorderEventAttachments}
+          />
+        </View>
+      </KeyboardAwareScrollView>
       {reviewing && (
         <ConflictResolutionSheet
           key={reviewing.conflictId}
