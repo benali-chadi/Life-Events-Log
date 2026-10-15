@@ -21,6 +21,8 @@ allprojects {
 }
 
 apply plugin: "expo-root-project"
-apply plugin: "com.facebook.react.rootproject"
 
+// Register native configuration before React Native evaluates :app.
 apply from: rootProject.file("reproducible-builds.gradle")
+
+apply plugin: "com.facebook.react.rootproject"

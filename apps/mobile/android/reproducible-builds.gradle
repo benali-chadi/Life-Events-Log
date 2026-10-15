@@ -68,9 +68,17 @@ subprojects { sub ->
                 }
                 // Both consumers must see normalised merge output, including
                 // when Gradle considers the merge task itself up to date.
-                sub.tasks.matching {
-                    it.name in ["strip${capitalized}DebugSymbols", "package${capitalized}", "extract${capitalized}NativeSymbolTables"]
-                }.configureEach { dependsOn stripTask }
+                // Task names are Strings; list membership does not match GStrings.
+                def consumerNames = [
+                    "strip${capitalized}DebugSymbols".toString(),
+                    "package${capitalized}".toString(),
+                    "extract${capitalized}NativeSymbolTables".toString()
+                ]
+                sub.tasks.matching { task ->
+                    consumerNames.contains(task.name)
+                }.configureEach { task ->
+                    task.dependsOn(stripTask)
+                }
             }
         }
         // React Native can evaluate :app before this root script is applied.
