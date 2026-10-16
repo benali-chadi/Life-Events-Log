@@ -1,0 +1,4 @@
+- Reduced APK size with R8 and separate architecture downloads.
+- Removed unnecessary internet, camera, and storage permissions.
+- Photo selection no longer requests photo-library access.
+- Improved build reproducibility.
