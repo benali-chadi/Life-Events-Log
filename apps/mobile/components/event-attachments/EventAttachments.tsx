@@ -79,16 +79,6 @@ export default function EventAttachments({
   };
 
   const addAttachments = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (!permission.granted) {
-      Alert.alert(
-        'Photo access needed',
-        'Allow access to your photo library to add attachments.'
-      );
-      return;
-    }
-
     const result = await ImagePicker.launchImageLibraryAsync({
       allowsMultipleSelection: true,
       mediaTypes: ['images'],
