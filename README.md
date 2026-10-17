@@ -10,6 +10,10 @@
     <img alt="Download for Android" height="28"
        src="https://img.shields.io/badge/Download-Android-91BFA3?style=for-the-badge&logo=android&logoColor=182126" />
   </a>
+    <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22com.lifeeventslog.app%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2Fbenali-chadi%2FLife-Events-Log%22%2C%22author%22%3A%22Chadi%20Benali%22%2C%22name%22%3A%22Life%20Events%20Log%22%7D">
+    <img alt="Download using Obtainium" height="28"
+       src="https://img.shields.io/badge/Download-Obtainium-91BFA3?style=for-the-badge&amp;logo=obtainium&amp;logoColor=182126" />
+  </a>
   <a href="LICENSE"><img alt="License: GNU GPLv3" height="28" src="https://img.shields.io/badge/License-GPLv3-91BFA3?style=for-the-badge" /></a>
   <a href="https://liberapay.com/ChadiB/donate"><img alt="Donate using Liberapay" height="28" src="https://liberapay.com/assets/widgets/donate.svg" /></a>
 </p>
@@ -67,6 +71,7 @@ Syncing between devices currently works by creating and exchanging sync packages
 
 - **Android APK:** [Download the latest release](https://github.com/benali-chadi/Life-Events-Log/releases/latest).
 - **F-Droid:** Coming soon. The listing link will be added when available.
+- **Obtainium**: Add https://github.com/benali-chadi/Life-Events-Log to Obtainium to install LEL and receive updates directly from GitHub.
 
 ## Syncing
 
